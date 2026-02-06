@@ -18,6 +18,12 @@ data class MealsTodayResponse(
     val reason: String? = null
 )
 
+@Serializable
+data class TimeResponse(
+    val timestamp: Long,
+    val iso8601: String
+)
+
 class StudentRepository {
 
     suspend fun getMealsToday(token: String): Result<MealsTodayResponse> {
@@ -45,8 +51,9 @@ class StudentRepository {
 
     suspend fun getCurrentTime(): Long {
         return try {
-            val response: Long = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/time/current")).body()
-            response
+            val response: TimeResponse =
+                NetworkModule.client.get(NetworkModule.getUrl("/api/v1/time/current")).body()
+            response.timestamp * 1000
         } catch (e: Exception) {
             System.currentTimeMillis()
         }

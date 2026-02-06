@@ -17,10 +17,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.pgk_food.data.remote.dto.QrPayload
 import com.example.pgk_food.data.local.entity.UserSessionEntity
 import com.example.pgk_food.data.repository.StudentRepository
+import com.example.pgk_food.util.QrCrypto
 import com.example.pgk_food.util.QrGenerator
 import kotlinx.coroutines.delay
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.*
 
 @Composable
@@ -51,11 +55,37 @@ fun StudentQrScreen(
 
     LaunchedEffect(qrContent) {
         if (qrContent.isEmpty()) {
-            val timestamp = System.currentTimeMillis() + serverTimeOffset
+            val timestampMs = System.currentTimeMillis() + serverTimeOffset
+            val timestampSec = timestampMs / 1000
+            val roundedTimestamp = (timestampSec / 30) * 30
             val nonce = UUID.randomUUID().toString()
-            val rawData = "${session.userId}|$timestamp|$mealType|$nonce"
-            val signature = "sig_${rawData.hashCode()}" 
-            qrContent = "userId=${session.userId}&ts=$timestamp&type=$mealType&nonce=$nonce&sig=$signature"
+            val privateKey = session.privateKey
+            if (privateKey.isNullOrBlank()) {
+                qrContent = ""
+                return@LaunchedEffect
+            }
+
+            val signature = QrCrypto.generateSignature(
+                userId = session.userId,
+                timestamp = roundedTimestamp,
+                mealType = mealType,
+                nonce = nonce,
+                privateKeyBase64 = privateKey
+            )
+            if (signature.isBlank()) {
+                qrContent = ""
+                return@LaunchedEffect
+            }
+
+            val payload = QrPayload(
+                userId = session.userId,
+                timestamp = roundedTimestamp,
+                mealType = mealType,
+                nonce = nonce,
+                signature = signature
+            )
+
+            qrContent = Json.encodeToString(payload)
         }
     }
 
