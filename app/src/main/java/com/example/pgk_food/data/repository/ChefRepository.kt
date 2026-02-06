@@ -56,7 +56,6 @@ class ChefRepository(private val scannedQrDao: ScannedQrDao? = null) {
     private fun parseQrPayload(qrContent: String): QrPayload? {
         if (qrContent.isBlank()) return null
 
-        // Prefer JSON payload (backend QRPayload).
         if (qrContent.trimStart().startsWith("{")) {
             return runCatching {
                 kotlinx.serialization.json.Json {
@@ -66,7 +65,6 @@ class ChefRepository(private val scannedQrDao: ScannedQrDao? = null) {
             }.getOrNull()
         }
 
-        // Fallback to legacy key-value format: userId=...&ts=...&type=...&nonce=...&sig=...
         val parts = qrContent.split("&")
             .mapNotNull { it.split("=", limit = 2).takeIf { kv -> kv.size == 2 } }
             .associate { it[0] to it[1] }

@@ -1,7 +1,9 @@
 package com.example.pgk_food.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +41,7 @@ fun MainScreen(
     
     var currentSubScreen by remember { mutableStateOf("dashboard") }
     var selectedMealType by remember { mutableStateOf("") }
+    var selectedRole by remember { mutableStateOf<UserRole?>(null) }
 
     Scaffold(
         topBar = {
@@ -89,36 +92,104 @@ fun MainScreen(
         ) {
             userSession?.let { session ->
                 val roles = session.roles
+
+                LaunchedEffect(roles) {
+                    if (selectedRole == null || selectedRole !in roles) {
+                        selectedRole = if (UserRole.ADMIN in roles) UserRole.ADMIN else roles.firstOrNull()
+                    }
+                }
                 
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header with user info
                     UserInfoHeader(session)
+                    if (UserRole.ADMIN in roles && roles.size > 1) {
+                        RoleSwitcher(
+                            roles = roles,
+                            selectedRole = selectedRole ?: UserRole.ADMIN,
+                            onSelect = {
+                                selectedRole = it
+                                currentSubScreen = "dashboard"
+                                selectedMealType = ""
+                            }
+                        )
+                    }
 
-                    when {
-                        UserRole.STUDENT in roles -> {
-                            StudentFlow(session, currentSubScreen, selectedMealType, 
-                                onNavigate = { currentSubScreen = it },
-                                onMealSelect = { selectedMealType = it })
+                    val activeRole = if (UserRole.ADMIN in roles) {
+                        selectedRole
+                    } else {
+                        when {
+                            UserRole.STUDENT in roles -> UserRole.STUDENT
+                            UserRole.CHEF in roles -> UserRole.CHEF
+                            UserRole.REGISTRATOR in roles -> UserRole.REGISTRATOR
+                            UserRole.CURATOR in roles -> UserRole.CURATOR
+                            UserRole.ADMIN in roles -> UserRole.ADMIN
+                            else -> null
                         }
-                        UserRole.CHEF in roles -> {
-                            ChefFlow(session, currentSubScreen, database,
-                                onNavigate = { currentSubScreen = it })
-                        }
-                        UserRole.REGISTRATOR in roles -> {
-                            RegistratorFlow(session, currentSubScreen, 
-                                onNavigate = { currentSubScreen = it })
-                        }
-                        UserRole.CURATOR in roles -> {
-                            CuratorFlow(session, currentSubScreen, 
-                                onNavigate = { currentSubScreen = it })
-                        }
-                        UserRole.ADMIN in roles -> {
-                            AdminFlow(session, currentSubScreen, 
-                                onNavigate = { currentSubScreen = it })
-                        }
+                    }
+
+                    when (activeRole) {
+                        UserRole.STUDENT -> StudentFlow(
+                            session,
+                            currentSubScreen,
+                            selectedMealType,
+                            onNavigate = { currentSubScreen = it },
+                            onMealSelect = { selectedMealType = it }
+                        )
+                        UserRole.CHEF -> ChefFlow(
+                            session,
+                            currentSubScreen,
+                            database,
+                            onNavigate = { currentSubScreen = it }
+                        )
+                        UserRole.REGISTRATOR -> RegistratorFlow(
+                            session,
+                            currentSubScreen,
+                            onNavigate = { currentSubScreen = it }
+                        )
+                        UserRole.CURATOR -> CuratorFlow(
+                            session,
+                            currentSubScreen,
+                            onNavigate = { currentSubScreen = it }
+                        )
+                        UserRole.ADMIN -> AdminFlow(
+                            session,
+                            currentSubScreen,
+                            onNavigate = { currentSubScreen = it }
+                        )
                         else -> Text("Роль не определена", modifier = Modifier.padding(16.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun RoleSwitcher(
+    roles: List<UserRole>,
+    selectedRole: UserRole,
+    onSelect: (UserRole) -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            text = "Роль:",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            roles.forEach { role ->
+                val isSelected = role == selectedRole
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onSelect(role) },
+                    label = { Text(role.name) }
+                )
             }
         }
     }
@@ -268,12 +339,10 @@ fun AdminFlow(session: UserSessionEntity, currentSubScreen: String, onNavigate: 
     val adminRepository = remember { AdminRepository() }
     when (currentSubScreen) {
         "dashboard" -> AdminDashboard(
-            onFraudClick = { onNavigate("fraud") },
             onReportsClick = { onNavigate("reports") }
         )
-        "fraud" -> AdminFraudScreen(token = session.token, adminRepository = adminRepository)
-        "reports" -> AdminReportsScreen(token = session.token)
-        else -> AdminDashboard(onFraudClick = { onNavigate("fraud") }, onReportsClick = { onNavigate("reports") })
+        "reports" -> AdminReportsScreen(token = session.token, adminRepository = adminRepository)
+        else -> AdminDashboard(onReportsClick = { onNavigate("reports") })
     }
 }
 
@@ -510,10 +579,8 @@ fun CuratorDashboard(
 }
 
 @Composable
-fun AdminDashboard(onFraudClick: () -> Unit, onReportsClick: () -> Unit) {
+fun AdminDashboard(onReportsClick: () -> Unit) {
     DashboardLayout(title = "Кабинет Администратора") {
-        DashboardButton("Жалобы (Fraud)", Icons.Default.Warning, onFraudClick)
-        Spacer(modifier = Modifier.height(12.dp))
         DashboardButton("Отчеты", Icons.Default.Assessment, onReportsClick)
     }
 }

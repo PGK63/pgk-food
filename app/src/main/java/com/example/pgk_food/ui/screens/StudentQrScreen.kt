@@ -23,9 +23,10 @@ import com.example.pgk_food.data.repository.StudentRepository
 import com.example.pgk_food.util.QrCrypto
 import com.example.pgk_food.util.QrGenerator
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.util.*
+import java.util.UUID
 
 @Composable
 fun StudentQrScreen(

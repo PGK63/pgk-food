@@ -166,32 +166,6 @@ fun ChefScannerScreen(token: String, chefRepository: ChefRepository) {
                 }
             }
         }
-
-        if (hasCameraPermission && result == null) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Офлайн-режим",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Проверка без интернета",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = isOfflineMode,
-                    onCheckedChange = { isOfflineMode = it }
-                )
-            }
-        }
         
         if (result != null) {
             Spacer(modifier = Modifier.height(24.dp))

@@ -20,6 +20,11 @@ data class FraudReportDto(
 @Serializable
 data class DailyReportDto(
     val date: String,
-    val totalMeals: Int,
-    val studentCount: Int
+    val breakfastCount: Long,
+    val lunchCount: Long,
+    val dinnerCount: Long,
+    val snackCount: Long,
+    val specialCount: Long,
+    val totalCount: Long,
+    val offlineTransactions: Long
 )

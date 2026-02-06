@@ -31,4 +31,54 @@ class AdminRepository {
             Result.failure(e)
         }
     }
+
+    suspend fun getDailyReport(token: String, date: String): Result<DailyReportDto> {
+        return try {
+            val response: DailyReportDto = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/reports/daily")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                parameter("date", date)
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getWeeklyReport(token: String, startDate: String): Result<List<DailyReportDto>> {
+        return try {
+            val response: List<DailyReportDto> = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/reports/weekly")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                parameter("startDate", startDate)
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun exportReportsCsv(token: String, startDate: String, endDate: String): Result<ByteArray> {
+        return try {
+            val response: ByteArray = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/reports/export/csv")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                parameter("startDate", startDate)
+                parameter("endDate", endDate)
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun exportReportsPdf(token: String, startDate: String, endDate: String): Result<ByteArray> {
+        return try {
+            val response: ByteArray = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/reports/export/pdf")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                parameter("startDate", startDate)
+                parameter("endDate", endDate)
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
