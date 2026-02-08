@@ -54,5 +54,6 @@ data class GroupDto(
 
 @Serializable
 data class ResetPasswordResponse(
+    val login: String,
     val passwordClearText: String
 )

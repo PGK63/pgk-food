@@ -26,7 +26,7 @@ class RegistratorRepository {
 
     suspend fun createUser(token: String, request: CreateUserRequest): Result<CreateUserResponse> {
         return try {
-            val response: CreateUserResponse = NetworkModule.client.post(NetworkModule.getUrl("/api/v1/registrator/users")) {
+            val response: CreateUserResponse = NetworkModule.client.post(NetworkModule.getUrl("/api/v1/registrator/users/create")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
                 contentType(ContentType.Application.Json)
                 setBody(request)
@@ -116,6 +116,17 @@ class RegistratorRepository {
         }
     }
 
+    suspend fun deleteGroup(token: String, groupId: Int): Result<Unit> {
+        return try {
+            NetworkModule.client.delete(NetworkModule.getUrl("/api/v1/groups/$groupId")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun assignCurator(token: String, groupId: Int, curatorId: String): Result<Unit> {
         return try {
             NetworkModule.client.put(NetworkModule.getUrl("/api/v1/groups/$groupId/curator/$curatorId")) {
@@ -149,9 +160,9 @@ class RegistratorRepository {
         }
     }
 
-    suspend fun removeStudentFromGroup(token: String, groupId: Int, studentId: String): Result<Unit> {
+    suspend fun removeStudentFromGroup(token: String, studentId: String): Result<Unit> {
         return try {
-            NetworkModule.client.delete(NetworkModule.getUrl("/api/v1/groups/$groupId/students/$studentId")) {
+            NetworkModule.client.delete(NetworkModule.getUrl("/api/v1/groups/students/$studentId")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
             Result.success(Unit)

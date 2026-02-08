@@ -45,9 +45,9 @@ class CuratorRepository {
         }
     }
 
-    suspend fun getRosterDeadlineNotification(token: String): Result<String> {
+    suspend fun getRosterDeadlineNotification(token: String): Result<RosterDeadlineNotificationDto> {
         return try {
-            val response: String = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/notifications/roster-deadline")) {
+            val response: RosterDeadlineNotificationDto = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/notifications/roster-deadline")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }.body()
             Result.success(response)

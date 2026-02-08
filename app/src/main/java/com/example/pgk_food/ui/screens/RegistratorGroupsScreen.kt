@@ -25,6 +25,7 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
     var isLoading by remember { mutableStateOf(true) }
     var showAddGroupDialog by remember { mutableStateOf(false) }
     var newGroupName by remember { mutableStateOf("") }
+    var showDeleteGroupDialog by remember { mutableStateOf<GroupDto?>(null) }
     
     // For student management
     var expandedGroupId by remember { mutableStateOf<Int?>(null) }
@@ -126,6 +127,9 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                         }) {
                                             Icon(Icons.Default.Delete, contentDescription = "Снять куратора")
                                         }
+                                        IconButton(onClick = { showDeleteGroupDialog = group }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Удалить группу")
+                                        }
                                     }
                                 }
 
@@ -146,8 +150,9 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                                 Text("${student.surname} ${student.name}")
                                                 IconButton(onClick = {
                                                     scope.launch {
-                                                        registratorRepository.removeStudentFromGroup(token, group.id, student.userId)
+                                                        registratorRepository.removeStudentFromGroup(token, student.userId)
                                                         loadStudents(group.id)
+                                                        refreshGroups()
                                                     }
                                                 }) {
                                                     Icon(Icons.Default.Delete, contentDescription = "Убрать из группы", modifier = Modifier.size(20.dp))
@@ -225,9 +230,11 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                     scope.launch {
                                         if (role == "CURATOR") {
                                             registratorRepository.assignCurator(token, groupId, user.userId)
+                                            refreshGroups()
                                         } else {
                                             registratorRepository.addStudentToGroup(token, groupId, user.userId)
                                             loadStudents(groupId)
+                                            refreshGroups()
                                         }
                                         showAssignMemberDialog = null
                                     }
@@ -242,6 +249,26 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                 TextButton(onClick = { showAssignMemberDialog = null }) {
                     Text("Закрыть")
                 }
+            }
+        )
+    }
+
+    showDeleteGroupDialog?.let { group ->
+        AlertDialog(
+            onDismissRequest = { showDeleteGroupDialog = null },
+            title = { Text("Удалить группу?") },
+            text = { Text("Группа \"${group.name}\" будет удалена, студенты будут отвязаны.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        registratorRepository.deleteGroup(token, group.id)
+                        showDeleteGroupDialog = null
+                        refreshGroups()
+                    }
+                }) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteGroupDialog = null }) { Text("Отмена") }
             }
         )
     }

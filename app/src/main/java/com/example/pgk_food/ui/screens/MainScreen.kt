@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.example.pgk_food.data.local.AppDatabase
 import com.example.pgk_food.data.local.entity.ScannedQrEntity
 import com.example.pgk_food.data.local.entity.UserSessionEntity
+import com.example.pgk_food.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.data.repository.*
 import com.example.pgk_food.model.UserRole
 import kotlinx.coroutines.launch
@@ -95,17 +96,17 @@ fun MainScreen(
 
                 LaunchedEffect(roles) {
                     if (selectedRole == null || selectedRole !in roles) {
-                        selectedRole = if (UserRole.ADMIN in roles) UserRole.ADMIN else roles.firstOrNull()
+                        selectedRole = roles.firstOrNull()
                     }
                 }
                 
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header with user info
                     UserInfoHeader(session)
-                    if (UserRole.ADMIN in roles && roles.size > 1) {
+                    if (roles.size > 1) {
                         RoleSwitcher(
                             roles = roles,
-                            selectedRole = selectedRole ?: UserRole.ADMIN,
+                            selectedRole = selectedRole ?: roles.first(),
                             onSelect = {
                                 selectedRole = it
                                 currentSubScreen = "dashboard"
@@ -114,18 +115,7 @@ fun MainScreen(
                         )
                     }
 
-                    val activeRole = if (UserRole.ADMIN in roles) {
-                        selectedRole
-                    } else {
-                        when {
-                            UserRole.STUDENT in roles -> UserRole.STUDENT
-                            UserRole.CHEF in roles -> UserRole.CHEF
-                            UserRole.REGISTRATOR in roles -> UserRole.REGISTRATOR
-                            UserRole.CURATOR in roles -> UserRole.CURATOR
-                            UserRole.ADMIN in roles -> UserRole.ADMIN
-                            else -> null
-                        }
-                    }
+                    val activeRole = selectedRole ?: roles.firstOrNull()
 
                     when (activeRole) {
                         UserRole.STUDENT -> StudentFlow(
@@ -547,27 +537,49 @@ fun CuratorDashboard(
     onRosterClick: () -> Unit,
     onStatsClick: () -> Unit
 ) {
-    var notification by remember { mutableStateOf<String?>(null) }
+    var notification by remember { mutableStateOf<RosterDeadlineNotificationDto?>(null) }
 
     LaunchedEffect(token) {
-        curatorRepository.getRosterDeadlineNotification(token).onSuccess {
-            notification = it
-        }
+        curatorRepository.getRosterDeadlineNotification(token).onSuccess { notification = it }
     }
 
     DashboardLayout(title = "Кабинет Куратора") {
-        notification?.let { text ->
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.NotificationsActive, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = text, style = MaterialTheme.typography.bodyMedium)
+        notification?.let { data ->
+            val showCard = data.needsReminder || !data.reason.isNullOrBlank()
+            if (showCard) {
+                val title = if (data.needsReminder) {
+                    "Нужно заполнить табель"
+                } else {
+                    "Уведомление"
+                }
+                val body = when {
+                    data.needsReminder && data.deadlineDate != null && data.daysUntilDeadline != null ->
+                        "Заполните табель на следующую неделю. Дедлайн: ${data.deadlineDate} (через ${data.daysUntilDeadline} дн.)"
+                    data.needsReminder && data.deadlineDate != null ->
+                        "Заполните табель на следующую неделю. Дедлайн: ${data.deadlineDate}"
+                    data.needsReminder -> "Заполните табель на следующую неделю."
+                    !data.reason.isNullOrBlank() -> data.reason
+                    else -> ""
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.NotificationsActive, contentDescription = null)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                        if (body.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = body, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                 }
             }
         }

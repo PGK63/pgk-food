@@ -36,7 +36,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     val clipboardManager = LocalClipboardManager.current
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    var resetPasswordResult by remember { mutableStateOf<ResetPasswordResponse?>(null) }
+    var credentialsDialog by remember { mutableStateOf<UserCredentials?>(null) }
 
     fun loadData() {
         scope.launch {
@@ -109,7 +109,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                                 scope.launch {
                                     val result = registratorRepository.resetPassword(token, user.userId)
                                     result.onSuccess {
-                                        resetPasswordResult = it
+                                        credentialsDialog = UserCredentials(it.login, it.passwordClearText)
                                     }.onFailure {
                                         snackbarHostState.showSnackbar("Ошибка сброса пароля")
                                     }
@@ -139,7 +139,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                     result.onSuccess {
                         showCreateDialog = false
                         loadData()
-                        resetPasswordResult = ResetPasswordResponse(it.passwordClearText)
+                        credentialsDialog = UserCredentials(it.login, it.passwordClearText)
                     }.onFailure {
                         snackbarHostState.showSnackbar("Ошибка создания пользователя")
                     }
@@ -148,35 +148,43 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
         )
     }
 
-    resetPasswordResult?.let { result ->
+    credentialsDialog?.let { result ->
         AlertDialog(
-            onDismissRequest = { resetPasswordResult = null },
+            onDismissRequest = { credentialsDialog = null },
             shape = RoundedCornerShape(28.dp),
             title = { Text("Доступы созданы") },
             text = {
                 Column {
-                    Text("Скопируйте пароль для передачи пользователю:")
+                    Text("Скопируйте логин и пароль для передачи пользователю:")
                     Spacer(modifier = Modifier.height(16.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = result.passwordClearText,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(20.dp),
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = "Логин: ${result.login}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Пароль: ${result.password}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    clipboardManager.setText(AnnotatedString(result.passwordClearText))
-                    scope.launch { snackbarHostState.showSnackbar("Пароль скопирован") }
-                    resetPasswordResult = null
+                    clipboardManager.setText(AnnotatedString("Логин: ${result.login}\nПароль: ${result.password}"))
+                    scope.launch { snackbarHostState.showSnackbar("Данные скопированы") }
+                    credentialsDialog = null
                 }) {
                     Text("Копировать и закрыть")
                 }
@@ -184,6 +192,11 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
         )
     }
 }
+
+private data class UserCredentials(
+    val login: String,
+    val password: String
+)
 
 @Composable
 fun UserCard(

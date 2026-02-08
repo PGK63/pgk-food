@@ -31,6 +31,8 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
     val studentRepository = remember { StudentRepository() }
     var menuItems by remember { mutableStateOf<List<MenuItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var isCopying by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     val calendar = remember { Calendar.getInstance() }
@@ -40,12 +42,17 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
     var viewYear by remember { mutableStateOf(calendar.get(Calendar.YEAR).toString()) }
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showCopyDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var newDescription by remember { mutableStateOf("") }
     
     var newDay by remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')) }
     var newMonth by remember { mutableStateOf((calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')) }
     var newYear by remember { mutableStateOf(calendar.get(Calendar.YEAR).toString()) }
+
+    var copyDay by remember { mutableStateOf(viewDay) }
+    var copyMonth by remember { mutableStateOf(viewMonth) }
+    var copyYear by remember { mutableStateOf(viewYear) }
 
     fun loadMenu() {
         scope.launch {
@@ -59,77 +66,94 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
 
     LaunchedEffect(Unit) { loadMenu() }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "УПРАВЛЕНИЕ МЕНЮ",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.5.sp
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "УПРАВЛЕНИЕ МЕНЮ",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.5.sp
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Выбрать дату", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ThreeInputDatePicker(
-                        day = viewDay,
-                        month = viewMonth,
-                        year = viewYear,
-                        onDayChange = { viewDay = it; loadMenu() },
-                        onMonthChange = { viewMonth = it; loadMenu() },
-                        onYearChange = { viewYear = it; loadMenu() },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (menuItems.isEmpty()) {
-                        item {
-                            EmptyMenuState()
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Выбрать дату", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        ThreeInputDatePicker(
+                            day = viewDay,
+                            month = viewMonth,
+                            year = viewYear,
+                            onDayChange = { viewDay = it; loadMenu() },
+                            onMonthChange = { viewMonth = it; loadMenu() },
+                            onYearChange = { viewYear = it; loadMenu() },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { 
+                                copyDay = viewDay
+                                copyMonth = viewMonth
+                                copyYear = viewYear
+                                showCopyDialog = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isCopying
+                        ) {
+                            Text("Скопировать меню на дату")
                         }
-                    } else {
-                        items(items = menuItems) { item ->
-                            MenuItemCard(item) {
-                                scope.launch {
-                                    chefRepository.deleteMenuItem(token, item.id)
-                                    loadMenu()
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (menuItems.isEmpty()) {
+                            item {
+                                EmptyMenuState()
+                            }
+                        } else {
+                            items(items = menuItems) { item ->
+                                MenuItemCard(item) {
+                                    scope.launch {
+                                        chefRepository.deleteMenuItem(token, item.id)
+                                        loadMenu()
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                
+                Spacer(modifier = Modifier.height(80.dp))
             }
-            
-            Spacer(modifier = Modifier.height(80.dp))
-        }
 
-        ExtendedFloatingActionButton(
-            onClick = { showAddDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp),
-            shape = RoundedCornerShape(20.dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("ДОБАВИТЬ БЛЮДО")
+            ExtendedFloatingActionButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp),
+                shape = RoundedCornerShape(20.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("ДОБАВИТЬ БЛЮДО")
+            }
         }
     }
 
@@ -183,6 +207,71 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
             },
             dismissButton = {
                 TextButton(onClick = { showAddDialog = false }) { Text("Отмена") }
+            }
+        )
+    }
+
+    if (showCopyDialog) {
+        AlertDialog(
+            onDismissRequest = { showCopyDialog = false },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("Скопировать меню") },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Куда скопировать блюда?")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ThreeInputDatePicker(
+                        day = copyDay, month = copyMonth, year = copyYear,
+                        onDayChange = { copyDay = it },
+                        onMonthChange = { copyMonth = it },
+                        onYearChange = { copyYear = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            if (menuItems.isEmpty()) {
+                                snackbarHostState.showSnackbar("Меню пустое — нечего копировать")
+                                showCopyDialog = false
+                                return@launch
+                            }
+                            val targetDate = "$copyYear-${copyMonth.padStart(2, '0')}-${copyDay.padStart(2, '0')}"
+                            isCopying = true
+                            var successCount = 0
+                            var failed = false
+                            menuItems.forEach { item ->
+                                val result = chefRepository.addMenuItem(
+                                    token,
+                                    CreateMenuItemRequest(targetDate, item.name, item.description ?: "-")
+                                )
+                                if (result.isSuccess) {
+                                    successCount += 1
+                                } else {
+                                    failed = true
+                                }
+                            }
+                            isCopying = false
+                            showCopyDialog = false
+                            if (targetDate == "$viewYear-${viewMonth.padStart(2, '0')}-${viewDay.padStart(2, '0')}") {
+                                loadMenu()
+                            }
+                            if (failed) {
+                                snackbarHostState.showSnackbar("Часть блюд не скопирована")
+                            } else {
+                                snackbarHostState.showSnackbar("Скопировано блюд: $successCount")
+                            }
+                        }
+                    },
+                    enabled = copyDay.length == 2 && copyMonth.length == 2 && copyYear.length == 4 && !isCopying
+                ) {
+                    Text("Скопировать")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCopyDialog = false }) { Text("Отмена") }
             }
         )
     }

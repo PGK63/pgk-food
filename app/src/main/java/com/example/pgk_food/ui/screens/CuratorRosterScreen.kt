@@ -158,19 +158,6 @@ fun CuratorRosterScreen(token: String, curatorRepository: CuratorRepository) {
                                 
                                 Spacer(modifier = Modifier.height(8.dp))
                                 
-                                OutlinedTextField(
-                                    value = day.reason ?: "",
-                                    onValueChange = { 
-                                        val newDay = day.copy(reason = it)
-                                        editedRoster = editedRoster + (student.studentId to student.copy(days = listOf(newDay)))
-                                    },
-                                    label = { Text("Причина (если не питается)") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
-                                )
-                                
-                                Spacer(modifier = Modifier.height(8.dp))
-                                
                                 Button(
                                     onClick = {
                                         scope.launch {
