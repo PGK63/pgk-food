@@ -1,125 +1,183 @@
 package com.example.pgk_food.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.data.remote.dto.StudentMealStatus
 import com.example.pgk_food.data.repository.CuratorRepository
-import com.example.pgk_food.ui.components.ThreeInputDatePicker
+import com.example.pgk_food.ui.theme.PillShape
+import com.example.pgk_food.ui.theme.TagShape
+import com.example.pgk_food.ui.theme.springEntrance
 import kotlinx.coroutines.launch
-import java.util.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CuratorStatsScreen(token: String, curatorRepository: CuratorRepository) {
-    var stats by remember { mutableStateOf<List<StudentMealStatus>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    val scope = rememberCoroutineScope()
-    val calendar = remember { Calendar.getInstance() }
+    val today = remember { LocalDate.now() }
+    val formatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
 
-    // States for viewing stats
-    var viewDay by remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')) }
-    var viewMonth by remember { mutableStateOf((calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')) }
-    var viewYear by remember { mutableStateOf(calendar.get(Calendar.YEAR).toString()) }
+    var selectedDate by remember { mutableStateOf(today) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }
+    var stats by remember { mutableStateOf<List<StudentMealStatus>>(emptyList()) }
+
+    val scope = rememberCoroutineScope()
 
     fun loadStats() {
         scope.launch {
             isLoading = true
-            val dateStr = "$viewYear-${viewMonth.padStart(2, '0')}-${viewDay.padStart(2, '0')}"
-            val result = curatorRepository.getMyGroupStatistics(token, dateStr)
+            val result = curatorRepository.getMyGroupStatistics(token, selectedDate.toString())
             stats = result.getOrDefault(emptyList())
             isLoading = false
         }
     }
 
-    LaunchedEffect(Unit) {
-        loadStats()
+    LaunchedEffect(selectedDate) { loadStats() }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "Статистика",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.springEntrance()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Date chip — pill shape
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = PillShape,
+            modifier = Modifier.clickable { showDatePicker = true }
         ) {
-            Text(text = "Статистика группы", style = MaterialTheme.typography.headlineMedium)
-            IconButton(onClick = { loadStats() }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Обновить")
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.CalendarMonth,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    selectedDate.format(formatter),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Выберите дату:", style = MaterialTheme.typography.titleSmall)
-        ThreeInputDatePicker(
-            day = viewDay,
-            month = viewMonth,
-            year = viewYear,
-            onDayChange = { viewDay = it },
-            onMonthChange = { viewMonth = it },
-            onYearChange = { viewYear = it },
-            modifier = Modifier.fillMaxWidth()
-        )
-        
-        Button(
-            onClick = { loadStats() },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            enabled = viewDay.length == 2 && viewMonth.length == 2 && viewYear.length == 4
-        ) {
-            Text("Показать статистику")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+        } else if (stats.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text("Нет данных за эту дату", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         } else {
-            LazyColumn {
-                items(stats) { item ->
-                    ListItem(
-                        headlineContent = { Text(item.fullName) },
-                        supportingContent = { 
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                MealStatusIcon("З", item.hadBreakfast)
-                                MealStatusIcon("О", item.hadLunch)
-                                MealStatusIcon("У", item.hadDinner)
-                                MealStatusIcon("П", item.hadSnack)
-                                MealStatusIcon("С", item.hadSpecial)
-                            }
-                        }
-                    )
-                    HorizontalDivider()
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(stats, key = { it.studentId }) { student ->
+                    MealStatusCard(student)
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MealStatusIcon(label: String, hasHad: Boolean) {
-    Surface(
-        color = if (hasHad) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.size(32.dp)
+private fun MealStatusCard(student: StudentMealStatus) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (hasHad) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                student.fullName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MealStatusBadge("Завтрак", student.hadBreakfast)
+                MealStatusBadge("Обед", student.hadLunch)
+                MealStatusBadge("Ужин", student.hadDinner)
+                MealStatusBadge("Полдник", student.hadSnack)
+            }
         }
+    }
+}
+
+@Composable
+private fun MealStatusBadge(label: String, hadMeal: Boolean) {
+    val containerColor = if (hadMeal)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.errorContainer
+
+    val contentColor = if (hadMeal)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onErrorContainer
+
+    Surface(
+        color = containerColor,
+        shape = TagShape
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

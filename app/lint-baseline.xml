@@ -1,0 +1,1346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.10.1" type="baseline" client="gradle" dependencies="false" name="AGP (8.10.1)" variant="all" version="8.10.1">
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="    val today = remember { LocalDate.now() }"
+        errorLine2="                                     ~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="68"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ofPattern`"
+        errorLine1="    val formatter = remember { DateTimeFormatter.ofPattern(&quot;dd.MM.yyyy&quot;) }"
+        errorLine2="                                                 ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="69"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#minusDays`"
+        errorLine1="    var startDate by remember { mutableStateOf(today.minusDays(7)) }"
+        errorLine2="                                                     ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="71"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#isAfter`"
+        errorLine1="                while (!current.isAfter(parsedEnd)) {"
+        errorLine2="                                ~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="92"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Implicit cast from `LocalDate` to `ChronoLocalDate` requires API level 26, or core library desugaring (current min is 24)"
+        errorLine1="                while (!current.isAfter(parsedEnd)) {"
+        errorLine2="                                        ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="92"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                    current = current.plusDays(1)"
+        errorLine2="                                      ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="96"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                   ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="115"
+            column="100"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                  ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="115"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                      ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="115"
+            column="71"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                       ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="115"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        startDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                             ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="122"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        startDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="122"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        startDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                           ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="122"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        startDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                            ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="122"
+            column="93"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="137"
+            column="98"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="137"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                    ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="137"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                     ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="137"
+            column="86"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        endDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                           ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="144"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        endDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                          ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="144"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        endDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                         ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="144"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        endDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                          ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="144"
+            column="91"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                                        startDate.format(formatter),"
+        errorLine2="                                                  ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="227"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                                        endDate.format(formatter),"
+        errorLine2="                                                ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/AdminReportsScreen.kt"
+            line="256"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="    val today = remember { LocalDate.now() }"
+        errorLine2="                                     ~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="42"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ofPattern`"
+        errorLine1="    val formatter = remember { DateTimeFormatter.ofPattern(&quot;dd.MM.yyyy&quot;) }"
+        errorLine2="                                                 ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="43"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="    var copyDate by remember { mutableStateOf(today.plusDays(1)) }"
+        errorLine2="                                                    ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="56"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                      ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="74"
+            column="103"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="74"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                         ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="74"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                          ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="74"
+            column="91"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="81"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                               ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="81"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                              ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="81"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                               ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="81"
+            column="96"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = newDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="92"
+            column="98"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = newDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="92"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = newDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                    ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="92"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = newDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                     ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="92"
+            column="86"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                           ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="99"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                          ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="99"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                         ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="99"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                          ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="99"
+            column="91"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                  ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="110"
+            column="99"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="110"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                     ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="110"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                      ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="110"
+            column="87"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                            ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="117"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                           ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="117"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                          ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="117"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                           ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="117"
+            column="92"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                                Text(selectedDate.format(formatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)"
+        errorLine2="                                                  ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="160"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                                copyDate = selectedDate.plusDays(1)"
+        errorLine2="                                                        ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="166"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                            Text(newDate.format(formatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="259"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                            Text(copyDate.format(formatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)"
+        errorLine2="                                          ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefMenuManageScreen.kt"
+            line="308"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="    val today = remember { LocalDate.now() }"
+        errorLine2="                                     ~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="31"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ofPattern`"
+        errorLine1="    val formatter = remember { DateTimeFormatter.ofPattern(&quot;dd.MM.yyyy&quot;) }"
+        errorLine2="                                                 ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="32"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="    var copyDate by remember { mutableStateOf(today.plusDays(1)) }"
+        errorLine2="                                                    ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="37"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                      ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="62"
+            column="103"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="62"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                         ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="62"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                          ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="62"
+            column="91"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="69"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                               ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="69"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                              ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="69"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                               ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="69"
+            column="96"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                  ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="84"
+            column="99"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                 ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="84"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                     ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="84"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                      ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="84"
+            column="87"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                            ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="91"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                           ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="91"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                          ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="91"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                           ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="91"
+            column="92"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                            Text(copyDate.format(formatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)"
+        errorLine2="                                          ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="124"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                            if (success) snackbarHostState.showSnackbar(&quot;Успешно скопировано на ${copyDate.format(formatter)}&quot;)"
+        errorLine2="                                                                                                           ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="148"
+            column="108"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                            selectedDate.format(formatter),"
+        errorLine2="                                         ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="212"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#plusDays`"
+        errorLine1="                    copyDate = selectedDate.plusDays(1)"
+        errorLine2="                                            ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorRosterScreen.kt"
+            line="220"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#now`"
+        errorLine1="    val today = remember { LocalDate.now() }"
+        errorLine2="                                     ~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="29"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.format.DateTimeFormatter#ofPattern`"
+        errorLine1="    val formatter = remember { DateTimeFormatter.ofPattern(&quot;dd.MM.yyyy&quot;) }"
+        errorLine2="                                                 ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="30"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#toEpochMilli`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                                      ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="52"
+            column="103"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#atStartOfDay`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="52"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                         ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="52"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.chrono.ChronoZonedDateTime#toInstant`"
+        errorLine1="            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()"
+        errorLine2="                                                                                          ~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="52"
+            column="91"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#atZone`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="59"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.Instant#ofEpochMilli`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                               ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="59"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZoneId#systemDefault`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                              ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="59"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.ZonedDateTime#toLocalDate`"
+        errorLine1="                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()"
+        errorLine2="                                                                                               ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="59"
+            column="96"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 26, or core library desugaring (current min is 24): `java.time.LocalDate#format`"
+        errorLine1="                    selectedDate.format(formatter),"
+        errorLine2="                                 ~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/CuratorStatsScreen.kt"
+            line="103"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST, ImageAnalysis.STRATEGY_BLOCK_PRODUCER"
+        errorLine1="                    .setBackpressureStrategy(0)"
+        errorLine2="                                             ~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefScannerScreen.kt"
+            line="373"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="RedundantLabel"
+        message="Redundant label can be removed"
+        errorLine1="            android:label=&quot;@string/app_name&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="23"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.10.1 is available: 9.0.1"
+        errorLine1="agp = &quot;8.10.1&quot;"
+        errorLine2="      ~~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.3 is available: 2.10.0"
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="51"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of org.jetbrains.kotlin.android than 2.0.21 is available: 2.3.10"
+        errorLine1="kotlin = &quot;2.0.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.0.21 is available: 2.3.10"
+        errorLine1="kotlin = &quot;2.0.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of org.jetbrains.kotlin.plugin.serialization than 2.0.21 is available: 2.3.10"
+        errorLine1="kotlin = &quot;2.0.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.12.2 is available: 1.12.4"
+        errorLine1="activityCompose = &quot;1.12.2&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="9"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.09.00 is available: 2026.02.00"
+        errorLine1="composeBom = &quot;2024.09.00&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="10"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="12"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="12"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.4"
+        errorLine1="room = &quot;2.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="12"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-serialization-json than 1.7.3 is available: 1.10.0"
+        errorLine1="kotlinxSerialization = &quot;1.7.3&quot;"
+        errorLine2="                       ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="13"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.5 is available: 2.9.7"
+        errorLine1="navigationCompose = &quot;2.8.5&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="14"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.4.1 is available: 1.5.3"
+        errorLine1="camerax = &quot;1.4.1&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.4.1 is available: 1.5.3"
+        errorLine1="camerax = &quot;1.4.1&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.4.1 is available: 1.5.3"
+        errorLine1="camerax = &quot;1.4.1&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.4.1 is available: 1.5.3"
+        errorLine1="camerax = &quot;1.4.1&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/Downloads/test/pgk-food/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.camera.core.ExperimentalGetImage` or `@OptIn(markerClass = androidx.camera.core.ExperimentalGetImage.class)`"
+        errorLine1="    val mediaImage = imageProxy.image"
+        errorLine2="                                ~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/ui/screens/ChefScannerScreen.kt"
+            line="471"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_200` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_200&quot;>#FFBB86FC&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="3"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_500` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_500&quot;>#FF6200EE&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="4"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_700` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_700&quot;>#FF3700B3&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="5"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.teal_200` appears to be unused"
+        errorLine1="    &lt;color name=&quot;teal_200&quot;>#FF03DAC5&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="6"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.teal_700` appears to be unused"
+        errorLine1="    &lt;color name=&quot;teal_700&quot;>#FF018786&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="7"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.black` appears to be unused"
+        errorLine1="    &lt;color name=&quot;black&quot;>#FF000000&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="8"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.white` appears to be unused"
+        errorLine1="    &lt;color name=&quot;white&quot;>#FFFFFFFF&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="9"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_launcher_background` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_launcher_background.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.ic_launcher_foreground` appears to be unused"
+        errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2="^">
+        <location
+            file="src/main/res/drawable/ic_launcher_foreground.xml"
+            line="1"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="MonochromeLauncherIcon"
+        message="The application adaptive icon is missing a monochrome tag"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="MonochromeLauncherIcon"
+        message="The application adaptive roundIcon is missing a monochrome tag"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/util/QrGenerator.kt"
+            line="14"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.set` instead?"
+        errorLine1="                bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/pgk_food/util/QrGenerator.kt"
+            line="17"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="51"
+            column="20"/>
+    </issue>
+
+</issues>

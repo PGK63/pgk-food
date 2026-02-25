@@ -5,13 +5,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.data.remote.dto.GroupDto
 import com.example.pgk_food.data.remote.dto.UserDto
@@ -35,7 +39,15 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
     var showAssignMemberDialog by remember { mutableStateOf<Pair<Int, String>?>(null) } // groupId to "CURATOR" or "STUDENT"
     var allUsers by remember { mutableStateOf<List<UserDto>>(emptyList()) }
     
+    // Search
+    var searchQuery by remember { mutableStateOf("") }
+    
     val scope = rememberCoroutineScope()
+
+    val filteredGroups = remember(groups, searchQuery) {
+        if (searchQuery.isBlank()) groups
+        else groups.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
 
     fun refreshGroups() {
         scope.launch {
@@ -68,22 +80,66 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddGroupDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Добавить группу")
+            FloatingActionButton(
+                onClick = { showAddGroupDialog = true },
+                shape = MaterialTheme.shapes.large,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = "Добавить группу")
             }
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             Text(text = "Управление группами", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Search bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Поиск по названию группы") },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Rounded.Close, contentDescription = "Очистить")
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Найдено: ${filteredGroups.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+            } else if (filteredGroups.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Rounded.SearchOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             } else {
                 LazyColumn {
-                    items(groups) { group ->
+                    items(filteredGroups) { group ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -95,7 +151,9 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                         expandedGroupId = group.id
                                         loadStudents(group.id)
                                     }
-                                }
+                                },
+                            shape = MaterialTheme.shapes.large,
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
@@ -117,7 +175,7 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                     }
                                     Row {
                                         IconButton(onClick = { showAssignMemberDialog = group.id to "CURATOR" }) {
-                                            Icon(Icons.Default.Person, contentDescription = "Назначить куратора")
+                                            Icon(Icons.Rounded.Person, contentDescription = "Назначить куратора")
                                         }
                                         IconButton(onClick = { 
                                             scope.launch {
@@ -125,10 +183,10 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                                 refreshGroups()
                                             }
                                         }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Снять куратора")
+                                            Icon(Icons.Rounded.Delete, contentDescription = "Снять куратора")
                                         }
                                         IconButton(onClick = { showDeleteGroupDialog = group }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Удалить группу")
+                                            Icon(Icons.Rounded.Delete, contentDescription = "Удалить группу")
                                         }
                                     }
                                 }
@@ -155,7 +213,7 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                                         refreshGroups()
                                                     }
                                                 }) {
-                                                    Icon(Icons.Default.Delete, contentDescription = "Убрать из группы", modifier = Modifier.size(20.dp))
+                                                    Icon(Icons.Rounded.Delete, contentDescription = "Убрать из группы", modifier = Modifier.size(20.dp))
                                                 }
                                             }
                                         }
@@ -165,7 +223,7 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
                                         onClick = { showAssignMemberDialog = group.id to "STUDENT" },
                                         modifier = Modifier.align(Alignment.End).padding(top = 8.dp)
                                     ) {
-                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Icon(Icons.Rounded.Add, contentDescription = null)
                                         Spacer(Modifier.width(4.dp))
                                         Text("Добавить студента")
                                     }
@@ -181,12 +239,15 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
     if (showAddGroupDialog) {
         AlertDialog(
             onDismissRequest = { showAddGroupDialog = false },
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Создать группу") },
             text = {
-                TextField(
+                OutlinedTextField(
                     value = newGroupName,
                     onValueChange = { newGroupName = it },
-                    label = { Text("Название группы") }
+                    label = { Text("Название группы") },
+                    shape = MaterialTheme.shapes.medium,
+                    singleLine = true
                 )
             },
             confirmButton = {
@@ -218,6 +279,7 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
 
         AlertDialog(
             onDismissRequest = { showAssignMemberDialog = null },
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text(if (role == "CURATOR") "Назначить куратора" else "Добавить студента") },
             text = {
                 Box(modifier = Modifier.heightIn(max = 400.dp)) {
@@ -256,6 +318,7 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
     showDeleteGroupDialog?.let { group ->
         AlertDialog(
             onDismissRequest = { showDeleteGroupDialog = null },
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Удалить группу?") },
             text = { Text("Группа \"${group.name}\" будет удалена, студенты будут отвязаны.") },
             confirmButton = {
@@ -273,3 +336,4 @@ fun RegistratorGroupsScreen(token: String, registratorRepository: RegistratorRep
         )
     }
 }
+

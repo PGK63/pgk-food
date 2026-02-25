@@ -8,11 +8,25 @@ import androidx.room.TypeConverters
 import com.example.pgk_food.data.local.dao.*
 import com.example.pgk_food.data.local.entity.*
 
-@Database(entities = [UserSessionEntity::class, ScannedQrEntity::class], version = 4)
+@Database(
+    entities = [
+        UserSessionEntity::class, 
+        ScannedQrEntity::class, 
+        OfflineTransactionEntity::class, 
+        MenuItemEntity::class,
+        StudentKeyEntity::class,
+        PermissionCacheEntity::class
+    ], 
+    version = 6
+)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userSessionDao(): UserSessionDao
     abstract fun scannedQrDao(): ScannedQrDao
+    abstract fun transactionDao(): TransactionDao
+    abstract fun menuDao(): MenuDao
+    abstract fun studentKeyDao(): StudentKeyDao
+    abstract fun permissionCacheDao(): PermissionCacheDao
 
     companion object {
         @Volatile

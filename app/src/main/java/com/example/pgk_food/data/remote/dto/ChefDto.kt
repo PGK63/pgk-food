@@ -27,3 +27,40 @@ data class StatisticsResponse(
     val totalServed: Int,
     val byMealType: Map<String, Int>
 )
+
+@Serializable
+data class StudentKeyDto(
+    val userId: String,
+    val publicKey: String,
+    val name: String,
+    val surname: String,
+    val fatherName: String?,
+    val groupName: String?
+)
+
+@Serializable
+data class StudentPermissionDto(
+    val studentId: String,
+    val name: String,
+    val surname: String,
+    val breakfast: Boolean,
+    val lunch: Boolean,
+    val dinner: Boolean,
+    val snack: Boolean,
+    val special: Boolean
+)
+
+@Serializable
+data class TransactionSyncItem(
+    val studentId: String,
+    val timestamp: String, // ISO 8601 string or Long? The backend uses LocalDateTime. I'll use String for simplicity in KMP and parse it.
+    val mealType: String,
+    val transactionHash: String
+)
+
+@Serializable
+data class SyncResponse(
+    val successCount: Int,
+    val errors: List<String>
+)
+

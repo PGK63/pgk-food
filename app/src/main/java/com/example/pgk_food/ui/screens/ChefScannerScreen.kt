@@ -13,19 +13,20 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.FlashOff
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.FlashOff
+import androidx.compose.material.icons.rounded.FlashOn
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -41,9 +42,11 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.border
 import com.example.pgk_food.data.remote.dto.QrValidationResponse
 import com.example.pgk_food.data.repository.ChefRepository
+import com.example.pgk_food.ui.theme.HeroCardShape
+import com.example.pgk_food.ui.theme.PillShape
+import com.example.pgk_food.ui.theme.springEntrance
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -52,19 +55,28 @@ import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
+import com.example.pgk_food.ui.viewmodels.ChefViewModel
+import com.example.pgk_food.ui.viewmodels.ScanState
+import com.example.pgk_food.ui.viewmodels.SyncState
+import androidx.compose.material.icons.rounded.CloudDownload
+import androidx.compose.material.icons.rounded.CloudSync
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChefScannerScreen(token: String, chefRepository: ChefRepository) {
-    var result by remember { mutableStateOf<QrValidationResponse?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
+fun ChefScannerScreen(token: String, viewModel: ChefViewModel) {
+    val scanState by viewModel.scanState.collectAsState()
+    val syncState by viewModel.syncState.collectAsState()
+    val unsyncedCount by viewModel.unsyncedCount.collectAsState()
+    
     var hasCameraPermission by remember { mutableStateOf(false) }
-    var scannerError by remember { mutableStateOf<String?>(null) }
     var torchEnabled by remember { mutableStateOf(false) }
     var isOfflineMode by remember { mutableStateOf(false) }
     var scanResetKey by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
@@ -81,228 +93,224 @@ fun ChefScannerScreen(token: String, chefRepository: ChefRepository) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "СКАНЕР QR",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 1.5.sp
-            )
-            if (hasCameraPermission && result == null) {
-                IconButton(
-                    onClick = { torchEnabled = !torchEnabled }
-                ) {
-                    Icon(
-                        imageVector = if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                        contentDescription = null
-                    )
-                }
-            }
+    LaunchedEffect(syncState) {
+        if (syncState is SyncState.Success) {
+            snackbarHostState.showSnackbar((syncState as SyncState.Success).message)
+            viewModel.resetSyncState()
+        } else if (syncState is SyncState.Error) {
+            snackbarHostState.showSnackbar((syncState as SyncState.Error).message)
+            viewModel.resetSyncState()
         }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        val isScannerActive = hasCameraPermission && result == null && !isLoading
+    }
 
-        if (hasCameraPermission && result == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                CameraPreview(
-                    isActive = isScannerActive,
-                    torchEnabled = torchEnabled,
-                    resetKey = scanResetKey,
-                    onQrScanned = { qrContent ->
-                        if (!isLoading) {
-                            scannerError = null
-                            isLoading = true
-                            scope.launch {
-                                val res = chefRepository.validateQr(token, qrContent, isOfflineMode)
-                                result = res.getOrNull()
-                                if (result == null) {
-                                    scannerError = res.exceptionOrNull()?.localizedMessage ?: "Ошибка проверки QR"
-                                }
-                                isLoading = false
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Сканер питания", style = MaterialTheme.typography.titleMedium) },
+                actions = {
+                    if (unsyncedCount > 0) {
+                        BadgedBox(
+                            badge = { Badge { Text(unsyncedCount.toString()) } },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            IconButton(onClick = { viewModel.syncTransactions() }) {
+                                Icon(Icons.Rounded.CloudSync, contentDescription = "Синхронизировать")
                             }
                         }
-                    },
-                    onError = { error ->
-                        scannerError = error
                     }
-                )
-                
-                ScannerOverlay(isActive = isScannerActive)
-            }
-        } else if (!hasCameraPermission) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
+                    IconButton(onClick = { viewModel.downloadData() }) {
+                        Icon(Icons.Rounded.CloudDownload, contentDescription = "Скачать данные")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                    Text("Нужно разрешение на камеру", modifier = Modifier.padding(16.dp))
-                    Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
-                        Text("Разрешить")
+                Column {
+                    Text(
+                        text = "РЕЖИМ",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.5.sp
+                    )
+                    Text(
+                        text = if (isOfflineMode) "ОФФЛАЙН (ЛОКАЛЬНО)" else "ОНЛАЙН (СЕРВЕР)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isOfflineMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Switch(
+                    checked = isOfflineMode,
+                    onCheckedChange = { isOfflineMode = it },
+                    modifier = Modifier.scale(0.8f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            val isScannerActive = hasCameraPermission && scanState is ScanState.Idle && syncState is SyncState.Idle
+
+            if (hasCameraPermission && scanState is ScanState.Idle) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CameraPreview(
+                        isActive = isScannerActive,
+                        torchEnabled = torchEnabled,
+                        resetKey = scanResetKey,
+                        onQrScanned = { qrContent ->
+                            viewModel.scanQr(qrContent, isOfflineMode)
+                        },
+                        onError = { error ->
+                            // viewModel.setError(error)
+                        }
+                    )
+                    ScannerOverlay(isActive = isScannerActive)
+                }
+            } else if (!hasCameraPermission) {
+                // ... (Permission UI)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Rounded.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Text("Нужно разрешение на камеру", modifier = Modifier.padding(16.dp))
+                        Button(
+                            onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                            shape = PillShape
+                        ) {
+                            Text("Разрешить")
+                        }
                     }
                 }
             }
-        }
-        
-        if (result != null) {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-        
-        if (isLoading) {
-            Spacer(modifier = Modifier.height(40.dp))
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Проверка...")
-        }
+            
+            if (scanState is ScanState.Loading || syncState is SyncState.Loading) {
+                Spacer(modifier = Modifier.height(40.dp))
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(if (syncState is SyncState.Loading) (syncState as SyncState.Loading).message else "Проверка...")
+            }
 
-        scannerError?.let { error ->
-            if (!isLoading && result == null) {
+            if (scanState is ScanState.Error) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Error,
-                            contentDescription = null,
-                            tint = Color(0xFFC62828),
-                            modifier = Modifier.size(32.dp)
-                        )
+                    Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Error, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(
-                                text = "Ошибка сканирования",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFC62828)
-                            )
-                            Text(
-                                text = error,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("Ошибка", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text((scanState as ScanState.Error).message, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = { viewModel.resetScanState() }, modifier = Modifier.fillMaxWidth(), shape = PillShape) {
+                    Text("ПОПРОБОВАТЬ СНОВА")
+                }
             }
-        }
-        
-        result?.let {
-            val isValid = it.isValid
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isValid) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                ),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(24.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            
+            if (scanState is ScanState.Success) {
+                val scanResponse = (scanState as ScanState.Success).response
+                val isValid = scanResponse.isValid
+                Spacer(modifier = Modifier.height(24.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isValid)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.errorContainer
+                    ),
+                    shape = HeroCardShape,
+                    modifier = Modifier.fillMaxWidth().springEntrance()
                 ) {
-                    Icon(
-                        if (isValid) Icons.Default.CheckCircle else Icons.Default.Error,
-                        contentDescription = null,
-                        tint = if (isValid) Color(0xFF2E7D32) else Color(0xFFC62828),
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = if (isValid) "ПИТАНИЕ РАЗРЕШЕНО" else "ОТКАЗАНО",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            color = if (isValid) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    Row(modifier = Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            if (isValid) Icons.Rounded.CheckCircle else Icons.Rounded.Error,
+                            contentDescription = null,
+                            tint = if (isValid)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(48.dp)
                         )
-                        it.studentName?.let { name -> 
-                            Text(
-                                text = name, 
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
-                            ) 
-                        }
-                        it.groupName?.let { group -> 
-                            Text(
-                                text = "Группа: $group",
-                                style = MaterialTheme.typography.bodySmall
-                            ) 
-                        }
-                        it.mealType?.let { meal ->
-                            Text(
-                                text = "Питание: $meal",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        it.errorMessage?.let { error -> 
-                            Text(
-                                text = error, 
-                                color = Color(0xFFC62828),
-                                style = MaterialTheme.typography.bodySmall
-                            ) 
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(if (isValid) "ОТМЕЧЕНО" else "ОТКАЗАНО", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = if (isValid) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer)
+                            if (scanResponse.studentName != null) {
+                                Text(scanResponse.studentName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            }
+                            if (scanResponse.groupName != null) {
+                                Text("Группа: ${scanResponse.groupName}", style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (scanResponse.errorMessage != null) {
+                                Text(scanResponse.errorMessage, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = { 
+                        viewModel.resetScanState()
+                        scanResetKey++
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = PillShape
+                ) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("СКАНЕРОВАТЬ ЕЩЕ РАЗ")
+                }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Button(
-                onClick = { 
-                    result = null
-                    scannerError = null
-                    isLoading = false
-                    scanResetKey++
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("СКАНЕРОВАТЬ ЕЩЕ РАЗ")
-            }
-        }
 
-        if (hasCameraPermission && result == null) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Наведите камеру на QR-код студента",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
+            if (scanState is ScanState.Idle && !hasCameraPermission) {
+               // ...
+            }
+            
+            if (hasCameraPermission && scanState is ScanState.Idle) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Наведите камеру на QR-код студента",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
+
 
 @Composable
 fun CameraPreview(
@@ -323,7 +331,6 @@ fun CameraPreview(
         BarcodeScanning.getClient(options)
     }
     
-    // Using a debounced scanner to avoid multiple scans in a row
     var lastScannedTime by remember { mutableLongStateOf(0L) }
     var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
     val isActiveState by rememberUpdatedState(isActive)
@@ -342,14 +349,10 @@ fun CameraPreview(
         onDispose {
             try {
                 cameraProviderFuture.get().unbindAll()
-            } catch (_: Exception) {
-                // Ignore cleanup errors.
-            }
+            } catch (_: Exception) { }
             try {
                 scanner.close()
-            } catch (_: Exception) {
-                // Ignore cleanup errors.
-            }
+            } catch (_: Exception) { }
             analyzerExecutor.shutdown()
         }
     }
@@ -367,7 +370,7 @@ fun CameraPreview(
                 }
 
                 val imageAnalysisUseCase = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(0) // ImageAnalysis.STRATEGY_KEEP_ONLY_LAST (compat)
+                    .setBackpressureStrategy(0)
                     .build()
 
                 imageAnalysisUseCase.setAnalyzer(analyzerExecutor) { imageProxy ->
@@ -377,7 +380,7 @@ fun CameraPreview(
                     }
                     processImageProxy(scanner, imageProxy) { qrContent ->
                         val currentTime = System.currentTimeMillis()
-                        if (isActiveState && currentTime - lastScannedTime > 2000) { // 2 seconds debounce
+                        if (isActiveState && currentTime - lastScannedTime > 2000) {
                             lastScannedTime = currentTime
                             onQrScannedState(qrContent)
                         }
@@ -419,8 +422,11 @@ private fun ScannerOverlay(isActive: Boolean) {
                 .size(220.dp)
                 .border(
                     width = 2.dp,
-                    color = if (isActive) Color(0xFF00E676) else Color.White,
-                    shape = RoundedCornerShape(16.dp)
+                    color = if (isActive)
+                        MaterialTheme.colorScheme.tertiary
+                    else
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    shape = MaterialTheme.shapes.large
                 )
         )
         if (isActive) {
@@ -451,7 +457,7 @@ private fun ScannerLine() {
                 .fillMaxWidth()
                 .height(2.dp)
                 .offset(y = y)
-                .background(Color(0xFF00E676))
+                .background(MaterialTheme.colorScheme.tertiary)
         )
     }
 }

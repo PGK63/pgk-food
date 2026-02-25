@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.Flow
 class AuthRepository(private val userSessionDao: UserSessionDao) {
 
     fun getUserSession(): Flow<UserSessionEntity?> = userSessionDao.getUserSession()
+    
+    fun getToken(): String? = userSessionDao.getTokenSync()
 
     suspend fun login(loginRequest: LoginRequest): Result<AuthResponse> {
         return try {

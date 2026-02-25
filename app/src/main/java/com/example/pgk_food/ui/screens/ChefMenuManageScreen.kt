@@ -1,29 +1,33 @@
 package com.example.pgk_food.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.RestaurantMenu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.data.remote.dto.*
 import com.example.pgk_food.data.repository.ChefRepository
 import com.example.pgk_food.data.repository.StudentRepository
-import com.example.pgk_food.ui.components.ThreeInputDatePicker
 import kotlinx.coroutines.launch
-import java.util.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,36 +39,89 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val calendar = remember { Calendar.getInstance() }
-    
-    var viewDay by remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')) }
-    var viewMonth by remember { mutableStateOf((calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')) }
-    var viewYear by remember { mutableStateOf(calendar.get(Calendar.YEAR).toString()) }
+    val today = remember { LocalDate.now() }
+    val formatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
+
+    var selectedDate by remember { mutableStateOf(today) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showCopyDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var newDescription by remember { mutableStateOf("") }
     
-    var newDay by remember { mutableStateOf(calendar.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')) }
-    var newMonth by remember { mutableStateOf((calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')) }
-    var newYear by remember { mutableStateOf(calendar.get(Calendar.YEAR).toString()) }
+    var newDate by remember { mutableStateOf(today) }
+    var showNewDatePicker by remember { mutableStateOf(false) }
 
-    var copyDay by remember { mutableStateOf(viewDay) }
-    var copyMonth by remember { mutableStateOf(viewMonth) }
-    var copyYear by remember { mutableStateOf(viewYear) }
+    var copyDate by remember { mutableStateOf(today.plusDays(1)) }
+    var showCopyDatePicker by remember { mutableStateOf(false) }
 
     fun loadMenu() {
         scope.launch {
             isLoading = true
-            val dateStr = "$viewYear-${viewMonth.padStart(2, '0')}-${viewDay.padStart(2, '0')}"
+            val dateStr = selectedDate.toString()
             val result = studentRepository.getMenu(token, dateStr)
             menuItems = result.getOrDefault(emptyList())
             isLoading = false
         }
     }
 
-    LaunchedEffect(Unit) { loadMenu() }
+    LaunchedEffect(selectedDate) { loadMenu() }
+
+    // Handlers for date pickers
+    if (showDatePicker) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let {
+                        selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Отмена") } }
+        ) { DatePicker(state = state) }
+    }
+
+    if (showNewDatePicker) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = newDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showNewDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let {
+                        newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showNewDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showNewDatePicker = false }) { Text("Отмена") } }
+        ) { DatePicker(state = state) }
+    }
+
+    if (showCopyDatePicker) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = copyDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showCopyDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let {
+                        copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showCopyDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showCopyDatePicker = false }) { Text("Отмена") } }
+        ) { DatePicker(state = state) }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -82,31 +139,36 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Card(
-                    shape = RoundedCornerShape(24.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Выбрать дату", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(12.dp))
-                        ThreeInputDatePicker(
-                            day = viewDay,
-                            month = viewMonth,
-                            year = viewYear,
-                            onDayChange = { viewDay = it; loadMenu() },
-                            onMonthChange = { viewMonth = it; loadMenu() },
-                            onYearChange = { viewYear = it; loadMenu() },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(selectedDate.format(formatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                            }
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = { 
-                                copyDay = viewDay
-                                copyMonth = viewMonth
-                                copyYear = viewYear
+                                copyDate = selectedDate.plusDays(1)
                                 showCopyDialog = true
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isCopying
+                            enabled = !isCopying,
+                            shape = MaterialTheme.shapes.medium
                         ) {
                             Text("Скопировать меню на дату")
                         }
@@ -122,11 +184,9 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                 } else {
                     LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (menuItems.isEmpty()) {
-                            item {
-                                EmptyMenuState()
-                            }
+                            item { EmptyMenuState() }
                         } else {
-                            items(items = menuItems) { item ->
+                            items(items = menuItems, key = { it.id }) { item ->
                                 MenuItemCard(item) {
                                     scope.launch {
                                         chefRepository.deleteMenuItem(token, item.id)
@@ -142,15 +202,18 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
             }
 
             ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
+                onClick = { 
+                    newDate = selectedDate
+                    showAddDialog = true 
+                },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(24.dp),
-                shape = RoundedCornerShape(20.dp),
+                shape = MaterialTheme.shapes.large,
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(Icons.Rounded.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("ДОБАВИТЬ БЛЮДО")
             }
@@ -160,7 +223,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Новое блюдо") },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -169,7 +232,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                         onValueChange = { newName = it },
                         label = { Text("Название") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
@@ -177,30 +240,41 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                         onValueChange = { newDescription = it },
                         label = { Text("Описание") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = MaterialTheme.shapes.medium
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     Text("Дата подачи", style = MaterialTheme.typography.labelLarge)
                     Spacer(modifier = Modifier.height(8.dp))
-                    ThreeInputDatePicker(
-                        day = newDay, month = newMonth, year = newYear,
-                        onDayChange = { newDay = it }, onMonthChange = { newMonth = it }, onYearChange = { newYear = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().clickable { showNewDatePicker = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(newDate.format(formatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        }
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         scope.launch {
-                            val dateStr = "$newYear-${newMonth.padStart(2, '0')}-${newDay.padStart(2, '0')}"
-                            chefRepository.addMenuItem(token, CreateMenuItemRequest(dateStr, newName, newDescription))
+                            val dateStr = newDate.toString()
+                            chefRepository.addMenuItem(token, CreateMenuItemRequest(dateStr, newName, if (newDescription.isBlank()) "" else newDescription))
                             showAddDialog = false
                             newName = ""; newDescription = ""
-                            loadMenu()
+                            if (dateStr == selectedDate.toString()) {
+                                loadMenu()
+                            }
                         }
                     },
-                    enabled = newName.isNotBlank() && newDay.length == 2 && newMonth.length == 2 && newYear.length == 4
+                    enabled = newName.isNotBlank()
                 ) {
                     Text("Сохранить")
                 }
@@ -214,19 +288,26 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
     if (showCopyDialog) {
         AlertDialog(
             onDismissRequest = { showCopyDialog = false },
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Скопировать меню") },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text("Куда скопировать блюда?")
+                    Text("Выберите целевую дату")
                     Spacer(modifier = Modifier.height(12.dp))
-                    ThreeInputDatePicker(
-                        day = copyDay, month = copyMonth, year = copyYear,
-                        onDayChange = { copyDay = it },
-                        onMonthChange = { copyMonth = it },
-                        onYearChange = { copyYear = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().clickable { showCopyDatePicker = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(copyDate.format(formatter), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -238,14 +319,14 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                                 showCopyDialog = false
                                 return@launch
                             }
-                            val targetDate = "$copyYear-${copyMonth.padStart(2, '0')}-${copyDay.padStart(2, '0')}"
+                            val targetDate = copyDate.toString()
                             isCopying = true
                             var successCount = 0
                             var failed = false
                             menuItems.forEach { item ->
                                 val result = chefRepository.addMenuItem(
                                     token,
-                                    CreateMenuItemRequest(targetDate, item.name, item.description ?: "-")
+                                    CreateMenuItemRequest(targetDate, item.name, item.description ?: "")
                                 )
                                 if (result.isSuccess) {
                                     successCount += 1
@@ -255,7 +336,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                             }
                             isCopying = false
                             showCopyDialog = false
-                            if (targetDate == "$viewYear-${viewMonth.padStart(2, '0')}-${viewDay.padStart(2, '0')}") {
+                            if (targetDate == selectedDate.toString()) {
                                 loadMenu()
                             }
                             if (failed) {
@@ -265,7 +346,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                             }
                         }
                     },
-                    enabled = copyDay.length == 2 && copyMonth.length == 2 && copyYear.length == 4 && !isCopying
+                    enabled = !isCopying
                 ) {
                     Text("Скопировать")
                 }
@@ -281,9 +362,9 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
 fun MenuItemCard(item: MenuItemDto, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -292,11 +373,11 @@ fun MenuItemCard(item: MenuItemDto, onDelete: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.RestaurantMenu, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.RestaurantMenu, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -306,8 +387,9 @@ fun MenuItemCard(item: MenuItemDto, onDelete: () -> Unit) {
                 }
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = "Удалить", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Rounded.DeleteOutline, contentDescription = "Удалить", tint = MaterialTheme.colorScheme.error)
             }
         }
     }
 }
+

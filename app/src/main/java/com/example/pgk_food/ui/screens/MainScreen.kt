@@ -1,21 +1,20 @@
 package com.example.pgk_food.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,6 +25,17 @@ import com.example.pgk_food.data.local.entity.UserSessionEntity
 import com.example.pgk_food.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.data.repository.*
 import com.example.pgk_food.model.UserRole
+import com.example.pgk_food.ui.theme.HeroCardShape
+import com.example.pgk_food.ui.theme.PillShape
+import com.example.pgk_food.ui.theme.ShardShape
+import com.example.pgk_food.ui.theme.TagShape
+import com.example.pgk_food.ui.theme.springEntrance
+import com.example.pgk_food.ui.theme.springScale
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.pgk_food.ui.viewmodels.CuratorViewModel
+import com.example.pgk_food.ui.viewmodels.ChefViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -48,8 +58,24 @@ fun MainScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { 
+                    val titleText = when (currentSubScreen) {
+                        "dashboard" -> "ПГК ПИТАНИЕ"
+                        "roster" -> "ОТМЕТКА ПИТАНИЯ"
+                        "stats" -> "СТАТИСТИКА"
+                        "users" -> "ПОЛЬЗОВАТЕЛИ"
+                        "groups" -> "ГРУППЫ"
+                        "reports" -> "ОТЧЕТЫ"
+                        "menu" -> "УПРАВЛЕНИЕ МЕНЮ"
+                        "student_menu" -> "МЕНЮ В СТОЛОВОЙ"
+                        "student_scan", "qr" -> "МОЙ QR-КОД"
+                        "chef_scan", "scanner" -> "СКАНЕР QR"
+                        "chef_stats" -> "СТАТИСТИКА ПОВАРА"
+                        "menu_manage" -> "УПРАВЛЕНИЕ МЕНЮ"
+                        "coupons" -> "МОИ ТАЛОНЫ"
+                        else -> ""
+                    }
                     Text(
-                        if (currentSubScreen == "dashboard") "ПГК ПИТАНИЕ" else "НАЗАД",
+                        titleText,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 2.sp
@@ -58,29 +84,33 @@ fun MainScreen(
                 navigationIcon = {
                     if (currentSubScreen != "dashboard") {
                         IconButton(onClick = { currentSubScreen = "dashboard" }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
+                            Icon(Icons.Rounded.ArrowBack, contentDescription = "Назад")
                         }
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                authRepository.logout()
-                                onLogout()
-                            }
-                        },
-                        modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
-                    ) {
-                        Icon(
-                            Icons.Default.ExitToApp, 
-                            contentDescription = "Выход",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    if (currentSubScreen == "dashboard") {
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    authRepository.logout()
+                                    onLogout()
+                                }
+                            },
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
+                        ) {
+                            Icon(
+                                Icons.Rounded.ExitToApp, 
+                                contentDescription = "Выход",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                 )
             )
         }
@@ -101,52 +131,57 @@ fun MainScreen(
                 }
                 
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Header with user info
-                    UserInfoHeader(session)
-                    if (roles.size > 1) {
-                        RoleSwitcher(
-                            roles = roles,
-                            selectedRole = selectedRole ?: roles.first(),
-                            onSelect = {
-                                selectedRole = it
-                                currentSubScreen = "dashboard"
-                                selectedMealType = ""
-                            }
-                        )
+                    // Header with user info - only on dashboard
+                    if (currentSubScreen == "dashboard") {
+                        UserInfoHeader(session)
+                        if (roles.size > 1) {
+                            RoleSwitcher(
+                                roles = roles,
+                                selectedRole = selectedRole ?: roles.first(),
+                                onSelect = {
+                                    selectedRole = it
+                                    currentSubScreen = "dashboard"
+                                    selectedMealType = ""
+                                }
+                            )
+                        }
                     }
 
                     val activeRole = selectedRole ?: roles.firstOrNull()
 
-                    when (activeRole) {
-                        UserRole.STUDENT -> StudentFlow(
-                            session,
-                            currentSubScreen,
-                            selectedMealType,
-                            onNavigate = { currentSubScreen = it },
-                            onMealSelect = { selectedMealType = it }
-                        )
-                        UserRole.CHEF -> ChefFlow(
-                            session,
-                            currentSubScreen,
-                            database,
-                            onNavigate = { currentSubScreen = it }
-                        )
-                        UserRole.REGISTRATOR -> RegistratorFlow(
-                            session,
-                            currentSubScreen,
-                            onNavigate = { currentSubScreen = it }
-                        )
-                        UserRole.CURATOR -> CuratorFlow(
-                            session,
-                            currentSubScreen,
-                            onNavigate = { currentSubScreen = it }
-                        )
-                        UserRole.ADMIN -> AdminFlow(
-                            session,
-                            currentSubScreen,
-                            onNavigate = { currentSubScreen = it }
-                        )
-                        else -> Text("Роль не определена", modifier = Modifier.padding(16.dp))
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        when (activeRole) {
+                            UserRole.STUDENT -> StudentFlow(
+                                session,
+                                currentSubScreen,
+                                selectedMealType,
+                                onNavigate = { currentSubScreen = it },
+                                onMealSelect = { selectedMealType = it }
+                            )
+                            UserRole.CHEF -> ChefFlow(
+                                session,
+                                currentSubScreen,
+                                database,
+                                onNavigate = { currentSubScreen = it }
+                            )
+                            UserRole.REGISTRATOR -> RegistratorFlow(
+                                session,
+                                currentSubScreen,
+                                onNavigate = { currentSubScreen = it }
+                            )
+                            UserRole.CURATOR -> CuratorFlow(
+                                session,
+                                currentSubScreen,
+                                authRepository,
+                                onNavigate = { currentSubScreen = it }
+                            )
+                            UserRole.ADMIN -> AdminFlow(
+                                session,
+                                currentSubScreen,
+                                onNavigate = { currentSubScreen = it }
+                            )
+                            else -> Text("Роль не определена", modifier = Modifier.padding(16.dp))
+                        }
                     }
                 }
             }
@@ -162,7 +197,7 @@ fun RoleSwitcher(
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(
-            text = "Роль:",
+            text = "Выберите вашу роль для работы:",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -178,7 +213,8 @@ fun RoleSwitcher(
                 FilterChip(
                     selected = isSelected,
                     onClick = { onSelect(role) },
-                    label = { Text(role.name) }
+                    label = { Text(role.name) },
+                    shape = PillShape
                 )
             }
         }
@@ -190,11 +226,13 @@ fun UserInfoHeader(session: UserSessionEntity) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(24.dp),
+            .padding(16.dp)
+            .springEntrance(),
+        shape = HeroCardShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-        )
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -207,7 +245,11 @@ fun UserInfoHeader(session: UserSessionEntity) {
                     .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+                Icon(
+                    Icons.Rounded.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column {
@@ -271,14 +313,29 @@ fun ChefFlow(
     database: AppDatabase,
     onNavigate: (String) -> Unit
 ) {
-    val chefRepository = remember { ChefRepository(database.scannedQrDao()) }
+    val chefRepository = remember { 
+        ChefRepository(
+            database.scannedQrDao(), 
+            database.transactionDao(),
+            database.studentKeyDao(),
+            database.permissionCacheDao()
+        ) 
+    }
+    val chefFactory = object : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val authRepo = AuthRepository(database.userSessionDao())
+            return ChefViewModel(authRepo, chefRepository) as T
+        }
+    }
+    val chefViewModel: ChefViewModel = viewModel<ChefViewModel>(factory = chefFactory)
+
     when (currentSubScreen) {
         "dashboard" -> ChefDashboard(
             onScannerClick = { onNavigate("scanner") },
             onMenuManageClick = { onNavigate("menu_manage") },
             onStatsClick = { onNavigate("stats") }
         )
-        "scanner" -> ChefScannerScreen(token = session.token, chefRepository = chefRepository)
+        "scanner" -> ChefScannerScreen(token = session.token, viewModel = chefViewModel)
         "menu_manage" -> ChefMenuManageScreen(token = session.token, chefRepository = chefRepository)
         "stats" -> ChefStatsScreen(chefRepository = chefRepository)
         else -> ChefDashboard(
@@ -303,9 +360,18 @@ fun RegistratorFlow(session: UserSessionEntity, currentSubScreen: String, onNavi
     }
 }
 
+@Suppress("UNCHECKED_CAST")
 @Composable
-fun CuratorFlow(session: UserSessionEntity, currentSubScreen: String, onNavigate: (String) -> Unit) {
+fun CuratorFlow(session: UserSessionEntity, currentSubScreen: String, authRepository: AuthRepository, onNavigate: (String) -> Unit) {
     val curatorRepository = remember { CuratorRepository() }
+    
+    val curatorFactory = object : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return CuratorViewModel(authRepository, curatorRepository) as T
+        }
+    }
+    val curatorViewModel: CuratorViewModel = viewModel(factory = curatorFactory)
+    
     when (currentSubScreen) {
         "dashboard" -> CuratorDashboard(
             token = session.token,
@@ -364,15 +430,21 @@ fun StudentDashboard(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(24.dp),
+                    .padding(bottom = 16.dp)
+                    .springEntrance(),
+                shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            Icons.Rounded.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             "Моё питание на сегодня",
@@ -390,7 +462,7 @@ fun StudentDashboard(
                     
                     mealsResponse!!.reason?.let {
                         if (it.isNotEmpty()) {
-                            Divider(modifier = Modifier.padding(vertical = 12.dp))
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                             Text(
                                 "Причина: $it", 
                                 style = MaterialTheme.typography.bodySmall,
@@ -403,8 +475,8 @@ fun StudentDashboard(
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Мои талоны", Icons.Default.ConfirmationNumber, onCouponsClick, Modifier.weight(1f))
-            DashboardButton("Меню", Icons.Default.RestaurantMenu, onMenuClick, Modifier.weight(1f))
+            DashboardButton("Мои талоны", Icons.Rounded.ConfirmationNumber, onCouponsClick, Modifier.weight(1f))
+            DashboardButton("Меню", Icons.Rounded.RestaurantMenu, onMenuClick, Modifier.weight(1f))
         }
     }
 }
@@ -420,13 +492,19 @@ fun MealRightItem(label: String, isAllowed: Boolean) {
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
         Surface(
-            color = if (isAllowed) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-            shape = RoundedCornerShape(8.dp)
+            color = if (isAllowed)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.errorContainer,
+            shape = TagShape
         ) {
             Text(
                 if (isAllowed) "Разрешено" else "Нет",
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                color = if (isAllowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                color = if (isAllowed)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onErrorContainer,
                 style = MaterialTheme.typography.labelLarge
             )
         }
@@ -436,11 +514,11 @@ fun MealRightItem(label: String, isAllowed: Boolean) {
 @Composable
 fun ChefDashboard(onScannerClick: () -> Unit, onMenuManageClick: () -> Unit, onStatsClick: () -> Unit) {
     DashboardLayout(title = "Кабинет Повара") {
-        DashboardButton("Сканер QR", Icons.Default.QrCodeScanner, onScannerClick)
+        DashboardButton("Сканер QR", Icons.Rounded.QrCodeScanner, onScannerClick)
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Меню", Icons.Default.Edit, onMenuManageClick, Modifier.weight(1f))
-            DashboardButton("История", Icons.Default.History, onStatsClick, Modifier.weight(1f))
+            DashboardButton("Меню", Icons.Rounded.Edit, onMenuManageClick, Modifier.weight(1f))
+            DashboardButton("История", Icons.Rounded.History, onStatsClick, Modifier.weight(1f))
         }
     }
 }
@@ -453,38 +531,170 @@ fun ChefStatsScreen(chefRepository: ChefRepository) {
     val successScanned = history.count { it.status == "success" }
     val errorScanned = history.count { it.status == "error" }
 
-    Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
-        Text("Статистика повара", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatCard("Всего", totalScanned.toString(), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-            StatCard("Успех", successScanned.toString(), Color(0xFF238636), Modifier.weight(1f))
-            StatCard("Ошибки", errorScanned.toString(), MaterialTheme.colorScheme.error, Modifier.weight(1f))
+    var expandedCard by remember { mutableStateOf<String?>(null) }
+
+    LazyColumn(
+        modifier = Modifier.padding(16.dp).fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Big stat cards
+        item {
+            BigStatCard(
+                title = "СЕГОДНЯ ОТСКАНИРОВАНО",
+                value = totalScanned.toString(),
+                suffix = "Раз",
+                isExpanded = expandedCard == "today",
+                onToggle = { expandedCard = if (expandedCard == "today") null else "today" },
+                expandedContent = {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "ОТСКАНИРОВАНО",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        DetailStatRow("Успешно:", successScanned.toString())
+                        DetailStatRow("Неудачно:", errorScanned.toString())
+                    }
+                }
+            )
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("История сканирований", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(history) { item ->
-                HistoryItem(item)
+
+        item {
+            BigStatCard(
+                title = "ВСЕГО УСПЕШНЫХ",
+                value = successScanned.toString(),
+                suffix = "Раз",
+                isExpanded = false,
+                onToggle = {}
+            )
+        }
+
+        item {
+            BigStatCard(
+                title = "ОШИБОК",
+                value = errorScanned.toString(),
+                suffix = "Раз",
+                isExpanded = false,
+                onToggle = {}
+            )
+        }
+
+        // History section
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("История сканирований", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+
+        items(history) { item ->
+            HistoryItem(item)
+        }
+    }
+}
+
+@Composable
+private fun BigStatCard(
+    title: String,
+    value: String,
+    suffix: String,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    expandedContent: @Composable (() -> Unit)? = null
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .springEntrance(),
+        shape = HeroCardShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    value,
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    suffix,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (expandedContent != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "подробнее",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onToggle() }
+                )
+            }
+        }
+
+        if (isExpanded && expandedContent != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                expandedContent()
             }
         }
     }
 }
 
 @Composable
-fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+private fun DetailStatRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
+        shape = ShardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = color)
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = color)
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     }
 }
@@ -492,27 +702,41 @@ fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Mo
 @Composable
 fun HistoryItem(item: ScannedQrEntity) {
     val sdf = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
+    val isSuccess = item.status == "success"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
-            containerColor = if (item.status == "success") 
-                MaterialTheme.colorScheme.surfaceVariant 
-            else 
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-        )
+            containerColor = if (isSuccess)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            else
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(item.studentName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                Text(item.mealType, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    item.studentName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Статус: ${if (isSuccess) "принят" else "отклонен"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isSuccess)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onErrorContainer
+                )
             }
             Text(
-                sdf.format(Date(item.timestamp)), 
+                sdf.format(Date(item.timestamp)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -524,8 +748,8 @@ fun HistoryItem(item: ScannedQrEntity) {
 fun RegistratorDashboard(onUsersClick: () -> Unit, onGroupsClick: () -> Unit) {
     DashboardLayout(title = "Кабинет Регистратора") {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Пользователи", Icons.Default.Group, onUsersClick, Modifier.weight(1f))
-            DashboardButton("Группы", Icons.Default.Class, onGroupsClick, Modifier.weight(1f))
+            DashboardButton("Пользователи", Icons.Rounded.Group, onUsersClick, Modifier.weight(1f))
+            DashboardButton("Группы", Icons.Rounded.Class, onGroupsClick, Modifier.weight(1f))
         }
     }
 }
@@ -563,15 +787,19 @@ fun CuratorDashboard(
                 }
 
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    ),
+                    shape = TagShape,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp)
+                        .springEntrance(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.NotificationsActive, contentDescription = null)
+                            Icon(Icons.Rounded.NotificationsActive, contentDescription = null)
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
@@ -584,8 +812,8 @@ fun CuratorDashboard(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Табель", Icons.Default.ListAlt, onRosterClick, Modifier.weight(1f))
-            DashboardButton("Статистика", Icons.Default.BarChart, onStatsClick, Modifier.weight(1f))
+            DashboardButton("Табель", Icons.Rounded.ListAlt, onRosterClick, Modifier.weight(1f))
+            DashboardButton("Статистика", Icons.Rounded.BarChart, onStatsClick, Modifier.weight(1f))
         }
     }
 }
@@ -593,7 +821,7 @@ fun CuratorDashboard(
 @Composable
 fun AdminDashboard(onReportsClick: () -> Unit) {
     DashboardLayout(title = "Кабинет Администратора") {
-        DashboardButton("Отчеты", Icons.Default.Assessment, onReportsClick)
+        DashboardButton("Отчеты", Icons.Rounded.Assessment, onReportsClick)
     }
 }
 
@@ -604,7 +832,8 @@ fun DashboardLayout(title: String, content: @Composable ColumnScope.() -> Unit) 
             text = title, 
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.springEntrance()
         )
         Spacer(modifier = Modifier.height(24.dp))
         content()
@@ -621,13 +850,16 @@ fun DashboardButton(
     Button(
         onClick = onClick,
         modifier = modifier
-            .height(100.dp),
-        shape = RoundedCornerShape(24.dp),
+            .height(110.dp),
+        shape = ShardShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp
+        )
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))

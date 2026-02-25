@@ -17,6 +17,37 @@ data class MenuItemEntity(
 @Entity(tableName = "offline_transactions")
 data class OfflineTransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val qrContent: String,
-    val timestamp: Long
+    val studentId: String,
+    val studentName: String,
+    val groupName: String?,
+    val mealType: String,
+    val timestamp: Long,
+    val nonce: String,
+    val signature: String,
+    val transactionHash: String,
+    val scannedAt: Long = System.currentTimeMillis(),
+    val synced: Boolean = false
+)
+
+@Entity(tableName = "student_keys")
+data class StudentKeyEntity(
+    @PrimaryKey val userId: String,
+    val publicKey: String,
+    val name: String,
+    val surname: String,
+    val fatherName: String?,
+    val groupName: String?,
+    val downloadedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "permission_cache")
+data class PermissionCacheEntity(
+    @PrimaryKey val id: String,  // {studentId}_{date}
+    val studentId: String,
+    val date: String,
+    val breakfast: Boolean,
+    val lunch: Boolean,
+    val dinner: Boolean,
+    val snack: Boolean,
+    val special: Boolean
 )

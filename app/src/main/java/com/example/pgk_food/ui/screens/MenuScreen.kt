@@ -4,21 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.rounded.CalendarToday
+import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.pgk_food.data.remote.dto.MenuItemDto
 import com.example.pgk_food.data.repository.StudentRepository
+import com.example.pgk_food.ui.theme.ShardShape
+import com.example.pgk_food.ui.theme.springEntrance
 
 @Composable
 fun MenuScreen(token: String, studentRepository: StudentRepository) {
@@ -47,7 +46,8 @@ fun MenuScreen(token: String, studentRepository: StudentRepository) {
                 Text(
                     text = "Меню на сегодня",
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.springEntrance()
                 )
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -71,9 +71,11 @@ fun MenuListItem(item: MenuItemDto) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = ShardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -84,14 +86,14 @@ fun MenuListItem(item: MenuItemDto) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.Restaurant, 
+                    Icons.Rounded.Restaurant, 
                     contentDescription = null, 
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
             
@@ -117,7 +119,7 @@ fun MenuListItem(item: MenuItemDto) {
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Default.CalendarToday, 
+                        Icons.Rounded.CalendarToday, 
                         contentDescription = null, 
                         modifier = Modifier.size(12.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -143,10 +145,10 @@ fun EmptyMenuState() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            Icons.Default.Restaurant, 
+            Icons.Rounded.Restaurant, 
             contentDescription = null, 
             modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.surfaceVariant
+            tint = MaterialTheme.colorScheme.outlineVariant
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
