@@ -1,0 +1,29 @@
+package com.example.pgk_food.shared.data.remote.dto
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class MenuItemDto(
+    val id: String,
+    val date: String,
+    val name: String,
+    val description: String? = null
+)
+
+@Serializable
+data class CreateMenuItemRequest(
+    val date: String,
+    val name: String,
+    val description: String
+)
+
+@Serializable
+data class MenuBatchRequest(
+    val items: List<MenuItemDto>
+)
+
+@Serializable
+data class StatisticsResponse(
+    val totalServed: Int,
+    val byMealType: Map<String, Int>
+)

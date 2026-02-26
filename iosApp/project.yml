@@ -1,0 +1,46 @@
+name: iosApp
+options:
+  minimumXcodeGenVersion: 2.38.0
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: iosApp
+    settings:
+      base:
+        PRODUCT_NAME: iosApp
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.pgkfood.ios
+        SWIFT_VERSION: 5.0
+        DEVELOPMENT_TEAM: ""
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.0
+        TARGETED_DEVICE_FAMILY: "1,2"
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-framework"
+          - "Shared"
+    preBuildScripts:
+      - name: Build Shared Framework
+        basedOnDependencyAnalysis: false
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :shared:embedAndSignAppleFrameworkForXcode
+    postBuildScripts:
+      - name: Fix Shared Framework Install Name
+        basedOnDependencyAnalysis: false
+        script: |
+          SHARED_BIN="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/Shared.framework/Shared"
+          if [ -f "$SHARED_BIN" ]; then
+            /usr/bin/install_name_tool -id "@rpath/Shared.framework/Shared" "$SHARED_BIN" || true
+          fi
+    dependencies:
+      - framework: "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)/Shared.framework"
+        embed: true
