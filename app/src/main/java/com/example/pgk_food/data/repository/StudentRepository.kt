@@ -1,10 +1,18 @@
 package com.example.pgk_food.data.repository
 
+import com.example.pgk_food.core.network.ApiResult
+import com.example.pgk_food.core.network.safeApiCall
+import com.example.pgk_food.data.local.dao.OfflineCouponDao
+import com.example.pgk_food.data.local.entity.OfflineCouponEntity
 import com.example.pgk_food.data.remote.NetworkModule
 import com.example.pgk_food.data.remote.dto.MenuItemDto
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.ktor.http.*
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -24,38 +32,66 @@ data class TimeResponse(
     val iso8601: String
 )
 
-class StudentRepository {
+class StudentRepository(
+    private val offlineCouponDao: OfflineCouponDao? = null
+) {
 
-    suspend fun getMealsToday(token: String): Result<MealsTodayResponse> {
-        return try {
+    suspend fun getMealsToday(token: String): ApiResult<MealsTodayResponse> = withContext(Dispatchers.IO) {
+        val remoteResult = safeApiCall {
             val response: MealsTodayResponse = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/student/meals/today")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }.body()
-            Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
+
+            offlineCouponDao?.saveDailyCoupons(
+                OfflineCouponEntity(
+                    date = response.date,
+                    isBreakfastAllowed = response.isBreakfastAllowed,
+                    isLunchAllowed = response.isLunchAllowed,
+                    isDinnerAllowed = response.isDinnerAllowed,
+                    isSnackAllowed = response.isSnackAllowed,
+                    isSpecialAllowed = response.isSpecialAllowed
+                )
+            )
+
+            response
+        }
+
+        when (remoteResult) {
+            is ApiResult.Success -> remoteResult
+            is ApiResult.Failure -> {
+                val cached = offlineCouponDao?.getDailyCoupons()
+                if (cached != null) {
+                    ApiResult.Success(
+                        MealsTodayResponse(
+                            date = cached.date,
+                            isBreakfastAllowed = cached.isBreakfastAllowed,
+                            isLunchAllowed = cached.isLunchAllowed,
+                            isDinnerAllowed = cached.isDinnerAllowed,
+                            isSnackAllowed = cached.isSnackAllowed,
+                            isSpecialAllowed = cached.isSpecialAllowed,
+                            reason = "Оффлайн режим"
+                        )
+                    )
+                } else {
+                    remoteResult
+                }
+            }
         }
     }
 
-    suspend fun getMenu(token: String, date: String? = null): Result<List<MenuItemDto>> {
-        return try {
-            val response: List<MenuItemDto> = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/menu")) {
+    suspend fun getMenu(token: String, date: String? = null): ApiResult<List<MenuItemDto>> {
+        return safeApiCall {
+            NetworkModule.client.get(NetworkModule.getUrl("/api/v1/menu")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
                 if (date != null) parameter("date", date)
             }.body()
-            Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
         }
     }
 
     suspend fun getCurrentTime(): Long {
-        return try {
-            val response: TimeResponse =
-                NetworkModule.client.get(NetworkModule.getUrl("/api/v1/time/current")).body()
+        return runCatching {
+            val response: TimeResponse = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/time/current")).body()
             response.timestamp * 1000
-        } catch (e: Exception) {
-            System.currentTimeMillis()
-        }
+        }.getOrDefault(System.currentTimeMillis())
     }
 }

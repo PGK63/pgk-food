@@ -12,17 +12,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed class GroupsState {
-    object Idle : GroupsState()
-    object Loading : GroupsState()
+    data object Idle : GroupsState()
+    data object Loading : GroupsState()
     data class Success(val groups: List<GroupDto>) : GroupsState()
-    data class Error(val message: String) : GroupsState()
+    data class Error(val message: String, val code: String, val retryable: Boolean) : GroupsState()
 }
 
 sealed class UsersState {
-    object Idle : UsersState()
-    object Loading : UsersState()
+    data object Idle : UsersState()
+    data object Loading : UsersState()
     data class Success(val users: List<UserDto>) : UsersState()
-    data class Error(val message: String) : UsersState()
+    data class Error(val message: String, val code: String, val retryable: Boolean) : UsersState()
 }
 
 class RegistratorViewModel(
@@ -30,7 +30,7 @@ class RegistratorViewModel(
     private val registratorRepository: RegistratorRepository
 ) : ViewModel() {
 
-    private val token get() = authRepository.getToken() ?: ""
+    private val token get() = authRepository.getToken().orEmpty()
 
     private val _groupsState = MutableStateFlow<GroupsState>(GroupsState.Idle)
     val groupsState: StateFlow<GroupsState> = _groupsState.asStateFlow()
@@ -41,22 +41,30 @@ class RegistratorViewModel(
     fun loadGroups() {
         viewModelScope.launch {
             _groupsState.value = GroupsState.Loading
-            registratorRepository.getGroups(token).onSuccess {
-                _groupsState.value = GroupsState.Success(it)
-            }.onFailure {
-                _groupsState.value = GroupsState.Error(it.message ?: "Error")
-            }
+            registratorRepository.getGroups(token)
+                .onSuccess { _groupsState.value = GroupsState.Success(it) }
+                .onFailure {
+                    _groupsState.value = GroupsState.Error(
+                        message = it.userMessage,
+                        code = it.code,
+                        retryable = it.retryable
+                    )
+                }
         }
     }
 
     fun loadUsers(groupId: Int? = null) {
         viewModelScope.launch {
             _usersState.value = UsersState.Loading
-            registratorRepository.getUsers(token, groupId).onSuccess {
-                _usersState.value = UsersState.Success(it)
-            }.onFailure {
-                _usersState.value = UsersState.Error(it.message ?: "Error")
-            }
+            registratorRepository.getUsers(token, groupId)
+                .onSuccess { _usersState.value = UsersState.Success(it) }
+                .onFailure {
+                    _usersState.value = UsersState.Error(
+                        message = it.userMessage,
+                        code = it.code,
+                        retryable = it.retryable
+                    )
+                }
         }
     }
 }

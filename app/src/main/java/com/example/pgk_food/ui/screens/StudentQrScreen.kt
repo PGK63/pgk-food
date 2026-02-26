@@ -8,27 +8,54 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.pgk_food.data.remote.dto.QrPayload
 import com.example.pgk_food.data.local.entity.UserSessionEntity
+import com.example.pgk_food.data.remote.dto.QrPayload
 import com.example.pgk_food.data.repository.StudentRepository
 import com.example.pgk_food.ui.theme.GlassSurface
 import com.example.pgk_food.ui.theme.HeroCardShape
 import com.example.pgk_food.ui.theme.PillShape
 import com.example.pgk_food.ui.theme.springEntrance
+import com.example.pgk_food.ui.viewmodels.DownloadKeysState
+import com.example.pgk_food.ui.viewmodels.StudentViewModel
 import com.example.pgk_food.util.QrCrypto
 import com.example.pgk_food.util.QrGenerator
 import kotlinx.coroutines.delay
@@ -39,15 +66,23 @@ import java.util.UUID
 @Composable
 fun StudentQrScreen(
     session: UserSessionEntity,
-    mealType: String
+    mealType: String,
+    viewModel: StudentViewModel
 ) {
     val studentRepository = remember { StudentRepository() }
-    var timeLeft by remember { mutableIntStateOf(30) }
+    var timeLeft by remember { mutableIntStateOf(60) }
     var qrContent by remember { mutableStateOf("") }
     var serverTimeOffset by remember { mutableLongStateOf(0L) }
-    
     var refreshTrigger by remember { mutableIntStateOf(0) }
-    
+    val downloadKeysState by viewModel.downloadKeysState.collectAsState()
+
+    LaunchedEffect(downloadKeysState) {
+        if (downloadKeysState is DownloadKeysState.Success) {
+            viewModel.resetDownloadKeysState()
+            refreshTrigger++
+        }
+    }
+
     LaunchedEffect(Unit) {
         val serverTime = studentRepository.getCurrentTime()
         serverTimeOffset = serverTime - System.currentTimeMillis()
@@ -55,54 +90,54 @@ fun StudentQrScreen(
     }
 
     LaunchedEffect(refreshTrigger) {
-        if (refreshTrigger > 0) {
-            val timestampMs = System.currentTimeMillis() + serverTimeOffset
-            val timestampSec = timestampMs / 1000
-            val roundedTimestamp = (timestampSec / 30) * 30
-            val nonce = UUID.randomUUID().toString()
-            val privateKey = session.privateKey
-            if (privateKey.isNullOrBlank()) {
-                qrContent = "ERROR_KEY"
-                timeLeft = 0
-                return@LaunchedEffect
-            }
+        if (refreshTrigger <= 0) return@LaunchedEffect
 
-            val signature = QrCrypto.generateSignature(
-                userId = session.userId,
-                timestamp = roundedTimestamp,
-                mealType = mealType,
-                nonce = nonce,
-                privateKeyBase64 = privateKey
-            )
-            if (signature.isBlank()) {
-                qrContent = "ERROR_SIG"
-                timeLeft = 0
-                return@LaunchedEffect
-            }
+        val timestampMs = System.currentTimeMillis() + serverTimeOffset
+        val timestampSec = timestampMs / 1000
+        val roundedTimestamp = (timestampSec / 60) * 60
+        val nonce = UUID.randomUUID().toString()
+        val privateKey = session.privateKey
 
-            val payload = QrPayload(
+        if (privateKey.isNullOrBlank()) {
+            qrContent = "ERROR_KEY"
+            timeLeft = 0
+            return@LaunchedEffect
+        }
+
+        val signature = QrCrypto.generateSignature(
+            userId = session.userId,
+            timestamp = roundedTimestamp,
+            mealType = mealType,
+            nonce = nonce,
+            privateKeyBase64 = privateKey
+        )
+        if (signature.isBlank()) {
+            qrContent = "ERROR_SIG"
+            timeLeft = 0
+            return@LaunchedEffect
+        }
+
+        qrContent = Json.encodeToString(
+            QrPayload(
                 userId = session.userId,
                 timestamp = roundedTimestamp,
                 mealType = mealType,
                 nonce = nonce,
                 signature = signature
             )
-
-            qrContent = Json.encodeToString(payload)
-            timeLeft = 30
-        }
+        )
+        timeLeft = 60
     }
 
-    LaunchedEffect(qrContent) {
-        if (qrContent.isNotEmpty() && !qrContent.startsWith("ERROR")) {
-            while (timeLeft > 0) {
-                delay(1000)
-                timeLeft--
-            }
+    LaunchedEffect(qrContent, refreshTrigger) {
+        if (qrContent.isBlank() || qrContent.startsWith("ERROR")) return@LaunchedEffect
+        while (timeLeft > 0) {
+            delay(1000)
+            timeLeft--
         }
+        refreshTrigger++
     }
 
-    // Animated glow border
     val infiniteTransition = rememberInfiniteTransition(label = "qr-glow")
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.15f,
@@ -121,11 +156,8 @@ fun StudentQrScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // QR Card — Glassmorphism
         GlassSurface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .springEntrance(),
+            modifier = Modifier.fillMaxWidth().springEntrance(),
             shape = HeroCardShape
         ) {
             Column(
@@ -133,33 +165,21 @@ fun StudentQrScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "ПРОПУСК В СТОЛОВУЮ",
+                    text = "ТАЛОН НА ПИТАНИЕ",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.5.sp
                 )
-                
                 Spacer(modifier = Modifier.height(8.dp))
-                
-                val displayMealType = when (mealType.uppercase()) {
-                    "BREAKFAST" -> "ЗАВТРАК"
-                    "LUNCH" -> "ОБЕД"
-                    "DINNER" -> "УЖИН"
-                    "SNACK" -> "ПОЛДНИК"
-                    "SPECIAL" -> "СПЕЦ. ПИТАНИЕ"
-                    else -> mealType
-                }
-
                 Text(
-                    text = displayMealType.uppercase(),
+                    text = displayMealType(mealType),
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Black
                 )
-                
+
                 Spacer(modifier = Modifier.height(32.dp))
-                
-                // QR code box with animated glow border
+
                 Box(
                     modifier = Modifier
                         .size(260.dp)
@@ -173,41 +193,28 @@ fun StudentQrScreen(
                         .padding(20.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (qrContent.startsWith("ERROR")) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                if (qrContent == "ERROR_KEY")
-                                    "Ключ не найден.\nПопробуйте перезайти\nв приложение."
-                                else
-                                    "Ошибка подписи.\nПопробуйте обновить.",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.labelMedium,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            TextButton(onClick = { refreshTrigger++ }) {
-                                Text("Обновить")
-                            }
-                        }
-                    } else if (qrContent.isNotEmpty()) {
-                        val bitmap = remember(qrContent) {
-                            QrGenerator.generateQrCode(qrContent, 512)
-                        }
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "QR Code",
-                            modifier = Modifier.fillMaxSize()
+                    when {
+                        qrContent.startsWith("ERROR") -> QrErrorContent(
+                            qrContent = qrContent,
+                            onDownloadKeys = { viewModel.downloadKeys() },
+                            onRefresh = { refreshTrigger++ }
                         )
-                    } else {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+
+                        qrContent.isNotEmpty() -> {
+                            val bitmap = remember(qrContent) { QrGenerator.generateQrCode(qrContent, 512) }
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "QR-код",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        else -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(32.dp))
-                
-                // Timer badge
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -216,18 +223,29 @@ fun StudentQrScreen(
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(
-                        Icons.Rounded.Timer, 
-                        contentDescription = null, 
+                        Icons.Rounded.Timer,
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Обновление: $timeLeft сек",
+                        text = "Обновление через $timeLeft сек",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.Bold
                     )
+                }
+
+                if (downloadKeysState is DownloadKeysState.Loading) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Загрузка ключей...", style = MaterialTheme.typography.labelMedium)
+                }
+
+                if (downloadKeysState is DownloadKeysState.Error) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val state = downloadKeysState as DownloadKeysState.Error
+                    Text("Ошибка ключей [${state.code}]: ${state.message}", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                 }
 
                 if (timeLeft == 0) {
@@ -239,14 +257,14 @@ fun StudentQrScreen(
                     ) {
                         Icon(Icons.Rounded.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("ОБНОВИТЬ СЕЙЧАС")
+                        Text("Обновить сейчас")
                     }
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
             shape = PillShape,
@@ -257,19 +275,63 @@ fun StudentQrScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Rounded.Info, 
-                    contentDescription = null, 
+                    Icons.Rounded.Info,
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Покажите этот код повару на раздаче",
+                    text = "Покажите этот QR-код повару",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun QrErrorContent(
+    qrContent: String,
+    onDownloadKeys: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            if (qrContent == "ERROR_KEY") {
+                "Ключи отсутствуют.\nСкачайте ключи для продолжения."
+            } else {
+                "Ошибка подписи.\nПопробуйте обновить."
+            },
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (qrContent == "ERROR_KEY") {
+            TextButton(onClick = onDownloadKeys) {
+                Text("Скачать ключи")
+            }
+        } else {
+            TextButton(onClick = onRefresh) {
+                Text("Обновить")
+            }
+        }
+    }
+}
+
+private fun displayMealType(mealType: String): String {
+    return when (mealType.uppercase()) {
+        "BREAKFAST" -> "ЗАВТРАК"
+        "LUNCH" -> "ОБЕД"
+        "DINNER" -> "УЖИН"
+        "SNACK" -> "ПОЛДНИК"
+        "SPECIAL" -> "СПЕЦПИТАНИЕ"
+        else -> mealType.uppercase()
     }
 }

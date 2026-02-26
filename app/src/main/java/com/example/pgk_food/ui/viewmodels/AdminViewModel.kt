@@ -12,24 +12,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed class AdminStatsState {
-    object Idle : AdminStatsState()
-    object Loading : AdminStatsState()
+    data object Idle : AdminStatsState()
+    data object Loading : AdminStatsState()
     data class Success(val stats: DailyReportDto) : AdminStatsState()
-    data class Error(val message: String) : AdminStatsState()
+    data class Error(val message: String, val code: String, val retryable: Boolean) : AdminStatsState()
 }
 
 sealed class SuspiciousState {
-    object Idle : SuspiciousState()
-    object Loading : SuspiciousState()
+    data object Idle : SuspiciousState()
+    data object Loading : SuspiciousState()
     data class Success(val transactions: List<FraudReportDto>) : SuspiciousState()
-    data class Error(val message: String) : SuspiciousState()
+    data class Error(val message: String, val code: String, val retryable: Boolean) : SuspiciousState()
 }
 
 class AdminViewModel(
     private val authRepository: AuthRepository,
     private val adminRepository: AdminRepository
 ) : ViewModel() {
-    private val token get() = authRepository.getToken() ?: ""
+    private val token get() = authRepository.getToken().orEmpty()
 
     private val _statsState = MutableStateFlow<AdminStatsState>(AdminStatsState.Idle)
     val statsState: StateFlow<AdminStatsState> = _statsState.asStateFlow()
@@ -40,22 +40,30 @@ class AdminViewModel(
     fun loadStats(date: String) {
         viewModelScope.launch {
             _statsState.value = AdminStatsState.Loading
-            adminRepository.getDailyReport(token, date).onSuccess {
-                _statsState.value = AdminStatsState.Success(it)
-            }.onFailure {
-                _statsState.value = AdminStatsState.Error(it.message ?: "Error")
-            }
+            adminRepository.getDailyReport(token, date)
+                .onSuccess { _statsState.value = AdminStatsState.Success(it) }
+                .onFailure {
+                    _statsState.value = AdminStatsState.Error(
+                        message = it.userMessage,
+                        code = it.code,
+                        retryable = it.retryable
+                    )
+                }
         }
     }
 
-    fun loadSuspiciousTransactions() {
+    fun loadSuspiciousTransactions(startDate: String, endDate: String) {
         viewModelScope.launch {
             _suspiciousState.value = SuspiciousState.Loading
-            adminRepository.getFraudReports(token, "", "").onSuccess {
-                _suspiciousState.value = SuspiciousState.Success(it)
-            }.onFailure {
-                _suspiciousState.value = SuspiciousState.Error(it.message ?: "Error")
-            }
+            adminRepository.getFraudReports(token, startDate, endDate)
+                .onSuccess { _suspiciousState.value = SuspiciousState.Success(it) }
+                .onFailure {
+                    _suspiciousState.value = SuspiciousState.Error(
+                        message = it.userMessage,
+                        code = it.code,
+                        retryable = it.retryable
+                    )
+                }
         }
     }
 }

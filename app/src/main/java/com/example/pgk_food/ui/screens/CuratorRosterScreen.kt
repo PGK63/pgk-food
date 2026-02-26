@@ -69,7 +69,7 @@ fun CuratorRosterScreen(token: String, curatorRepository: CuratorRepository) {
                         selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showDatePicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }
@@ -91,7 +91,7 @@ fun CuratorRosterScreen(token: String, curatorRepository: CuratorRepository) {
                         copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showCopyDatePicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = {
                 TextButton(onClick = { showCopyDatePicker = false }) { Text("Отмена") }

@@ -15,9 +15,11 @@ import com.example.pgk_food.data.local.entity.*
         OfflineTransactionEntity::class, 
         MenuItemEntity::class,
         StudentKeyEntity::class,
-        PermissionCacheEntity::class
+        PermissionCacheEntity::class,
+        OfflineCouponEntity::class
     ], 
-    version = 6
+    version = 7,
+    exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -27,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun menuDao(): MenuDao
     abstract fun studentKeyDao(): StudentKeyDao
     abstract fun permissionCacheDao(): PermissionCacheDao
+    abstract fun offlineCouponDao(): OfflineCouponDao
 
     companion object {
         @Volatile

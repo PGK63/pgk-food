@@ -44,6 +44,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import com.example.pgk_food.data.remote.dto.QrValidationResponse
 import com.example.pgk_food.data.repository.ChefRepository
+import com.example.pgk_food.ui.components.HowItWorksCard
 import com.example.pgk_food.ui.theme.HeroCardShape
 import com.example.pgk_food.ui.theme.PillShape
 import com.example.pgk_food.ui.theme.springEntrance
@@ -63,14 +64,19 @@ import androidx.compose.material.icons.rounded.CloudSync
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChefScannerScreen(token: String, viewModel: ChefViewModel) {
+fun ChefScannerScreen(
+    token: String,
+    viewModel: ChefViewModel,
+    showHints: Boolean = true,
+    onHideHints: () -> Unit = {}
+) {
     val scanState by viewModel.scanState.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
     val unsyncedCount by viewModel.unsyncedCount.collectAsState()
     
     var hasCameraPermission by remember { mutableStateOf(false) }
     var torchEnabled by remember { mutableStateOf(false) }
-    var isOfflineMode by remember { mutableStateOf(false) }
+    val isOfflineMode by viewModel.isOffline.collectAsState()
     var scanResetKey by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -146,20 +152,27 @@ fun ChefScannerScreen(token: String, viewModel: ChefViewModel) {
                         letterSpacing = 1.5.sp
                     )
                     Text(
-                        text = if (isOfflineMode) "ОФФЛАЙН (ЛОКАЛЬНО)" else "ОНЛАЙН (СЕРВЕР)",
+                        text = if (isOfflineMode) "ОФФЛАЙН (АВТО)" else "ОНЛАЙН (СЕРВЕР)",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isOfflineMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                
-                Switch(
-                    checked = isOfflineMode,
-                    onCheckedChange = { isOfflineMode = it },
-                    modifier = Modifier.scale(0.8f)
+            }
+
+                        if (showHints) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HowItWorksCard(
+                    steps = listOf(
+                        "Сканируйте QR студента и дождитесь карточки результата.",
+                        "Если есть отказ, смотрите причину в тексте ошибки и повторите проверку только после исправления.",
+                        "При нестабильной сети возможен оффлайн-режим с отложенной синхронизацией.",
+                        "Сверяйте тип питания и группу в карточке перед выдачей."
+                    ),
+                    note = "Онлайн-результат приоритетнее оффлайн-проверки.",
+                    onHideHints = onHideHints
                 )
             }
-            
             Spacer(modifier = Modifier.height(24.dp))
             
             val isScannerActive = hasCameraPermission && scanState is ScanState.Idle && syncState is SyncState.Idle
@@ -489,3 +502,4 @@ private fun processImageProxy(
         imageProxy.close()
     }
 }
+

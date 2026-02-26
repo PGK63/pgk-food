@@ -31,12 +31,7 @@ val Shapes = Shapes(
 val PillShape = RoundedCornerShape(50)
 
 /** Sharp diagonal tension — info cards, badges */
-val ShardShape = RoundedCornerShape(
-    topStart = 4.dp,
-    topEnd = 32.dp,
-    bottomEnd = 4.dp,
-    bottomStart = 32.dp
-)
+val ShardShape = RoundedCornerShape(20.dp)
 
 /** Hero card — asymmetric diagonal for branded containers */
 val HeroCardShape = RoundedCornerShape(

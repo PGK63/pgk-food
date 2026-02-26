@@ -59,7 +59,7 @@ fun CuratorStatsScreen(token: String, curatorRepository: CuratorRepository) {
                         selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showDatePicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }

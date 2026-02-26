@@ -12,6 +12,9 @@ interface UserSessionDao {
     @Query("SELECT * FROM user_session LIMIT 1")
     fun getUserSession(): Flow<UserSessionEntity?>
 
+    @Query("SELECT * FROM user_session LIMIT 1")
+    fun getUserSessionSync(): UserSessionEntity?
+
     @Query("SELECT token FROM user_session LIMIT 1")
     fun getTokenSync(): String?
 

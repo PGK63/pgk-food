@@ -1,41 +1,50 @@
-package com.example.pgk_food.ui.screens
+﻿package com.example.pgk_food.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.data.local.AppDatabase
 import com.example.pgk_food.data.local.entity.ScannedQrEntity
 import com.example.pgk_food.data.local.entity.UserSessionEntity
-import com.example.pgk_food.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.data.repository.*
 import com.example.pgk_food.model.UserRole
 import com.example.pgk_food.ui.theme.HeroCardShape
 import com.example.pgk_food.ui.theme.PillShape
 import com.example.pgk_food.ui.theme.ShardShape
-import com.example.pgk_food.ui.theme.TagShape
 import com.example.pgk_food.ui.theme.springEntrance
 import com.example.pgk_food.ui.theme.springScale
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.example.pgk_food.ui.theme.TagShape
 import com.example.pgk_food.ui.viewmodels.CuratorViewModel
 import com.example.pgk_food.ui.viewmodels.ChefViewModel
+import com.example.pgk_food.ui.viewmodels.StudentViewModel
+import com.example.pgk_food.util.NetworkMonitor
+import com.example.pgk_food.util.UiSettingsManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -45,10 +54,14 @@ import java.util.*
 fun MainScreen(
     authRepository: AuthRepository,
     database: AppDatabase,
+    networkMonitor: NetworkMonitor,
+    uiSettingsManager: UiSettingsManager,
+    onOpenSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
     val userSession by authRepository.getUserSession().collectAsState(initial = null)
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
     
     var currentSubScreen by remember { mutableStateOf("dashboard") }
     var selectedMealType by remember { mutableStateOf("") }
@@ -78,13 +91,19 @@ fun MainScreen(
                         titleText,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp
+                        letterSpacing = 2.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     ) 
                 },
                 navigationIcon = {
                     if (currentSubScreen != "dashboard") {
                         IconButton(onClick = { currentSubScreen = "dashboard" }) {
                             Icon(Icons.Rounded.ArrowBack, contentDescription = "Назад")
+                        }
+                    } else {
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(Icons.Rounded.Settings, contentDescription = "Настройки")
                         }
                     }
                 },
@@ -123,6 +142,24 @@ fun MainScreen(
         ) {
             userSession?.let { session ->
                 val roles = session.roles
+                val showHintsState = remember(session.userId) {
+                    mutableStateOf(uiSettingsManager.shouldShowHints(session.userId))
+                }
+                val showHints = showHintsState.value
+                val onHideHints = {
+                    uiSettingsManager.hideHints(session.userId)
+                    showHintsState.value = false
+                }
+
+                DisposableEffect(lifecycleOwner, session.userId) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            showHintsState.value = uiSettingsManager.shouldShowHints(session.userId)
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
 
                 LaunchedEffect(roles) {
                     if (selectedRole == null || selectedRole !in roles) {
@@ -155,6 +192,10 @@ fun MainScreen(
                                 session,
                                 currentSubScreen,
                                 selectedMealType,
+                                authRepository,
+                                database,
+                                showHints,
+                                onHideHints,
                                 onNavigate = { currentSubScreen = it },
                                 onMealSelect = { selectedMealType = it }
                             )
@@ -162,11 +203,16 @@ fun MainScreen(
                                 session,
                                 currentSubScreen,
                                 database,
+                                networkMonitor,
+                                showHints,
+                                onHideHints,
                                 onNavigate = { currentSubScreen = it }
                             )
                             UserRole.REGISTRATOR -> RegistratorFlow(
                                 session,
                                 currentSubScreen,
+                                showHints,
+                                onHideHints,
                                 onNavigate = { currentSubScreen = it }
                             )
                             UserRole.CURATOR -> CuratorFlow(
@@ -187,6 +233,14 @@ fun MainScreen(
             }
         }
     }
+}
+
+private fun UserRole.titleRu(): String = when (this) {
+    UserRole.STUDENT -> "Студент"
+    UserRole.CHEF -> "Повар"
+    UserRole.REGISTRATOR -> "Регистратор"
+    UserRole.CURATOR -> "Куратор"
+    UserRole.ADMIN -> "Администратор"
 }
 
 @Composable
@@ -213,7 +267,7 @@ fun RoleSwitcher(
                 FilterChip(
                     selected = isSelected,
                     onClick = { onSelect(role) },
-                    label = { Text(role.name) },
+                    label = { Text(role.titleRu()) },
                     shape = PillShape
                 )
             }
@@ -259,7 +313,7 @@ fun UserInfoHeader(session: UserSessionEntity) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = session.roles.joinToString(", ") { it.name },
+                    text = session.roles.joinToString(", ") { it.titleRu() },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -273,10 +327,21 @@ fun StudentFlow(
     session: UserSessionEntity,
     currentSubScreen: String,
     selectedMealType: String,
+    authRepository: AuthRepository,
+    database: AppDatabase,
+    showHints: Boolean,
+    onHideHints: () -> Unit,
     onNavigate: (String) -> Unit,
     onMealSelect: (String) -> Unit
 ) {
-    val studentRepository = remember { StudentRepository() }
+    val studentRepository = remember(database) { StudentRepository(database.offlineCouponDao()) }
+    val studentFactory = object : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return StudentViewModel(authRepository, studentRepository) as T
+        }
+    }
+    val studentViewModel: StudentViewModel = viewModel(factory = studentFactory)
+
     when (currentSubScreen) {
         "dashboard" -> StudentDashboard(
             token = session.token,
@@ -287,6 +352,9 @@ fun StudentFlow(
         "coupons" -> MyCouponsScreen(
             token = session.token,
             studentRepository = studentRepository,
+            viewModel = studentViewModel,
+            showHints = showHints,
+            onHideHints = onHideHints,
             onCouponClick = { 
                 onMealSelect(it)
                 onNavigate("qr") 
@@ -294,9 +362,10 @@ fun StudentFlow(
         )
         "qr" -> StudentQrScreen(
             session = session,
-            mealType = selectedMealType
+            mealType = selectedMealType,
+            viewModel = studentViewModel
         )
-        "menu" -> MenuScreen(token = session.token, studentRepository = studentRepository)
+        "menu" -> MenuScreenV2(token = session.token, studentRepository = studentRepository)
         else -> StudentDashboard(
             token = session.token,
             studentRepository = studentRepository,
@@ -311,6 +380,9 @@ fun ChefFlow(
     session: UserSessionEntity, 
     currentSubScreen: String, 
     database: AppDatabase,
+    networkMonitor: NetworkMonitor,
+    showHints: Boolean,
+    onHideHints: () -> Unit,
     onNavigate: (String) -> Unit
 ) {
     val chefRepository = remember { 
@@ -324,7 +396,7 @@ fun ChefFlow(
     val chefFactory = object : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val authRepo = AuthRepository(database.userSessionDao())
-            return ChefViewModel(authRepo, chefRepository) as T
+            return ChefViewModel(authRepo, chefRepository, networkMonitor) as T
         }
     }
     val chefViewModel: ChefViewModel = viewModel<ChefViewModel>(factory = chefFactory)
@@ -335,8 +407,16 @@ fun ChefFlow(
             onMenuManageClick = { onNavigate("menu_manage") },
             onStatsClick = { onNavigate("stats") }
         )
-        "scanner" -> ChefScannerScreen(token = session.token, viewModel = chefViewModel)
-        "menu_manage" -> ChefMenuManageScreen(token = session.token, chefRepository = chefRepository)
+        "scanner" -> ChefScannerScreen(
+            token = session.token,
+            viewModel = chefViewModel,
+            showHints = showHints,
+            onHideHints = onHideHints
+        )
+        "menu_manage" -> ChefMenuManageScreenV2(
+            token = session.token,
+            chefRepository = chefRepository
+        )
         "stats" -> ChefStatsScreen(chefRepository = chefRepository)
         else -> ChefDashboard(
             onScannerClick = { onNavigate("scanner") }, 
@@ -347,15 +427,29 @@ fun ChefFlow(
 }
 
 @Composable
-fun RegistratorFlow(session: UserSessionEntity, currentSubScreen: String, onNavigate: (String) -> Unit) {
+fun RegistratorFlow(
+    session: UserSessionEntity,
+    currentSubScreen: String,
+    showHints: Boolean,
+    onHideHints: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
     val registratorRepository = remember { RegistratorRepository() }
     when (currentSubScreen) {
         "dashboard" -> RegistratorDashboard(
             onUsersClick = { onNavigate("users") },
             onGroupsClick = { onNavigate("groups") }
         )
-        "users" -> RegistratorUsersScreen(token = session.token, registratorRepository = registratorRepository)
-        "groups" -> RegistratorGroupsScreen(token = session.token, registratorRepository = registratorRepository)
+        "users" -> RegistratorUsersScreen(
+            token = session.token,
+            registratorRepository = registratorRepository
+        )
+        "groups" -> RegistratorGroupsScreen(
+            token = session.token,
+            registratorRepository = registratorRepository,
+            showHints = showHints,
+            onHideHints = onHideHints
+        )
         else -> RegistratorDashboard(onUsersClick = { onNavigate("users") }, onGroupsClick = { onNavigate("groups") })
     }
 }
@@ -374,16 +468,12 @@ fun CuratorFlow(session: UserSessionEntity, currentSubScreen: String, authReposi
     
     when (currentSubScreen) {
         "dashboard" -> CuratorDashboard(
-            token = session.token,
-            curatorRepository = curatorRepository,
             onRosterClick = { onNavigate("roster") },
             onStatsClick = { onNavigate("stats") }
         )
         "roster" -> CuratorRosterScreen(token = session.token, curatorRepository = curatorRepository)
         "stats" -> CuratorStatsScreen(token = session.token, curatorRepository = curatorRepository)
         else -> CuratorDashboard(
-            token = session.token,
-            curatorRepository = curatorRepository,
             onRosterClick = { onNavigate("roster") },
             onStatsClick = { onNavigate("stats") }
         )
@@ -474,10 +564,14 @@ fun StudentDashboard(
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Мои талоны", Icons.Rounded.ConfirmationNumber, onCouponsClick, Modifier.weight(1f))
-            DashboardButton("Меню", Icons.Rounded.RestaurantMenu, onMenuClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRow(
+            firstText = "Мои талоны",
+            firstIcon = Icons.Rounded.ConfirmationNumber,
+            onFirstClick = onCouponsClick,
+            secondText = "Меню",
+            secondIcon = Icons.Rounded.RestaurantMenu,
+            onSecondClick = onMenuClick
+        )
     }
 }
 
@@ -512,14 +606,49 @@ fun MealRightItem(label: String, isAllowed: Boolean) {
 }
 
 @Composable
+private fun AdaptiveTwoButtonRow(
+    firstText: String,
+    firstIcon: ImageVector,
+    onFirstClick: () -> Unit,
+    secondText: String,
+    secondIcon: ImageVector,
+    onSecondClick: () -> Unit
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 520.dp
+        if (isCompact) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DashboardButton(firstText, firstIcon, onFirstClick, Modifier.fillMaxWidth())
+                DashboardButton(secondText, secondIcon, onSecondClick, Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DashboardButton(firstText, firstIcon, onFirstClick, Modifier.weight(1f))
+                DashboardButton(secondText, secondIcon, onSecondClick, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
 fun ChefDashboard(onScannerClick: () -> Unit, onMenuManageClick: () -> Unit, onStatsClick: () -> Unit) {
     DashboardLayout(title = "Кабинет Повара") {
         DashboardButton("Сканер QR", Icons.Rounded.QrCodeScanner, onScannerClick)
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Меню", Icons.Rounded.Edit, onMenuManageClick, Modifier.weight(1f))
-            DashboardButton("История", Icons.Rounded.History, onStatsClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRow(
+            firstText = "Меню",
+            firstIcon = Icons.Rounded.Edit,
+            onFirstClick = onMenuManageClick,
+            secondText = "История",
+            secondIcon = Icons.Rounded.History,
+            onSecondClick = onStatsClick
+        )
     }
 }
 
@@ -747,74 +876,31 @@ fun HistoryItem(item: ScannedQrEntity) {
 @Composable
 fun RegistratorDashboard(onUsersClick: () -> Unit, onGroupsClick: () -> Unit) {
     DashboardLayout(title = "Кабинет Регистратора") {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Пользователи", Icons.Rounded.Group, onUsersClick, Modifier.weight(1f))
-            DashboardButton("Группы", Icons.Rounded.Class, onGroupsClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRow(
+            firstText = "Пользователи",
+            firstIcon = Icons.Rounded.Group,
+            onFirstClick = onUsersClick,
+            secondText = "Группы",
+            secondIcon = Icons.Rounded.Class,
+            onSecondClick = onGroupsClick
+        )
     }
 }
 
 @Composable
 fun CuratorDashboard(
-    token: String,
-    curatorRepository: CuratorRepository,
     onRosterClick: () -> Unit,
     onStatsClick: () -> Unit
 ) {
-    var notification by remember { mutableStateOf<RosterDeadlineNotificationDto?>(null) }
-
-    LaunchedEffect(token) {
-        curatorRepository.getRosterDeadlineNotification(token).onSuccess { notification = it }
-    }
-
     DashboardLayout(title = "Кабинет Куратора") {
-        notification?.let { data ->
-            val showCard = data.needsReminder || !data.reason.isNullOrBlank()
-            if (showCard) {
-                val title = if (data.needsReminder) {
-                    "Нужно заполнить табель"
-                } else {
-                    "Уведомление"
-                }
-                val body = when {
-                    data.needsReminder && data.deadlineDate != null && data.daysUntilDeadline != null ->
-                        "Заполните табель на следующую неделю. Дедлайн: ${data.deadlineDate} (через ${data.daysUntilDeadline} дн.)"
-                    data.needsReminder && data.deadlineDate != null ->
-                        "Заполните табель на следующую неделю. Дедлайн: ${data.deadlineDate}"
-                    data.needsReminder -> "Заполните табель на следующую неделю."
-                    !data.reason.isNullOrBlank() -> data.reason
-                    else -> ""
-                }
-
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                    ),
-                    shape = TagShape,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                        .springEntrance(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.NotificationsActive, contentDescription = null)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        }
-                        if (body.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = body, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButton("Табель", Icons.Rounded.ListAlt, onRosterClick, Modifier.weight(1f))
-            DashboardButton("Статистика", Icons.Rounded.BarChart, onStatsClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRow(
+            firstText = "Табель",
+            firstIcon = Icons.Rounded.ListAlt,
+            onFirstClick = onRosterClick,
+            secondText = "Статистика",
+            secondIcon = Icons.Rounded.BarChart,
+            onSecondClick = onStatsClick
+        )
     }
 }
 
@@ -827,7 +913,12 @@ fun AdminDashboard(onReportsClick: () -> Unit) {
 
 @Composable
 fun DashboardLayout(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
         Text(
             text = title, 
             style = MaterialTheme.typography.headlineSmall,
@@ -850,8 +941,8 @@ fun DashboardButton(
     Button(
         onClick = onClick,
         modifier = modifier
-            .height(110.dp),
-        shape = ShardShape,
+            .heightIn(min = 92.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -864,7 +955,14 @@ fun DashboardButton(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

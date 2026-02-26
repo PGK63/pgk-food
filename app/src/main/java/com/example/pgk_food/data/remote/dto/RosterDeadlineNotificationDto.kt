@@ -9,3 +9,4 @@ data class RosterDeadlineNotificationDto(
     val deadlineDate: String? = null,
     val reason: String? = null
 )
+

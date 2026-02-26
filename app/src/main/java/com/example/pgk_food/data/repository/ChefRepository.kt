@@ -1,25 +1,38 @@
 package com.example.pgk_food.data.repository
 
+import com.example.pgk_food.core.network.ApiError
+import com.example.pgk_food.core.network.ApiResult
+import com.example.pgk_food.core.network.safeApiCall
+import com.example.pgk_food.data.local.dao.PermissionCacheDao
 import com.example.pgk_food.data.local.dao.ScannedQrDao
+import com.example.pgk_food.data.local.dao.StudentKeyDao
+import com.example.pgk_food.data.local.dao.TransactionDao
+import com.example.pgk_food.data.local.entity.OfflineTransactionEntity
+import com.example.pgk_food.data.local.entity.PermissionCacheEntity
 import com.example.pgk_food.data.local.entity.ScannedQrEntity
+import com.example.pgk_food.data.local.entity.StudentKeyEntity
 import com.example.pgk_food.data.remote.NetworkModule
+import com.example.pgk_food.data.remote.dto.CreateMenuItemRequest
+import com.example.pgk_food.data.remote.dto.MenuItemDto
 import com.example.pgk_food.data.remote.dto.QrPayload
 import com.example.pgk_food.data.remote.dto.QrValidationRequest
 import com.example.pgk_food.data.remote.dto.QrValidationResponse
-import com.example.pgk_food.data.remote.dto.CreateMenuItemRequest
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.ktor.http.*
-import kotlinx.coroutines.flow.Flow
-import com.example.pgk_food.data.local.dao.TransactionDao
-import com.example.pgk_food.data.local.entity.OfflineTransactionEntity
-
-import com.example.pgk_food.data.local.dao.StudentKeyDao
-import com.example.pgk_food.data.local.dao.PermissionCacheDao
-import com.example.pgk_food.data.local.entity.StudentKeyEntity
-import com.example.pgk_food.data.local.entity.PermissionCacheEntity
-import com.example.pgk_food.data.remote.dto.*
+import com.example.pgk_food.data.remote.dto.StudentKeyDto
+import com.example.pgk_food.data.remote.dto.StudentPermissionDto
+import com.example.pgk_food.data.remote.dto.SyncResponse
+import com.example.pgk_food.data.remote.dto.TransactionSyncItem
 import com.example.pgk_food.util.QrCrypto
+import io.ktor.client.call.body
+import io.ktor.client.request.delete
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
+import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -31,12 +44,12 @@ class ChefRepository(
     private val permissionCacheDao: PermissionCacheDao? = null
 ) {
 
-    suspend fun downloadStudentKeys(token: String): Result<Unit> {
-        return try {
+    suspend fun downloadStudentKeys(token: String): ApiResult<Unit> {
+        return safeApiCall {
             val keys: List<StudentKeyDto> = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/chef/keys")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }.body()
-            
+
             val entities = keys.map {
                 StudentKeyEntity(
                     userId = it.userId,
@@ -49,18 +62,17 @@ class ChefRepository(
             }
             studentKeyDao?.clearAll()
             studentKeyDao?.saveKeys(entities)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            Unit
         }
     }
 
-    suspend fun downloadPermissions(token: String): Result<Unit> {
-        return try {
-            val perms: List<StudentPermissionDto> = NetworkModule.client.get(NetworkModule.getUrl("/api/v1/chef/permissions/today")) {
-                header(HttpHeaders.Authorization, "Bearer $token")
-            }.body()
-            
+    suspend fun downloadPermissions(token: String): ApiResult<Unit> {
+        return safeApiCall {
+            val perms: List<StudentPermissionDto> =
+                NetworkModule.client.get(NetworkModule.getUrl("/api/v1/chef/permissions/today")) {
+                    header(HttpHeaders.Authorization, "Bearer $token")
+                }.body()
+
             val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             val entities = perms.map {
                 PermissionCacheEntity(
@@ -76,21 +88,25 @@ class ChefRepository(
             }
             permissionCacheDao?.clearAll()
             permissionCacheDao?.savePermissions(entities)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            Unit
         }
     }
 
-    suspend fun validateQr(token: String, qrContent: String, isOffline: Boolean = false): Result<QrValidationResponse> {
-        return try {
-            val payload = parseQrPayload(qrContent)
-                ?: return Result.failure(IllegalArgumentException("Неверный формат QR-кода"))
+    suspend fun validateQr(token: String, qrContent: String, isOffline: Boolean = false): ApiResult<QrValidationResponse> {
+        val payload = parseQrPayload(qrContent)
+            ?: return ApiResult.Failure(
+                ApiError(
+                    code = "INVALID_QR_FORMAT",
+                    userMessage = "Неверный формат QR-кода",
+                    retryable = true
+                )
+            )
 
-            if (isOffline) {
-                return validateQrLocal(payload, qrContent)
-            }
+        if (isOffline) {
+            return validateQrLocal(payload, qrContent)
+        }
 
+        val remoteResult = safeApiCall {
             val response: QrValidationResponse = NetworkModule.client.post(NetworkModule.getUrl("/api/v1/qr/validate")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
                 contentType(ContentType.Application.Json)
@@ -104,8 +120,7 @@ class ChefRepository(
                     )
                 )
             }.body()
-            
-            // Save to history if successful
+
             scannedQrDao?.insert(
                 ScannedQrEntity(
                     qrContent = qrContent,
@@ -116,34 +131,62 @@ class ChefRepository(
                 )
             )
 
-            Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
+            response
         }
+
+        return remoteResult
     }
 
-    private suspend fun validateQrLocal(payload: QrPayload, qrContent: String): Result<QrValidationResponse> {
-        // 1. Найти ключ
+    private suspend fun validateQrLocal(payload: QrPayload, qrContent: String): ApiResult<QrValidationResponse> {
         val key = studentKeyDao?.getKey(payload.userId)
-            ?: return Result.success(QrValidationResponse(false, null, null, payload.mealType, "Студент не найден в локальной базе", "USER_NOT_FOUND"))
+            ?: return ApiResult.Success(
+                QrValidationResponse(
+                    isValid = false,
+                    studentName = null,
+                    groupName = null,
+                    mealType = payload.mealType,
+                    errorMessage = "Студент не найден в локальном хранилище",
+                    errorCode = "USER_NOT_FOUND"
+                )
+            )
 
-        // 2. Верифицировать подпись
         val isSigValid = QrCrypto.verifySignature(
-            payload.userId, payload.timestamp, payload.mealType, payload.nonce, payload.signature, key.publicKey
+            payload.userId,
+            payload.timestamp,
+            payload.mealType,
+            payload.nonce,
+            payload.signature,
+            key.publicKey
         )
         if (!isSigValid) {
-            return Result.success(QrValidationResponse(false, "${key.surname} ${key.name}", key.groupName, payload.mealType, "Неверная цифровая подпись", "INVALID_SIGNATURE"))
+            return ApiResult.Success(
+                QrValidationResponse(
+                    isValid = false,
+                    studentName = "${key.surname} ${key.name}",
+                    groupName = key.groupName,
+                    mealType = payload.mealType,
+                    errorMessage = "Неверная цифровая подпись",
+                    errorCode = "INVALID_SIGNATURE"
+                )
+            )
         }
 
-        // 3. Проверить время (±2 минуты)
         if (!QrCrypto.isTimestampValid(payload.timestamp)) {
-            return Result.success(QrValidationResponse(false, "${key.surname} ${key.name}", key.groupName, payload.mealType, "QR-код просрочен", "EXPIRED"))
+            return ApiResult.Success(
+                QrValidationResponse(
+                    isValid = false,
+                    studentName = "${key.surname} ${key.name}",
+                    groupName = key.groupName,
+                    mealType = payload.mealType,
+                    errorMessage = "QR-код просрочен",
+                    errorCode = "EXPIRED_QR"
+                )
+            )
         }
 
-        // 4. Проверить разрешение
         val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         val perm = permissionCacheDao?.getPermission(payload.userId, dateStr)
-        val isAllowed = when(payload.mealType.uppercase()) {
+        val isAllowed = when (payload.mealType.uppercase()) {
             "BREAKFAST" -> perm?.breakfast ?: false
             "LUNCH" -> perm?.lunch ?: false
             "DINNER" -> perm?.dinner ?: false
@@ -153,18 +196,39 @@ class ChefRepository(
         }
 
         if (!isAllowed) {
-            return Result.success(QrValidationResponse(false, "${key.surname} ${key.name}", key.groupName, payload.mealType, "Нет разрешения на этот прием пищи", "NO_PERMISSION"))
+            return ApiResult.Success(
+                QrValidationResponse(
+                    isValid = false,
+                    studentName = "${key.surname} ${key.name}",
+                    groupName = key.groupName,
+                    mealType = payload.mealType,
+                    errorMessage = "Нет разрешения на этот тип питания",
+                    errorCode = "NO_PERMISSION"
+                )
+            )
         }
 
-        // 5. Проверить double-spending (локально)
         val dayStart = (System.currentTimeMillis() / 86400000) * 86400000
         val duplicates = transactionDao?.findByStudentAndMealToday(payload.userId, payload.mealType, dayStart)
         if (!duplicates.isNullOrEmpty()) {
-            return Result.success(QrValidationResponse(false, "${key.surname} ${key.name}", key.groupName, payload.mealType, "Уже отмечен сегодня", "ALREADY_EATEN"))
+            return ApiResult.Success(
+                QrValidationResponse(
+                    isValid = false,
+                    studentName = "${key.surname} ${key.name}",
+                    groupName = key.groupName,
+                    mealType = payload.mealType,
+                    errorMessage = "Питание уже отмечено сегодня",
+                    errorCode = "ALREADY_EATEN"
+                )
+            )
         }
 
-        // 6. Успех! Сохраняем транзакцию
-        val txHash = QrCrypto.generateTransactionHash(payload.userId, payload.timestamp, payload.mealType, payload.nonce)
+        val txHash = QrCrypto.generateTransactionHash(
+            payload.userId,
+            payload.timestamp,
+            payload.mealType,
+            payload.nonce
+        )
         transactionDao?.saveTransaction(
             OfflineTransactionEntity(
                 studentId = payload.userId,
@@ -196,19 +260,19 @@ class ChefRepository(
             )
         )
 
-        return Result.success(response)
+        return ApiResult.Success(response)
     }
 
-    suspend fun syncOfflineTransactions(token: String): Result<SyncResponse> {
-        return try {
+    suspend fun syncOfflineTransactions(token: String): ApiResult<SyncResponse> {
+        return safeApiCall {
             val unsynced = transactionDao?.getUnsyncedTransactions() ?: emptyList()
-            if (unsynced.isEmpty()) return Result.success(SyncResponse(0, emptyList()))
+            if (unsynced.isEmpty()) {
+                return@safeApiCall SyncResponse(0, emptyList())
+            }
 
             val items = unsynced.map {
-                // Преобразуем Long timestamp (секунды) в ISO 8601 для бэкенда
                 val date = Date(it.timestamp * 1000)
                 val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(date)
-                
                 TransactionSyncItem(
                     studentId = it.studentId,
                     timestamp = isoDate,
@@ -224,14 +288,9 @@ class ChefRepository(
             }.body()
 
             if (response.successCount > 0) {
-                // Для простоты считаем все отправленные успешными, если сервер вернул успех
-                // В идеале сервер должен возвращать список ID успешных
                 transactionDao?.markSynced(unsynced.map { it.id })
             }
-
-            Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
+            response
         }
     }
 
@@ -239,13 +298,12 @@ class ChefRepository(
         return transactionDao?.getUnsyncedCount() ?: 0
     }
 
-
     private fun parseQrPayload(qrContent: String): QrPayload? {
         if (qrContent.isBlank()) return null
 
         if (qrContent.trimStart().startsWith("{")) {
             return runCatching {
-                kotlinx.serialization.json.Json {
+                Json {
                     ignoreUnknownKeys = true
                     isLenient = true
                 }.decodeFromString(QrPayload.serializer(), qrContent)
@@ -275,27 +333,36 @@ class ChefRepository(
         return scannedQrDao?.getAllScannedQrs()
     }
 
-    suspend fun addMenuItem(token: String, request: CreateMenuItemRequest): Result<Unit> {
-        return try {
+    suspend fun addMenuItem(token: String, request: CreateMenuItemRequest): ApiResult<Unit> {
+        return safeApiCall {
             NetworkModule.client.post(NetworkModule.getUrl("/api/v1/menu")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            Unit
         }
     }
 
-    suspend fun deleteMenuItem(token: String, id: String): Result<Unit> {
-        return try {
+    suspend fun deleteMenuItem(token: String, id: String): ApiResult<Unit> {
+        return safeApiCall {
             NetworkModule.client.delete(NetworkModule.getUrl("/api/v1/menu/$id")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            Unit
+        }
+    }
+
+    suspend fun addMenuItemsBatch(
+        token: String,
+        items: List<CreateMenuItemRequest>
+    ): ApiResult<List<MenuItemDto>> {
+        return safeApiCall {
+            NetworkModule.client.post(NetworkModule.getUrl("/api/v1/menu/batch")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(items)
+            }.body()
         }
     }
 }

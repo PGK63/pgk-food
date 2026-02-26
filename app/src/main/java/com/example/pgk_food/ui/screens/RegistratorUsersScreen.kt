@@ -39,6 +39,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     val clipboardManager = LocalClipboardManager.current
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var createDialogInitialGroupId by remember { mutableStateOf<Int?>(null) }
     var credentialsDialog by remember { mutableStateOf<UserCredentials?>(null) }
 
     // Search & filter state
@@ -93,7 +94,10 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showCreateDialog = true },
+                onClick = {
+                    createDialogInitialGroupId = null
+                    showCreateDialog = true
+                },
                 shape = MaterialTheme.shapes.large,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -216,12 +220,16 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
-                                Text(
-                                    text = "+",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                IconButton(onClick = {
+                                    createDialogInitialGroupId = groupUsers.firstOrNull()?.groupId
+                                    showCreateDialog = true
+                                }) {
+                                    Icon(
+                                        Icons.Rounded.Add,
+                                        contentDescription = "Добавить в группу",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
                         // User items
@@ -275,7 +283,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                         credentialsDialog = UserCredentials(it.login, it.passwordClearText)
                         selectedUser = null
                     }.onFailure {
-                        snackbarHostState.showSnackbar("Ошибка сброса пароля")
+                        scope.launch { snackbarHostState.showSnackbar("Ошибка сброса пароля") }
                     }
                 }
             },
@@ -301,16 +309,21 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     if (showCreateDialog) {
         CreateUserDialog(
             groups = groups,
-            onDismiss = { showCreateDialog = false },
+            initialGroupId = createDialogInitialGroupId,
+            onDismiss = {
+                showCreateDialog = false
+                createDialogInitialGroupId = null
+            },
             onConfirm = { request ->
                 scope.launch {
                     val result = registratorRepository.createUser(token, request)
                     result.onSuccess {
                         showCreateDialog = false
+                        createDialogInitialGroupId = null
                         loadData()
                         credentialsDialog = UserCredentials(it.login, it.passwordClearText)
                     }.onFailure {
-                        snackbarHostState.showSnackbar("Ошибка создания пользователя")
+                        scope.launch { snackbarHostState.showSnackbar("Ошибка создания пользователя") }
                     }
                 }
             }
@@ -397,11 +410,11 @@ private fun UserRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onSettingsClick, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Settings, contentDescription = "Настройки", modifier = Modifier.size(18.dp))
+            IconButton(onClick = onSettingsClick) {
+                Icon(Icons.Rounded.Settings, contentDescription = "Настройки", modifier = Modifier.size(22.dp))
             }
-            IconButton(onClick = onDeleteClick, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Delete, contentDescription = "Удалить", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            IconButton(onClick = onDeleteClick) {
+                Icon(Icons.Rounded.Delete, contentDescription = "Удалить", modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -515,6 +528,7 @@ private fun UserDetailSheet(
     onDelete: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showRolesDialog by remember(user.userId) { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -527,7 +541,6 @@ private fun UserDetailSheet(
                 .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Rounded.Close, contentDescription = "Закрыть")
@@ -540,12 +553,15 @@ private fun UserDetailSheet(
                 fontWeight = FontWeight.Bold
             )
             user.fatherName?.let {
-                Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Group
             val groupName = groups.find { it.id == user.groupId }?.name
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -567,7 +583,6 @@ private fun UserDetailSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Roles
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Роли:", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -590,7 +605,6 @@ private fun UserDetailSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Copy login & password
             Button(
                 onClick = onCopyCredentials,
                 modifier = Modifier.fillMaxWidth(),
@@ -605,7 +619,6 @@ private fun UserDetailSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Change password
             Button(
                 onClick = onResetPassword,
                 modifier = Modifier.fillMaxWidth(),
@@ -620,7 +633,20 @@ private fun UserDetailSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Delete
+            Button(
+                onClick = { showRolesDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Text("Изменить роли", fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Button(
                 onClick = onDelete,
                 modifier = Modifier.fillMaxWidth(),
@@ -634,6 +660,17 @@ private fun UserDetailSheet(
             }
         }
     }
+
+    if (showRolesDialog) {
+        RolesSelectionDialog(
+            initialRoles = user.roles,
+            onDismiss = { showRolesDialog = false },
+            onConfirm = { roles ->
+                showRolesDialog = false
+                onUpdateRoles(roles)
+            }
+        )
+    }
 }
 
 private data class UserCredentials(
@@ -644,6 +681,7 @@ private data class UserCredentials(
 @Composable
 fun CreateUserDialog(
     groups: List<GroupDto>,
+    initialGroupId: Int? = null,
     onDismiss: () -> Unit,
     onConfirm: (CreateUserRequest) -> Unit
 ) {
@@ -651,7 +689,7 @@ fun CreateUserDialog(
     var surname by remember { mutableStateOf("") }
     var fatherName by remember { mutableStateOf("") }
     var selectedRoles by remember { mutableStateOf(setOf(UserRole.STUDENT)) }
-    var selectedGroupId by remember { mutableStateOf<Int?>(null) }
+    var selectedGroupId by remember(initialGroupId) { mutableStateOf(initialGroupId) }
     var expandedGroup by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -755,3 +793,4 @@ fun RolesSelectionDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
+

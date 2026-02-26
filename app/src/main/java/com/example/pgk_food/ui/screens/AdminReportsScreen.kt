@@ -97,9 +97,11 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
                 }
                 if (failed) snackbarHostState.showSnackbar("Ошибка загрузки отчетов") else reports = result
             } else {
+                var fraudFailed = false
                 adminRepository.getFraudReports(token, parsedStart.toString(), parsedEnd.toString())
                     .onSuccess { fraudReports = it }
-                    .onFailure { snackbarHostState.showSnackbar("Ошибка загрузки подозрений") }
+                    .onFailure { fraudFailed = true }
+                if (fraudFailed) snackbarHostState.showSnackbar("Ошибка загрузки подозрительных отчётов")
             }
             isLoading = false
         }
@@ -122,7 +124,7 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
                         startDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showStartPicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = {
                 TextButton(onClick = { showStartPicker = false }) { Text("Отмена") }
@@ -144,7 +146,7 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
                         endDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showEndPicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = {
                 TextButton(onClick = { showEndPicker = false }) { Text("Отмена") }
@@ -349,15 +351,20 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
                     item { Text("Подозрительных транзакций нет", modifier = Modifier.padding(32.dp)) }
                 } else {
                     items(fraudReports) { report ->
-                        FraudReportItem(report, onResolve = {
-                            scope.launch {
-                                adminRepository.resolveFraud(token, report.id)
-                                    .onSuccess { 
-                                        snackbarHostState.showSnackbar("Решено")
+                        FraudReportItem(
+                            report = report,
+                            onResolve = {
+                                scope.launch {
+                                    var resolved = false
+                                    adminRepository.resolveFraud(token, report.id)
+                                        .onSuccess { resolved = true }
+                                    if (resolved) {
+                                        snackbarHostState.showSnackbar("Помечено как решено")
                                         loadReports(startDate, endDate)
                                     }
+                                }
                             }
-                        })
+                        )
                     }
                 }
             }

@@ -21,3 +21,9 @@ data class AuthResponse(
     val publicKey: String?,
     val privateKey: String?
 )
+
+@Serializable
+data class AuthKeysDto(
+    val publicKey: String,
+    val privateKey: String
+)

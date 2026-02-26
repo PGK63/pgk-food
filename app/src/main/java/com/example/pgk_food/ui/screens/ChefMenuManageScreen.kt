@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.example.pgk_food.data.remote.dto.*
 import com.example.pgk_food.data.repository.ChefRepository
 import com.example.pgk_food.data.repository.StudentRepository
+import com.example.pgk_food.ui.components.HowItWorksCard
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -31,7 +32,12 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
+fun ChefMenuManageScreen(
+    token: String,
+    chefRepository: ChefRepository,
+    showHints: Boolean = true,
+    onHideHints: () -> Unit = {}
+) {
     val studentRepository = remember { StudentRepository() }
     var menuItems by remember { mutableStateOf<List<MenuItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -81,7 +87,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                         selectedDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showDatePicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Отмена") } }
         ) { DatePicker(state = state) }
@@ -99,7 +105,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                         newDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showNewDatePicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = { TextButton(onClick = { showNewDatePicker = false }) { Text("Отмена") } }
         ) { DatePicker(state = state) }
@@ -117,7 +123,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                         copyDate = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
                     }
                     showCopyDatePicker = false
-                }) { Text("OK") }
+                }) { Text("ОК") }
             },
             dismissButton = { TextButton(onClick = { showCopyDatePicker = false }) { Text("Отмена") } }
         ) { DatePicker(state = state) }
@@ -136,7 +142,23 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                     letterSpacing = 1.5.sp
                 )
                 
-                Spacer(modifier = Modifier.height(24.dp))
+                if (showHints) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HowItWorksCard(
+                        steps = listOf(
+                            "Указывайте тип питания для каждого блюда: завтрак, обед, ужин и т.д.",
+                            "Перед CSV-импортом проверьте столбцы date, name, description, mealType.",
+                            "Если date пустая, берется выбранная дата на экране.",
+                            "После загрузки перепроверьте меню по типам питания."
+                        ),
+                        onHideHints = onHideHints
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
 
                 Card(
                     shape = MaterialTheme.shapes.extraLarge,
@@ -356,6 +378,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
             }
         )
     }
+
 }
 
 @Composable
@@ -392,4 +415,5 @@ fun MenuItemCard(item: MenuItemDto, onDelete: () -> Unit) {
         }
     }
 }
+
 
