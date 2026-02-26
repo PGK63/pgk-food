@@ -1,17 +1,33 @@
 package com.example.pgk_food.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pgk_food.data.remote.dto.GroupDto
 import com.example.pgk_food.data.remote.dto.StudentMealStatus
 import com.example.pgk_food.data.repository.CuratorRepository
 import com.example.pgk_food.ui.theme.PillShape
@@ -25,7 +41,11 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CuratorStatsScreen(token: String, curatorRepository: CuratorRepository) {
+fun CuratorStatsScreen(
+    token: String,
+    curatorId: String,
+    curatorRepository: CuratorRepository
+) {
     val today = remember { LocalDate.now() }
     val formatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
 
@@ -34,18 +54,49 @@ fun CuratorStatsScreen(token: String, curatorRepository: CuratorRepository) {
     var isLoading by remember { mutableStateOf(true) }
     var stats by remember { mutableStateOf<List<StudentMealStatus>>(emptyList()) }
 
+    var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
+    var groupsLoaded by remember { mutableStateOf(false) }
+    var selectedGroupId by remember { mutableStateOf<Int?>(null) }
+    var isGroupMenuExpanded by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
+
+    fun loadGroups() {
+        scope.launch {
+            val result = curatorRepository.getCuratorGroups(token, curatorId)
+            groups = result.getOrDefault(emptyList())
+            if (selectedGroupId == null || groups.none { it.id == selectedGroupId }) {
+                selectedGroupId = groups.firstOrNull()?.id
+            }
+            groupsLoaded = true
+        }
+    }
 
     fun loadStats() {
         scope.launch {
+            if (groupsLoaded && groups.isNotEmpty() && selectedGroupId == null) {
+                stats = emptyList()
+                isLoading = false
+                return@launch
+            }
             isLoading = true
-            val result = curatorRepository.getMyGroupStatistics(token, selectedDate.toString())
+            val result = curatorRepository.getMyGroupStatistics(
+                token = token,
+                date = selectedDate.toString(),
+                groupId = selectedGroupId
+            )
             stats = result.getOrDefault(emptyList())
             isLoading = false
         }
     }
 
-    LaunchedEffect(selectedDate) { loadStats() }
+    LaunchedEffect(Unit) { loadGroups() }
+
+    LaunchedEffect(selectedDate, selectedGroupId, groupsLoaded) {
+        if (groupsLoaded) {
+            loadStats()
+        }
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -83,13 +134,48 @@ fun CuratorStatsScreen(token: String, curatorRepository: CuratorRepository) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Date chip — pill shape
+        if (groups.size > 1) {
+            ExposedDropdownMenuBox(
+                expanded = isGroupMenuExpanded,
+                onExpandedChange = { isGroupMenuExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = groups.find { it.id == selectedGroupId }?.name.orEmpty(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Группа") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = isGroupMenuExpanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = isGroupMenuExpanded,
+                    onDismissRequest = { isGroupMenuExpanded = false }
+                ) {
+                    groups.forEach { group ->
+                        DropdownMenuItem(
+                            text = { Text(group.name) },
+                            onClick = {
+                                selectedGroupId = group.id
+                                isGroupMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = PillShape,
             modifier = Modifier.clickable { showDatePicker = true }
         ) {
-            Row(
+            androidx.compose.foundation.layout.Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -109,7 +195,11 @@ fun CuratorStatsScreen(token: String, curatorRepository: CuratorRepository) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (isLoading) {
+        if (groupsLoaded && groups.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text("Вы не привязаны ни к одной группе", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else if (isLoading) {
             Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -158,15 +248,17 @@ private fun MealStatusCard(student: StudentMealStatus) {
 
 @Composable
 private fun MealStatusBadge(label: String, hadMeal: Boolean) {
-    val containerColor = if (hadMeal)
+    val containerColor = if (hadMeal) {
         MaterialTheme.colorScheme.primaryContainer
-    else
+    } else {
         MaterialTheme.colorScheme.errorContainer
+    }
 
-    val contentColor = if (hadMeal)
+    val contentColor = if (hadMeal) {
         MaterialTheme.colorScheme.onPrimaryContainer
-    else
+    } else {
         MaterialTheme.colorScheme.onErrorContainer
+    }
 
     Surface(
         color = containerColor,

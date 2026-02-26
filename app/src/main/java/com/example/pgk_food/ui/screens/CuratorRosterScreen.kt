@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pgk_food.data.remote.dto.GroupDto
 import com.example.pgk_food.data.remote.dto.RosterDayDto
 import com.example.pgk_food.data.remote.dto.SaveRosterRequest
 import com.example.pgk_food.data.remote.dto.StudentRosterDto
@@ -27,7 +28,11 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CuratorRosterScreen(token: String, curatorRepository: CuratorRepository) {
+fun CuratorRosterScreen(
+    token: String,
+    curatorId: String,
+    curatorRepository: CuratorRepository
+) {
     val today = remember { LocalDate.now() }
     val formatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
 
@@ -42,20 +47,49 @@ fun CuratorRosterScreen(token: String, curatorRepository: CuratorRepository) {
     var isLoading by remember { mutableStateOf(true) }
     var entries by remember { mutableStateOf<List<StudentRosterDto>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
+    var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
+    var groupsLoaded by remember { mutableStateOf(false) }
+    var selectedGroupId by remember { mutableStateOf<Int?>(null) }
+    var isGroupMenuExpanded by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    fun loadGroups() {
+        scope.launch {
+            val result = curatorRepository.getCuratorGroups(token, curatorId)
+            groups = result.getOrDefault(emptyList())
+            if (selectedGroupId == null || groups.none { it.id == selectedGroupId }) {
+                selectedGroupId = groups.firstOrNull()?.id
+            }
+            groupsLoaded = true
+        }
+    }
+
     fun loadRoster() {
         scope.launch {
+            if (groupsLoaded && groups.isNotEmpty() && selectedGroupId == null) {
+                entries = emptyList()
+                isLoading = false
+                return@launch
+            }
             isLoading = true
-            val result = curatorRepository.getRoster(token, selectedDate.toString())
+            val result = curatorRepository.getRoster(
+                token = token,
+                date = selectedDate.toString(),
+                groupId = selectedGroupId
+            )
             entries = result.getOrDefault(emptyList())
             isLoading = false
         }
     }
 
-    LaunchedEffect(selectedDate) { loadRoster() }
+    LaunchedEffect(Unit) { loadGroups() }
+    LaunchedEffect(selectedDate, selectedGroupId, groupsLoaded) {
+        if (groupsLoaded) {
+            loadRoster()
+        }
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -187,6 +221,40 @@ fun CuratorRosterScreen(token: String, curatorRepository: CuratorRepository) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            if (groups.size > 1) {
+                ExposedDropdownMenuBox(
+                    expanded = isGroupMenuExpanded,
+                    onExpandedChange = { isGroupMenuExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = groups.find { it.id == selectedGroupId }?.name.orEmpty(),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Группа") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isGroupMenuExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = isGroupMenuExpanded,
+                        onDismissRequest = { isGroupMenuExpanded = false }
+                    ) {
+                        groups.forEach { group ->
+                            DropdownMenuItem(
+                                text = { Text(group.name) },
+                                onClick = {
+                                    selectedGroupId = group.id
+                                    isGroupMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             // Date chip
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -226,7 +294,11 @@ fun CuratorRosterScreen(token: String, curatorRepository: CuratorRepository) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            if (isLoading) {
+            if (groupsLoaded && groups.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Text("Вы не привязаны ни к одной группе", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }

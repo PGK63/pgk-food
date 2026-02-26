@@ -471,8 +471,16 @@ fun CuratorFlow(session: UserSessionEntity, currentSubScreen: String, authReposi
             onRosterClick = { onNavigate("roster") },
             onStatsClick = { onNavigate("stats") }
         )
-        "roster" -> CuratorRosterScreen(token = session.token, curatorRepository = curatorRepository)
-        "stats" -> CuratorStatsScreen(token = session.token, curatorRepository = curatorRepository)
+        "roster" -> CuratorRosterScreen(
+            token = session.token,
+            curatorId = session.userId,
+            curatorRepository = curatorRepository
+        )
+        "stats" -> CuratorStatsScreen(
+            token = session.token,
+            curatorId = session.userId,
+            curatorRepository = curatorRepository
+        )
         else -> CuratorDashboard(
             onRosterClick = { onNavigate("roster") },
             onStatsClick = { onNavigate("stats") }
