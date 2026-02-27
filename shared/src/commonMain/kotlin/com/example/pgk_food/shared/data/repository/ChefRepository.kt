@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.repository
 
+import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.CreateMenuItemRequest
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.remote.dto.QrPayload
@@ -43,7 +44,7 @@ data class SharedScannedQrRecord(
 )
 
 class ChefRepository {
-    suspend fun downloadStudentKeys(token: String): Result<Unit> = runCatching {
+    suspend fun downloadStudentKeys(token: String): Result<Unit> = safeResultApiCall {
         val keys: List<StudentKeyDto> = SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/chef/keys")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.body()
@@ -63,7 +64,7 @@ class ChefRepository {
         Unit
     }
 
-    suspend fun downloadPermissions(token: String): Result<Unit> = runCatching {
+    suspend fun downloadPermissions(token: String): Result<Unit> = safeResultApiCall {
         val perms: List<StudentPermissionDto> =
             SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/chef/permissions/today")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
@@ -100,12 +101,13 @@ class ChefRepository {
                 )
             )
 
-        return runCatching {
-            if (isOffline) {
+        if (isOffline) {
+            return runCatching {
                 validateQrLocal(payload = payload, qrContent = qrContent)
-            } else {
-                validateQrRemote(token = token, payload = payload, qrContent = qrContent)
             }
+        }
+        return safeResultApiCall {
+            validateQrRemote(token = token, payload = payload, qrContent = qrContent)
         }
     }
 
@@ -313,7 +315,7 @@ class ChefRepository {
             .map { items -> items.map { it.toDomain() } }
     }
 
-    suspend fun addMenuItem(token: String, request: CreateMenuItemRequest): Result<Unit> = runCatching {
+    suspend fun addMenuItem(token: String, request: CreateMenuItemRequest): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/menu")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
@@ -321,7 +323,7 @@ class ChefRepository {
         }
     }
 
-    suspend fun deleteMenuItem(token: String, id: String): Result<Unit> = runCatching {
+    suspend fun deleteMenuItem(token: String, id: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/menu/$id")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
@@ -330,7 +332,7 @@ class ChefRepository {
     suspend fun addMenuItemsBatch(
         token: String,
         items: List<CreateMenuItemRequest>,
-    ): Result<List<MenuItemDto>> = runCatching {
+    ): Result<List<MenuItemDto>> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/menu/batch")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
@@ -338,10 +340,10 @@ class ChefRepository {
         }.body()
     }
 
-    suspend fun syncOfflineTransactions(token: String): Result<SyncResponse> = runCatching {
+    suspend fun syncOfflineTransactions(token: String): Result<SyncResponse> = safeResultApiCall {
         val transactionDao = SharedDatabase.instance.transactionDao()
         val unsynced = transactionDao.getUnsyncedTransactions()
-        if (unsynced.isEmpty()) return@runCatching SyncResponse(0, emptyList())
+        if (unsynced.isEmpty()) return@safeResultApiCall SyncResponse(0, emptyList())
 
         val items = unsynced.map {
             TransactionSyncItem(

@@ -9,13 +9,13 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import platform.Foundation.NSData
-import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UINavigationControllerDelegateProtocol
+import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 
 @OptIn(ExperimentalForeignApi::class)
@@ -43,11 +43,11 @@ actual fun rememberCsvImportLauncher(
             picker.delegate = delegate
             delegate.activePicker = picker
 
-            val root = UIApplication.sharedApplication.keyWindow?.rootViewController
-            if (root == null) {
+            val presenter = resolvePresenterViewController()
+            if (presenter == null) {
                 latestCallback.value(null)
             } else {
-                root.presentViewController(picker, animated = true, completion = null)
+                presenter.presentViewController(picker, animated = true, completion = null)
             }
         }
     }
@@ -78,8 +78,22 @@ private class CsvDocumentPickerDelegate(
 @OptIn(ExperimentalForeignApi::class)
 private fun readUrlBytes(url: NSURL?): ByteArray? {
     if (url == null) return null
-    val path = url.path ?: return null
-    val data = NSFileManager.defaultManager.contentsAtPath(path) ?: return null
-    val bytes = data.bytes ?: return null
-    return bytes.reinterpret<ByteVar>().readBytes(data.length.toInt())
+    val didAccess = url.startAccessingSecurityScopedResource()
+    return try {
+        val data = NSData.dataWithContentsOfURL(url) ?: return null
+        val bytes = data.bytes ?: return null
+        bytes.reinterpret<ByteVar>().readBytes(data.length.toInt())
+    } finally {
+        if (didAccess) url.stopAccessingSecurityScopedResource()
+    }
+}
+
+private fun resolvePresenterViewController(): UIViewController? {
+    val root = UIApplication.sharedApplication.windows.firstOrNull()?.rootViewController ?: return null
+    return root.topPresented()
+}
+
+private fun UIViewController.topPresented(): UIViewController {
+    val presented = presentedViewController
+    return if (presented != null) presented.topPresented() else this
 }

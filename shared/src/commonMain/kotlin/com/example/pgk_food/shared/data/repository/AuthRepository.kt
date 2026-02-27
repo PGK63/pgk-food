@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.repository
 
+import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.AuthResponse
 import com.example.pgk_food.shared.data.remote.dto.AuthKeysDto
 import com.example.pgk_food.shared.data.remote.dto.LoginRequest
@@ -19,7 +20,7 @@ class AuthRepository {
     fun getToken(): String? = SessionStore.session.value?.token
 
     suspend fun login(request: LoginRequest): Result<AuthResponse> {
-        return try {
+        return safeResultApiCall(emitSessionEventsOn401 = false) {
             val response: AuthResponse =
                 SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/auth/login")) {
                     contentType(ContentType.Application.Json)
@@ -39,9 +40,7 @@ class AuthRepository {
                     privateKey = response.privateKey
                 )
             )
-            Result.success(response)
-        } catch (t: Throwable) {
-            Result.failure(t)
+            response
         }
     }
 
@@ -50,7 +49,7 @@ class AuthRepository {
     }
 
     suspend fun getMyKeys(token: String): Result<AuthKeysDto> {
-        return runCatching {
+        return safeResultApiCall {
             val response: AuthKeysDto = SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/auth/my-keys")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }.body()

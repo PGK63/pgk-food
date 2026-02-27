@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.repository
 
+import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.CreateGroupRequest
 import com.example.pgk_food.shared.data.remote.dto.CreateUserRequest
 import com.example.pgk_food.shared.data.remote.dto.CreateUserResponse
@@ -26,14 +27,14 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 
 class RegistratorRepository {
-    suspend fun getUsers(token: String, groupId: Int? = null): Result<List<UserDto>> = runCatching {
+    suspend fun getUsers(token: String, groupId: Int? = null): Result<List<UserDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/registrator/users")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             if (groupId != null) parameter("groupId", groupId)
         }.body()
     }
 
-    suspend fun createUser(token: String, request: CreateUserRequest): Result<CreateUserResponse> = runCatching {
+    suspend fun createUser(token: String, request: CreateUserRequest): Result<CreateUserResponse> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/registrator/users/create")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
@@ -41,20 +42,20 @@ class RegistratorRepository {
         }.body()
     }
 
-    suspend fun deleteUser(token: String, userId: String): Result<Unit> = runCatching {
+    suspend fun deleteUser(token: String, userId: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/registrator/users/$userId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    suspend fun resetPassword(token: String, userId: String): Result<ResetPasswordResponse> = runCatching {
+    suspend fun resetPassword(token: String, userId: String): Result<ResetPasswordResponse> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/registrator/users/$userId/reset-password")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("userId", userId)
         }.body()
     }
 
-    suspend fun updateRoles(token: String, userId: String, roles: List<UserRole>): Result<Unit> = runCatching {
+    suspend fun updateRoles(token: String, userId: String, roles: List<UserRole>): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.patch(SharedNetworkModule.getUrl("/api/v1/registrator/users/$userId/roles")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("userId", userId)
@@ -63,7 +64,7 @@ class RegistratorRepository {
         }
     }
 
-    suspend fun importStudents(token: String, fileBytes: ByteArray, fileName: String): Result<Unit> = runCatching {
+    suspend fun importStudents(token: String, fileBytes: ByteArray, fileName: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/registrator/import/students")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             setBody(MultiPartFormDataContent(
@@ -76,13 +77,13 @@ class RegistratorRepository {
         }
     }
 
-    suspend fun getGroups(token: String): Result<List<GroupDto>> = runCatching {
+    suspend fun getGroups(token: String): Result<List<GroupDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/groups")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.body()
     }
 
-    suspend fun createGroup(token: String, name: String): Result<Unit> = runCatching {
+    suspend fun createGroup(token: String, name: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/groups")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
@@ -90,37 +91,37 @@ class RegistratorRepository {
         }
     }
 
-    suspend fun deleteGroup(token: String, groupId: Int): Result<Unit> = runCatching {
+    suspend fun deleteGroup(token: String, groupId: Int): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/groups/$groupId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    suspend fun assignCurator(token: String, groupId: Int, curatorId: String): Result<Unit> = runCatching {
+    suspend fun assignCurator(token: String, groupId: Int, curatorId: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.put(SharedNetworkModule.getUrl("/api/v1/groups/$groupId/curator/$curatorId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    suspend fun removeCurator(token: String, groupId: Int): Result<Unit> = runCatching {
+    suspend fun removeCurator(token: String, groupId: Int): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/groups/$groupId/curator")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    suspend fun addStudentToGroup(token: String, groupId: Int, studentId: String): Result<Unit> = runCatching {
+    suspend fun addStudentToGroup(token: String, groupId: Int, studentId: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/groups/$groupId/students/$studentId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    suspend fun removeStudentFromGroup(token: String, studentId: String): Result<Unit> = runCatching {
+    suspend fun removeStudentFromGroup(token: String, studentId: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/groups/students/$studentId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    suspend fun removeStudentFromAnyGroup(token: String, studentId: String): Result<Unit> = runCatching {
+    suspend fun removeStudentFromAnyGroup(token: String, studentId: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/groups/students/$studentId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }

@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.repository
 
+import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.remote.dto.SaveRosterRequest
@@ -17,7 +18,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 
 class CuratorRepository {
-    suspend fun getCuratorGroups(token: String, curatorId: String): Result<List<GroupDto>> = runCatching {
+    suspend fun getCuratorGroups(token: String, curatorId: String): Result<List<GroupDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/groups")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.body<List<GroupDto>>()
@@ -25,7 +26,7 @@ class CuratorRepository {
             .sortedBy { it.id }
     }
 
-    suspend fun getRoster(token: String, date: String, groupId: Int? = null): Result<List<StudentRosterDto>> = runCatching {
+    suspend fun getRoster(token: String, date: String, groupId: Int? = null): Result<List<StudentRosterDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/roster")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("date", date)
@@ -33,7 +34,7 @@ class CuratorRepository {
         }.body()
     }
 
-    suspend fun updateRoster(token: String, request: SaveRosterRequest): Result<Unit> = runCatching {
+    suspend fun updateRoster(token: String, request: SaveRosterRequest): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/roster")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
@@ -41,7 +42,7 @@ class CuratorRepository {
         }
     }
 
-    suspend fun getMyGroupStatistics(token: String, date: String, groupId: Int? = null): Result<List<StudentMealStatus>> = runCatching {
+    suspend fun getMyGroupStatistics(token: String, date: String, groupId: Int? = null): Result<List<StudentMealStatus>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/statistics/my-group")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("date", date)
@@ -49,7 +50,7 @@ class CuratorRepository {
         }.body()
     }
 
-    suspend fun getRosterDeadlineNotification(token: String): Result<RosterDeadlineNotificationDto> = runCatching {
+    suspend fun getRosterDeadlineNotification(token: String): Result<RosterDeadlineNotificationDto> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/notifications/roster-deadline")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.body()

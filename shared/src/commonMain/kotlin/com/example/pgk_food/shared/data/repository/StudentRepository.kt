@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.repository
 
+import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.local.SharedDatabase
 import com.example.pgk_food.shared.data.local.entity.OfflineCouponEntity
@@ -32,7 +33,7 @@ data class TimeResponse(
 
 class StudentRepository {
     suspend fun getMealsToday(token: String): Result<MealsTodayResponse> = withContext(Dispatchers.Default) {
-        val remoteResult = runCatching {
+        val remoteResult = safeResultApiCall {
             val response: MealsTodayResponse =
                 SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/student/meals/today")) {
                     header(HttpHeaders.Authorization, "Bearer $token")
@@ -68,7 +69,7 @@ class StudentRepository {
         }
     }
 
-    suspend fun getMenu(token: String, date: String? = null): Result<List<MenuItemDto>> = runCatching {
+    suspend fun getMenu(token: String, date: String? = null): Result<List<MenuItemDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/menu")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             if (date != null) url.parameters.append("date", date)

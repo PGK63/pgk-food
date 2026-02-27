@@ -14,6 +14,10 @@ private val errorJson = Json {
     isLenient = true
 }
 
+class ApiCallException(
+    val apiError: ApiError,
+) : Exception("${apiError.code}: ${apiError.userMessage}")
+
 suspend inline fun <reified T> safeApiCall(
     emitSessionEventsOn401: Boolean = true,
     crossinline block: suspend () -> T,
@@ -51,6 +55,16 @@ suspend inline fun <reified T> safeApiCall(
                 retryable = false,
             )
         )
+    }
+}
+
+suspend inline fun <reified T> safeResultApiCall(
+    emitSessionEventsOn401: Boolean = true,
+    crossinline block: suspend () -> T,
+): Result<T> {
+    return when (val result = safeApiCall(emitSessionEventsOn401 = emitSessionEventsOn401, block = block)) {
+        is ApiResult.Success -> Result.success(result.data)
+        is ApiResult.Failure -> Result.failure(ApiCallException(result.error))
     }
 }
 
