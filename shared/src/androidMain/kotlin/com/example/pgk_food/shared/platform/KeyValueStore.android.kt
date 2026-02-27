@@ -21,6 +21,13 @@ private fun prefs(name: String): SharedPreferences {
 actual object PlatformKeyValueStore {
     actual fun contains(store: String, key: String): Boolean = prefs(store).contains(key)
 
+    actual fun getString(store: String, key: String, default: String): String =
+        prefs(store).getString(key, default) ?: default
+
+    actual fun putString(store: String, key: String, value: String) {
+        prefs(store).edit().putString(key, value).apply()
+    }
+
     actual fun getBoolean(store: String, key: String, default: Boolean): Boolean =
         prefs(store).getBoolean(key, default)
 

@@ -51,7 +51,11 @@ class ChefViewModel(
         viewModelScope.launch {
             networkMonitor.isConnected.collectLatest { isConnected ->
                 _isOffline.value = !isConnected
-                if (isConnected && _unsyncedCount.value > 0) {
+                if (
+                    isConnected &&
+                    _unsyncedCount.value > 0 &&
+                    _syncState.value !is SyncState.Loading
+                ) {
                     syncTransactions()
                 }
             }
@@ -64,8 +68,8 @@ class ChefViewModel(
         }
     }
 
-    fun scanQr(qrData: String, forceOffline: Boolean = false) {
-        val offlineScan = forceOffline || _isOffline.value
+    fun scanQr(qrData: String) {
+        val offlineScan = _isOffline.value
         viewModelScope.launch {
             _scanState.value = ScanState.Loading
             UxAnalytics.log(event = "action_started", role = "CHEF", screen = "SCAN_QR")

@@ -24,6 +24,11 @@ import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.repository.*
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.runtime.MainLoopSnapshot
+import com.example.pgk_food.shared.runtime.MainLoopStateStore
+import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
+import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
+import com.example.pgk_food.shared.util.NetworkMonitor
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -53,6 +58,29 @@ private fun UserRole.titleRu(): String = when (this) {
     UserRole.ADMIN -> "Администратор"
 }
 
+private fun screenAllowedForRole(role: UserRole?, screen: String): Boolean {
+    if (screen == "dashboard" || screen == "settings") return true
+    val roleScreens = when (role) {
+        UserRole.STUDENT -> setOf("coupons", "qr", "menu")
+        UserRole.CHEF -> setOf("scanner", "menu_manage", "stats")
+        UserRole.REGISTRATOR -> setOf("users", "groups")
+        UserRole.CURATOR -> setOf("roster", "stats")
+        UserRole.ADMIN -> setOf("reports")
+        null -> emptySet()
+    }
+    return screen in roleScreens
+}
+
+private fun resolveSubScreenForRole(role: UserRole?, candidate: String?): String {
+    val screen = candidate ?: "dashboard"
+    return if (screenAllowedForRole(role, screen)) screen else "dashboard"
+}
+
+private fun parseRoleOrNull(raw: String?): UserRole? {
+    if (raw.isNullOrBlank()) return null
+    return runCatching { UserRole.valueOf(raw) }.getOrNull()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenShared(
@@ -62,9 +90,64 @@ fun MainScreenShared(
     val scope = rememberCoroutineScope()
     val notificationRepository = remember { NotificationRepository() }
     val uiSettingsManager = remember { com.example.pgk_food.shared.util.UiSettingsManager() }
-    var currentSubScreen by remember { mutableStateOf("dashboard") }
-    var selectedMealType by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf<UserRole?>(null) }
+    val mainLoopStateStore = remember { MainLoopStateStore() }
+    val authRepository = remember { AuthRepository() }
+    val studentRepository = remember { StudentRepository() }
+    val chefRepository = remember { ChefRepository() }
+    val networkMonitor = remember { NetworkMonitor() }
+    val studentViewModel = remember(session.userId) { StudentViewModel(authRepository, studentRepository) }
+    val chefViewModel = remember(session.userId) { ChefViewModel(authRepository, chefRepository, networkMonitor) }
+
+    val roles = session.roles
+    var currentSubScreen by remember(session.userId) { mutableStateOf("dashboard") }
+    var selectedMealType by remember(session.userId) { mutableStateOf("") }
+    var selectedRole by remember(session.userId) { mutableStateOf<UserRole?>(null) }
+    var showHints by remember(session.userId) { mutableStateOf(uiSettingsManager.shouldShowHints(session.userId)) }
+    var isSnapshotRestored by remember(session.userId) { mutableStateOf(false) }
+
+    LaunchedEffect(session.userId) {
+        val restored = mainLoopStateStore.restore(session.userId)
+        val restoredRole = parseRoleOrNull(restored?.selectedRole)
+            ?.takeIf { it in roles }
+        val activeRole = restoredRole ?: roles.firstOrNull()
+        selectedRole = activeRole
+        currentSubScreen = resolveSubScreenForRole(activeRole, restored?.currentSubScreen)
+        selectedMealType = restored?.selectedMealType.orEmpty()
+        showHints = uiSettingsManager.shouldShowHints(session.userId)
+        isSnapshotRestored = true
+    }
+
+    LaunchedEffect(roles, selectedRole, currentSubScreen, isSnapshotRestored) {
+        if (!isSnapshotRestored) return@LaunchedEffect
+        val safeRole = (selectedRole ?: roles.firstOrNull())
+            ?.takeIf { it in roles }
+        if (safeRole != selectedRole) {
+            selectedRole = safeRole
+            return@LaunchedEffect
+        }
+        val safeSubScreen = resolveSubScreenForRole(safeRole, currentSubScreen)
+        if (safeSubScreen != currentSubScreen) {
+            currentSubScreen = safeSubScreen
+        }
+    }
+
+    LaunchedEffect(session.userId, selectedRole, currentSubScreen, selectedMealType, isSnapshotRestored) {
+        if (!isSnapshotRestored) return@LaunchedEffect
+        mainLoopStateStore.save(
+            session.userId,
+            MainLoopSnapshot(
+                selectedRole = selectedRole?.name,
+                currentSubScreen = currentSubScreen,
+                selectedMealType = selectedMealType,
+            )
+        )
+    }
+
+    LaunchedEffect(currentSubScreen, session.userId) {
+        if (currentSubScreen != "settings") {
+            showHints = uiSettingsManager.shouldShowHints(session.userId)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -111,10 +194,6 @@ fun MainScreenShared(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            val roles = session.roles
-            LaunchedEffect(roles) {
-                if (selectedRole == null || selectedRole !in roles) selectedRole = roles.firstOrNull()
-            }
             Column(modifier = Modifier.fillMaxSize()) {
                 UserInfoHeaderShared(session)
                 if (roles.size > 1) {
@@ -135,10 +214,35 @@ fun MainScreenShared(
                     )
                 } else {
                     when (selectedRole ?: roles.firstOrNull()) {
-                        UserRole.STUDENT -> StudentFlowShared(session, currentSubScreen, selectedMealType, { currentSubScreen = it }, {
-                            selectedMealType = it; currentSubScreen = "qr"
-                        })
-                        UserRole.CHEF -> ChefFlowShared(session, currentSubScreen) { currentSubScreen = it }
+                        UserRole.STUDENT -> StudentFlowShared(
+                            session = session,
+                            currentSubScreen = currentSubScreen,
+                            selectedMealType = selectedMealType,
+                            studentRepository = studentRepository,
+                            studentViewModel = studentViewModel,
+                            showHints = showHints,
+                            onHideHints = {
+                                uiSettingsManager.hideHints(session.userId)
+                                showHints = uiSettingsManager.shouldShowHints(session.userId)
+                            },
+                            onNavigate = { currentSubScreen = it },
+                            onMealSelect = {
+                                selectedMealType = it
+                                currentSubScreen = "qr"
+                            }
+                        )
+                        UserRole.CHEF -> ChefFlowShared(
+                            session = session,
+                            currentSubScreen = currentSubScreen,
+                            chefRepository = chefRepository,
+                            chefViewModel = chefViewModel,
+                            showHints = showHints,
+                            onHideHints = {
+                                uiSettingsManager.hideHints(session.userId)
+                                showHints = uiSettingsManager.shouldShowHints(session.userId)
+                            },
+                            onNavigate = { currentSubScreen = it }
+                        )
                         UserRole.REGISTRATOR -> RegistratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
                         UserRole.CURATOR -> CuratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
                         UserRole.ADMIN -> AdminFlowShared(session, currentSubScreen) { currentSubScreen = it }
@@ -187,23 +291,51 @@ fun UserInfoHeaderShared(session: UserSession) {
 }
 
 @Composable
-fun StudentFlowShared(session: UserSession, currentSubScreen: String, selectedMealType: String, onNavigate: (String) -> Unit, onMealSelect: (String) -> Unit) {
-    val studentRepository = remember { StudentRepository() }
+fun StudentFlowShared(
+    session: UserSession,
+    currentSubScreen: String,
+    selectedMealType: String,
+    studentRepository: StudentRepository,
+    studentViewModel: StudentViewModel,
+    showHints: Boolean,
+    onHideHints: () -> Unit,
+    onNavigate: (String) -> Unit,
+    onMealSelect: (String) -> Unit
+) {
     when (currentSubScreen) {
         "dashboard" -> StudentDashboardShared(session.token, studentRepository, { onNavigate("coupons") }, { onNavigate("menu") })
-        "coupons" -> MyCouponsScreen(token = session.token, studentRepository = studentRepository, onCouponClick = onMealSelect)
-        "qr" -> StudentQrScreenShared(session, selectedMealType)
+        "coupons" -> MyCouponsScreen(
+            token = session.token,
+            studentRepository = studentRepository,
+            viewModel = studentViewModel,
+            showHints = showHints,
+            onHideHints = onHideHints,
+            onCouponClick = onMealSelect
+        )
+        "qr" -> StudentQrScreenShared(session, selectedMealType, studentViewModel)
         "menu" -> MenuScreenV2(token = session.token, studentRepository = studentRepository)
         else -> StudentDashboardShared(session.token, studentRepository, { onNavigate("coupons") }, { onNavigate("menu") })
     }
 }
 
 @Composable
-fun ChefFlowShared(session: UserSession, currentSubScreen: String, onNavigate: (String) -> Unit) {
-    val chefRepository = remember { ChefRepository() }
+fun ChefFlowShared(
+    session: UserSession,
+    currentSubScreen: String,
+    chefRepository: ChefRepository,
+    chefViewModel: ChefViewModel,
+    showHints: Boolean,
+    onHideHints: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
     when (currentSubScreen) {
         "dashboard" -> ChefDashboardShared({ onNavigate("scanner") }, { onNavigate("menu_manage") }, { onNavigate("stats") })
-        "scanner" -> ChefScannerScreenShared(token = session.token, chefRepository = chefRepository)
+        "scanner" -> ChefScannerScreenShared(
+            token = session.token,
+            viewModel = chefViewModel,
+            showHints = showHints,
+            onHideHints = onHideHints
+        )
         "menu_manage" -> ChefMenuManageScreenV2(token = session.token, chefRepository = chefRepository)
         "stats" -> ChefStatsScreenShared(chefRepository)
         else -> ChefDashboardShared({ onNavigate("scanner") }, { onNavigate("menu_manage") }, { onNavigate("stats") })
@@ -226,8 +358,8 @@ fun CuratorFlowShared(session: UserSession, currentSubScreen: String, onNavigate
     val curatorRepository = remember { CuratorRepository() }
     when (currentSubScreen) {
         "dashboard" -> CuratorDashboardShared(session.token, curatorRepository, { onNavigate("roster") }, { onNavigate("stats") })
-        "roster" -> CuratorRosterScreen(token = session.token, curatorRepository = curatorRepository)
-        "stats" -> CuratorStatsScreen(token = session.token, curatorRepository = curatorRepository)
+        "roster" -> CuratorRosterScreen(token = session.token, curatorId = session.userId, curatorRepository = curatorRepository)
+        "stats" -> CuratorStatsScreen(token = session.token, curatorId = session.userId, curatorRepository = curatorRepository)
         else -> CuratorDashboardShared(session.token, curatorRepository, { onNavigate("roster") }, { onNavigate("stats") })
     }
 }

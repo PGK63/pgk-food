@@ -1,7 +1,12 @@
 package com.example.pgk_food.shared.ui.screens
 
 import androidx.compose.runtime.Composable
-import com.example.pgk_food.shared.data.repository.ChefRepository
+import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 
 @Composable
-expect fun ChefScannerScreenShared(token: String, chefRepository: ChefRepository)
+expect fun ChefScannerScreenShared(
+    token: String,
+    viewModel: ChefViewModel,
+    showHints: Boolean = true,
+    onHideHints: () -> Unit = {},
+)

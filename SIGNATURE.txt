@@ -1,0 +1,23 @@
+APK signature verification report
+
+Artifact: pgk-food-v1.0(1)-signed.apk
+Source artifact: app/release/release.apk
+Verification tool: /home/wsr/Android/Sdk/build-tools/36.0.0/apksigner
+
+Verification result: Verifies
+Signature schemes:
+- v1 (JAR): false
+- v2 (APK Signature Scheme v2): true
+- v3: false
+- v3.1: false
+- v4: false
+- SourceStamp: false
+
+Signer certificate:
+- DN: C=sdasdhakj893249127, ST=sdasdhakj893249127, L=sdasdhakj893249127, O=sdasdhakj893249127, OU=sdasdhakj893249127, CN=sdasdhakj893249127
+- SHA-256: 3cc8e154fdabe2a12cebf37b2d4ffed4078904c5721e11780fb195e85baca9d2
+- SHA-1: 56b0608d7e68f3965cced23f5de0ad9bb0b4f274
+- MD5: 47f371e7b79f0582fad535da612dc20d
+- Key algorithm: RSA
+- Key size: 2048 bits
+- Public key SHA-256: 744a2d05531c5b617a4e9ba0414c69eace8b70986b394bb02118c1754155668b

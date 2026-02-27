@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 object SessionStore {
     private val _session = MutableStateFlow<UserSession?>(null)
     val session: StateFlow<UserSession?> = _session.asStateFlow()
+    private val _isRestored = MutableStateFlow(false)
+    val isRestored: StateFlow<Boolean> = _isRestored.asStateFlow()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var restored = false
 
@@ -21,8 +23,11 @@ object SessionStore {
         if (restored) return
         restored = true
         scope.launch {
-            val entity = SharedDatabase.instance.userSessionDao().getUserSession().firstOrNull()
+            val entity = runCatching {
+                SharedDatabase.instance.userSessionDao().getUserSession().firstOrNull()
+            }.getOrNull()
             _session.value = entity?.toDomain()
+            _isRestored.value = true
         }
     }
 

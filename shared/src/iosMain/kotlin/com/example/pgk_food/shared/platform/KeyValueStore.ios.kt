@@ -11,6 +11,13 @@ actual object PlatformKeyValueStore {
     actual fun contains(store: String, key: String): Boolean =
         defaults.objectForKey(prefixed(store, key)) != null
 
+    actual fun getString(store: String, key: String, default: String): String =
+        defaults.stringForKey(prefixed(store, key)) ?: default
+
+    actual fun putString(store: String, key: String, value: String) {
+        defaults.setObject(value, forKey = prefixed(store, key))
+    }
+
     actual fun getBoolean(store: String, key: String, default: Boolean): Boolean {
         val value = defaults.objectForKey(prefixed(store, key)) as? NSNumber ?: return default
         return value.boolValue

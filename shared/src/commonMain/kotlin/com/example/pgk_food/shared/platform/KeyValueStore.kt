@@ -2,6 +2,8 @@ package com.example.pgk_food.shared.platform
 
 expect object PlatformKeyValueStore {
     fun contains(store: String, key: String): Boolean
+    fun getString(store: String, key: String, default: String): String
+    fun putString(store: String, key: String, value: String)
     fun getBoolean(store: String, key: String, default: Boolean): Boolean
     fun putBoolean(store: String, key: String, value: Boolean)
     fun getLong(store: String, key: String, default: Long): Long

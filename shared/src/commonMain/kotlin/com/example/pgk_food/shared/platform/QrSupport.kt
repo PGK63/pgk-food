@@ -13,6 +13,24 @@ expect fun generateQrSignature(
 
 expect fun generateQrNonce(): String
 
+expect fun verifyQrSignature(
+    userId: String,
+    timestamp: Long,
+    mealType: String,
+    nonce: String,
+    signatureBase64: String,
+    publicKeyBase64: String,
+): Boolean
+
+expect fun generateOfflineTransactionHash(
+    userId: String,
+    timestamp: Long,
+    mealType: String,
+    nonce: String,
+): String
+
+expect fun isQrTimestampValid(timestamp: Long, toleranceSeconds: Long = 120): Boolean
+
 @Composable
 expect fun PlatformQrCodeImage(
     content: String,

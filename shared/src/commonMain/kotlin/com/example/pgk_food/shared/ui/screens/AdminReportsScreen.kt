@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,39 +11,57 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.data.remote.dto.DailyReportDto
+import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.data.repository.AdminRepository
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.minusDays
-import com.example.pgk_food.shared.ui.util.parseRuDate
 import com.example.pgk_food.shared.ui.util.plusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,177 +70,375 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
 
     var startDate by remember { mutableStateOf(minusDays(today, 7)) }
     var endDate by remember { mutableStateOf(today) }
-    var startDateText by remember { mutableStateOf(formatRuDate(startDate)) }
-    var endDateText by remember { mutableStateOf(formatRuDate(endDate)) }
     var isLoading by remember { mutableStateOf(false) }
     var reports by remember { mutableStateOf<List<DailyReportDto>>(emptyList()) }
+    var fraudReports by remember { mutableStateOf<List<FraudReportDto>>(emptyList()) }
+    var selectedTab by remember { mutableIntStateOf(0) }
+
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val clipboardManager = LocalClipboardManager.current
 
     fun loadReports(parsedStart: LocalDate, parsedEnd: LocalDate) {
         scope.launch {
             isLoading = true
-            val result = mutableListOf<DailyReportDto>()
-            var current = parsedStart
-            var failed = false
-            while (current <= parsedEnd) {
-                val apiResult = adminRepository.getDailyReport(token, current.toString())
-                apiResult.onSuccess { result.add(it) }.onFailure {
-                    failed = true
+            if (selectedTab == 0) {
+                val result = mutableListOf<DailyReportDto>()
+                var current = parsedStart
+                var failed = false
+                while (current <= parsedEnd) {
+                    adminRepository.getDailyReport(token, current.toString())
+                        .onSuccess { result.add(it) }
+                        .onFailure { failed = true }
+                    if (failed) break
+                    current = plusDays(current, 1)
                 }
-                if (failed) break
-                current = plusDays(current, 1)
-            }
-            if (failed) {
-                snackbarHostState.showSnackbar("Ошибка загрузки отчетов")
+                if (failed) {
+                    snackbarHostState.showSnackbar("Ошибка загрузки отчетов")
+                } else {
+                    reports = result
+                }
             } else {
-                reports = result
+                var failed = false
+                adminRepository.getFraudReports(token, parsedStart.toString(), parsedEnd.toString())
+                    .onSuccess { fraudReports = it }
+                    .onFailure { failed = true }
+                if (failed) {
+                    snackbarHostState.showSnackbar("Ошибка загрузки подозрительных отчётов")
+                }
             }
             isLoading = false
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(selectedTab) {
         loadReports(startDate, endDate)
+    }
+
+    if (showStartPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = startDate
+                .atStartOfDayIn(TimeZone.currentSystemDefault())
+                .toEpochMilliseconds()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showStartPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let {
+                        startDate = Instant.fromEpochMilliseconds(it)
+                            .toLocalDateTime(TimeZone.currentSystemDefault())
+                            .date
+                    }
+                    showStartPicker = false
+                }) { Text("ОК") }
+            },
+            dismissButton = { TextButton(onClick = { showStartPicker = false }) { Text("Отмена") } },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+
+    if (showEndPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = endDate
+                .atStartOfDayIn(TimeZone.currentSystemDefault())
+                .toEpochMilliseconds()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let {
+                        endDate = Instant.fromEpochMilliseconds(it)
+                            .toLocalDateTime(TimeZone.currentSystemDefault())
+                            .date
+                    }
+                    showEndPicker = false
+                }) { Text("ОК") }
+            },
+            dismissButton = { TextButton(onClick = { showEndPicker = false }) { Text("Отмена") } },
+        ) {
+            DatePicker(state = pickerState)
+        }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(text = "Отчеты", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            item {
+                Text(
+                    text = "УПРАВЛЕНИЕ",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                )
+            }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Период", style = MaterialTheme.typography.titleMedium)
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = startDateText,
-                            onValueChange = { if (it.length <= 10) startDateText = it },
-                            label = { Text("С даты") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
+            item {
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    divider = {},
+                    indicator = {},
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("Отчеты") },
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Подозрения") },
+                    )
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            if (selectedTab == 0) "Отчёты по питанию за период" else "Поиск подозрительных транзакций",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        OutlinedTextField(
-                            value = endDateText,
-                            onValueChange = { if (it.length <= 10) endDateText = it },
-                            label = { Text("По дату") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            val parsedStart = parseRuDate(startDateText)
-                            val parsedEnd = parseRuDate(endDateText)
-                            when {
-                                parsedStart == null || parsedEnd == null -> scope.launch {
-                                    snackbarHostState.showSnackbar("Неверный формат даты. Используйте ДД.ММ.ГГГГ")
-                                }
-                                parsedEnd < parsedStart -> scope.launch {
-                                    snackbarHostState.showSnackbar("Дата окончания раньше даты начала")
-                                }
-                                else -> {
-                                    startDate = parsedStart
-                                    endDate = parsedEnd
-                                    loadReports(parsedStart, parsedEnd)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("С", modifier = Modifier.width(32.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.clickable { showStartPicker = true },
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(formatRuDate(startDate), fontWeight = FontWeight.Medium)
                                 }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Обновить")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("ПО", modifier = Modifier.width(32.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.clickable { showEndPicker = true },
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(formatRuDate(endDate), fontWeight = FontWeight.Medium)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                if (endDate < startDate) {
+                                    scope.launch { snackbarHostState.showSnackbar("Дата окончания раньше даты начала") }
+                                } else {
+                                    loadReports(startDate, endDate)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Сформировать", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("Загрузка...")
-                }
-            } else if (reports.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("Нет отчетов")
-                }
-            } else {
-                val totalBreakfast = reports.sumOf { it.breakfastCount }
-                val totalLunch = reports.sumOf { it.lunchCount }
-                val totalDinner = reports.sumOf { it.dinnerCount }
-                val totalSnack = reports.sumOf { it.snackCount }
-                val totalSpecial = reports.sumOf { it.specialCount }
-                val totalAll = reports.sumOf { it.totalCount }
-                val totalOffline = reports.sumOf { it.offlineTransactions }
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Assessment, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("Сводка за период", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "${formatRuDate(startDate)} - ${formatRuDate(endDate)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        ReportStatRow("Завтраки", totalBreakfast)
-                        ReportStatRow("Обеды", totalLunch)
-                        ReportStatRow("Ужины", totalDinner)
-                        ReportStatRow("Полдники", totalSnack)
-                        ReportStatRow("Спец. питание", totalSpecial)
-                        ReportStatRow("Всего", totalAll)
-                        ReportStatRow("Оффлайн", totalOffline)
-                    }
-                }
-
-                reports.forEach { report ->
-                    Card(
+                item {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                "Отчет за ${report.date}",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ReportStatRow("Завтраки", report.breakfastCount)
-                            ReportStatRow("Обеды", report.lunchCount)
-                            ReportStatRow("Ужины", report.dinnerCount)
-                            ReportStatRow("Полдники", report.snackCount)
-                            ReportStatRow("Спец. питание", report.specialCount)
-                            ReportStatRow("Всего", report.totalCount)
-                            ReportStatRow("Оффлайн", report.offlineTransactions)
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (selectedTab == 0) {
+                if (reports.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Нет отчетов")
                         }
                     }
+                } else {
+                    val totalBreakfast = reports.sumOf { it.breakfastCount }
+                    val totalLunch = reports.sumOf { it.lunchCount }
+                    val totalDinner = reports.sumOf { it.dinnerCount }
+                    val totalSnack = reports.sumOf { it.snackCount }
+                    val totalSpecial = reports.sumOf { it.specialCount }
+                    val totalAll = reports.sumOf { it.totalCount }
+                    val totalOffline = reports.sumOf { it.offlineTransactions }
+
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Сводка за период", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                ReportStatRow("Завтраки", totalBreakfast)
+                                ReportStatRow("Обеды", totalLunch)
+                                ReportStatRow("Ужины", totalDinner)
+                                ReportStatRow("Полдники", totalSnack)
+                                ReportStatRow("Спец. питание", totalSpecial)
+                                ReportStatRow("Всего", totalAll)
+                                ReportStatRow("Оффлайн", totalOffline)
+                            }
+                        }
+                    }
+
+                    items(reports) { report ->
+                        Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Отчет за ${report.date}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                ReportStatRow("Всего", report.totalCount)
+                                ReportStatRow("Оффлайн", report.offlineTransactions)
+                            }
+                        }
+                    }
+
+                    item {
+                        Button(
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString(buildCsvReport(reports)))
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("CSV скопирован в буфер обмена")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                Icons.Rounded.FileDownload,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                            Text("Экспорт в CSV", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else {
+                if (fraudReports.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Подозрительных транзакций нет")
+                        }
+                    }
+                } else {
+                    items(fraudReports) { report ->
+                        FraudReportItem(
+                            report = report,
+                            onResolve = {
+                                scope.launch {
+                                    var resolved = false
+                                    adminRepository.resolveFraud(token, report.id)
+                                        .onSuccess { resolved = true }
+                                        .onFailure { snackbarHostState.showSnackbar("Ошибка при решении кейса") }
+                                    if (resolved) {
+                                        snackbarHostState.showSnackbar("Помечено как решено")
+                                        loadReports(startDate, endDate)
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun buildCsvReport(reports: List<DailyReportDto>): String {
+    return buildString {
+        append("Дата,Завтраки,Обеды,Ужины,Полдники,Спец. питание,Всего,Оффлайн\n")
+        reports.forEach { report ->
+            append(
+                "${report.date},${report.breakfastCount},${report.lunchCount},${report.dinnerCount}," +
+                    "${report.snackCount},${report.specialCount},${report.totalCount},${report.offlineTransactions}\n"
+            )
+        }
+    }
+}
+
+@Composable
+private fun FraudReportItem(report: FraudReportDto, onResolve: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (report.resolved) {
+                MaterialTheme.colorScheme.surfaceVariant
+            } else {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+            },
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(report.attemptTimestamp, style = MaterialTheme.typography.bodySmall)
+                if (report.resolved) {
+                    Text(
+                        "РЕШЕНО",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(report.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Группа: ${report.groupName}", style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Причина: ${report.reason}", style = MaterialTheme.typography.bodyMedium)
+
+            if (!report.resolved) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(onClick = onResolve, modifier = Modifier.align(Alignment.End)) {
+                    Text("Решить")
                 }
             }
         }
@@ -232,10 +449,10 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
 private fun ReportStatRow(label: String, value: Long) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(value.toString(), style = MaterialTheme.typography.bodyMedium)
+        Text(value.toString(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
     Spacer(modifier = Modifier.height(6.dp))
 }

@@ -10,9 +10,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import java.security.KeyFactory
+import java.security.MessageDigest
 import java.security.Signature
 import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import java.util.UUID
+import kotlin.math.abs
 
 actual fun generateQrSignature(
     userId: String,
@@ -38,6 +41,54 @@ actual fun generateQrSignature(
 }
 
 actual fun generateQrNonce(): String = UUID.randomUUID().toString()
+
+actual fun verifyQrSignature(
+    userId: String,
+    timestamp: Long,
+    mealType: String,
+    nonce: String,
+    signatureBase64: String,
+    publicKeyBase64: String,
+): Boolean {
+    return try {
+        val data = "$userId:$timestamp:$mealType:$nonce"
+        val keyBytes = Base64.decode(publicKeyBase64, Base64.DEFAULT)
+        val keySpec = X509EncodedKeySpec(keyBytes)
+        val keyFactory = KeyFactory.getInstance("EC")
+        val publicKey = keyFactory.generatePublic(keySpec)
+
+        val signature = Signature.getInstance("SHA256withECDSA")
+        signature.initVerify(publicKey)
+        signature.update(data.toByteArray())
+
+        val signatureBytes = Base64.decode(signatureBase64, Base64.NO_WRAP)
+        signature.verify(signatureBytes)
+    } catch (t: Throwable) {
+        Log.e("QrSupport", "Failed to verify QR signature", t)
+        false
+    }
+}
+
+actual fun generateOfflineTransactionHash(
+    userId: String,
+    timestamp: Long,
+    mealType: String,
+    nonce: String,
+): String {
+    return try {
+        val data = "$userId:$timestamp:$mealType:$nonce"
+        val digest = MessageDigest.getInstance("SHA-256").digest(data.toByteArray())
+        digest.joinToString("") { "%02x".format(it) }
+    } catch (t: Throwable) {
+        Log.e("QrSupport", "Failed to generate transaction hash", t)
+        ""
+    }
+}
+
+actual fun isQrTimestampValid(timestamp: Long, toleranceSeconds: Long): Boolean {
+    val currentSeconds = System.currentTimeMillis() / 1000
+    return abs(currentSeconds - timestamp) <= toleranceSeconds
+}
 
 @Composable
 actual fun PlatformQrCodeImage(content: String, modifier: Modifier, sizePx: Int) {

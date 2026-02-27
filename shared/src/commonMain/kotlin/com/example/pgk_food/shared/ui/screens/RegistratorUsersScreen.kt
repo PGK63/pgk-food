@@ -1,20 +1,22 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+
 package com.example.pgk_food.shared.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -22,10 +24,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.data.remote.dto.*
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
+import com.example.pgk_food.shared.ui.theme.PillShape
+import com.example.pgk_food.shared.ui.theme.SectionShape
 import com.example.pgk_food.shared.model.UserRole
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepository) {
     var users by remember { mutableStateOf<List<UserDto>>(emptyList()) }
@@ -36,7 +39,17 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     val clipboardManager = LocalClipboardManager.current
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var createDialogInitialGroupId by remember { mutableStateOf<Int?>(null) }
     var credentialsDialog by remember { mutableStateOf<UserCredentials?>(null) }
+
+    // Search & filter state
+    var searchQuery by remember { mutableStateOf("") }
+    var showFilterSheet by remember { mutableStateOf(false) }
+    var filterGroupId by remember { mutableStateOf<Int?>(null) }
+    var filterRole by remember { mutableStateOf<UserRole?>(null) }
+
+    // User detail sheet
+    var selectedUser by remember { mutableStateOf<UserDto?>(null) }
 
     fun loadData() {
         scope.launch {
@@ -51,97 +64,266 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
 
     LaunchedEffect(Unit) { loadData() }
 
+    // Filtered users
+    val filteredUsers = remember(users, searchQuery, filterGroupId, filterRole) {
+        users.filter { user ->
+            val matchesQuery = searchQuery.isBlank() ||
+                user.name.contains(searchQuery, ignoreCase = true) ||
+                user.surname.contains(searchQuery, ignoreCase = true) ||
+                user.login.contains(searchQuery, ignoreCase = true)
+            val matchesGroup = filterGroupId == null || user.groupId == filterGroupId
+            val matchesRole = filterRole == null || filterRole in user.roles
+            matchesQuery && matchesGroup && matchesRole
+        }
+    }
+
+    // Group users by groupId
+    val groupedUsers = remember(filteredUsers, groups) {
+        val groupMap = groups.associateBy { it.id }
+        filteredUsers.groupBy { it.groupId }
+            .toSortedMap(compareBy { it ?: Int.MAX_VALUE })
+            .map { (groupId, usersList) ->
+                val groupName = if (groupId != null) groupMap[groupId]?.name ?: "Группа $groupId" else "Без группы"
+                groupName to usersList
+            }
+    }
+
+    val hasActiveFilters = filterGroupId != null || filterRole != null
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showCreateDialog = true },
-                shape = RoundedCornerShape(16.dp),
+                onClick = {
+                    createDialogInitialGroupId = null
+                    showCreateDialog = true
+                },
+                shape = MaterialTheme.shapes.large,
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.PersonAdd, contentDescription = "Создать пользователя")
+                Icon(Icons.Rounded.PersonAdd, contentDescription = "Создать пользователя")
             }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Search bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Начните искать") },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Rounded.Close, contentDescription = "Очистить")
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Filter chips row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "ПОЛЬЗОВАТЕЛИ",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 1.5.sp
+                FilterChip(
+                    selected = filterGroupId != null,
+                    onClick = { showFilterSheet = true },
+                    label = {
+                        Text(
+                            if (filterGroupId != null) groups.find { it.id == filterGroupId }?.name ?: "Группа"
+                            else "Группа"
+                        )
+                    },
+                    leadingIcon = {
+                        if (filterGroupId != null) {
+                            Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    },
+                    shape = MaterialTheme.shapes.small
                 )
-                IconButton(onClick = { loadData() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Обновить")
+                FilterChip(
+                    selected = filterRole != null,
+                    onClick = { showFilterSheet = true },
+                    label = { Text(filterRole?.name ?: "Роль") },
+                    leadingIcon = {
+                        if (filterRole != null) {
+                            Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    },
+                    shape = MaterialTheme.shapes.small
+                )
+                if (hasActiveFilters) {
+                    IconButton(
+                        onClick = { filterGroupId = null; filterRole = null },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Сбросить фильтры", modifier = Modifier.size(16.dp))
+                    }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+            } else if (filteredUsers.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Rounded.SearchOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    items(users) { user ->
-                        UserCard(
-                            user = user,
-                            onDelete = {
-                                scope.launch {
-                                    registratorRepository.deleteUser(token, user.userId)
-                                    loadData()
-                                    snackbarHostState.showSnackbar("Пользователь удален")
-                                }
-                            },
-                            onResetPassword = {
-                                scope.launch {
-                                    val result = registratorRepository.resetPassword(token, user.userId)
-                                    result.onSuccess {
-                                        credentialsDialog = UserCredentials(it.login, it.passwordClearText)
-                                    }.onFailure {
-                                        snackbarHostState.showSnackbar("Ошибка сброса пароля")
-                                    }
-                                }
-                            },
-                            onUpdateRoles = { roles ->
-                                scope.launch {
-                                    registratorRepository.updateRoles(token, user.userId, roles)
-                                    loadData()
-                                    snackbarHostState.showSnackbar("Роли обновлены")
+                    groupedUsers.forEach { (groupName, groupUsers) ->
+                        // Group header
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp, bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = groupName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                IconButton(onClick = {
+                                    createDialogInitialGroupId = groupUsers.firstOrNull()?.groupId
+                                    showCreateDialog = true
+                                }) {
+                                    Icon(
+                                        Icons.Rounded.Add,
+                                        contentDescription = "Добавить в группу",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
-                        )
+                        }
+                        // User items
+                        items(groupUsers, key = { it.userId }) { user ->
+                            UserRow(
+                                user = user,
+                                onClick = { selectedUser = user },
+                                onSettingsClick = { selectedUser = user },
+                                onDeleteClick = {
+                                    scope.launch {
+                                        registratorRepository.deleteUser(token, user.userId)
+                                        loadData()
+                                        snackbarHostState.showSnackbar("Пользователь удален")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
+    // Filter bottom sheet
+    if (showFilterSheet) {
+        FilterBottomSheet(
+            groups = groups,
+            selectedGroupId = filterGroupId,
+            selectedRole = filterRole,
+            onGroupSelected = { filterGroupId = it },
+            onRoleSelected = { filterRole = it },
+            onApply = { showFilterSheet = false },
+            onDismiss = { showFilterSheet = false }
+        )
+    }
+
+    // User detail bottom sheet
+    selectedUser?.let { user ->
+        UserDetailSheet(
+            user = user,
+            groups = groups,
+            onDismiss = { selectedUser = null },
+            onCopyCredentials = {
+                clipboardManager.setText(AnnotatedString("Логин: ${user.login}"))
+                scope.launch { snackbarHostState.showSnackbar("Логин скопирован") }
+            },
+            onResetPassword = {
+                scope.launch {
+                    val result = registratorRepository.resetPassword(token, user.userId)
+                    result.onSuccess {
+                        credentialsDialog = UserCredentials(it.login, it.passwordClearText)
+                        selectedUser = null
+                    }.onFailure {
+                        scope.launch { snackbarHostState.showSnackbar("Ошибка сброса пароля") }
+                    }
+                }
+            },
+            onUpdateRoles = { roles ->
+                scope.launch {
+                    registratorRepository.updateRoles(token, user.userId, roles)
+                    loadData()
+                    selectedUser = null
+                    snackbarHostState.showSnackbar("Роли обновлены")
+                }
+            },
+            onDelete = {
+                scope.launch {
+                    registratorRepository.deleteUser(token, user.userId)
+                    loadData()
+                    selectedUser = null
+                    snackbarHostState.showSnackbar("Пользователь удален")
+                }
+            }
+        )
+    }
+
     if (showCreateDialog) {
         CreateUserDialog(
             groups = groups,
-            onDismiss = { showCreateDialog = false },
+            initialGroupId = createDialogInitialGroupId,
+            onDismiss = {
+                showCreateDialog = false
+                createDialogInitialGroupId = null
+            },
             onConfirm = { request ->
                 scope.launch {
                     val result = registratorRepository.createUser(token, request)
                     result.onSuccess {
                         showCreateDialog = false
+                        createDialogInitialGroupId = null
                         loadData()
                         credentialsDialog = UserCredentials(it.login, it.passwordClearText)
                     }.onFailure {
-                        snackbarHostState.showSnackbar("Ошибка создания пользователя")
+                        scope.launch { snackbarHostState.showSnackbar("Ошибка создания пользователя") }
                     }
                 }
             }
@@ -151,7 +333,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     credentialsDialog?.let { result ->
         AlertDialog(
             onDismissRequest = { credentialsDialog = null },
-            shape = RoundedCornerShape(28.dp),
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Доступы созданы") },
             text = {
                 Column {
@@ -159,7 +341,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                     Spacer(modifier = Modifier.height(16.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
@@ -193,79 +375,288 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     }
 }
 
-private data class UserCredentials(
-    val login: String,
-    val password: String
-)
-
+// ─── User row in the grouped list ─────────────────────────────────
 @Composable
-fun UserCard(
+private fun UserRow(
     user: UserDto,
-    onDelete: () -> Unit,
-    onResetPassword: () -> Unit,
-    onUpdateRoles: (List<UserRole>) -> Unit
+    onClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-    var showRolesDialog by remember { mutableStateOf(false) }
-
     Card(
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = user.surname.take(1).uppercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${user.surname} ${user.name}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "${user.surname} ${user.name} ${user.fatherName ?: ""}".trim(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "@${user.login} • ${user.roles.joinToString { it.name }}",
+                    text = user.roles.joinToString(", ") { it.name } +
+                        (if (user.groupId != null) " • @${user.login}" else " • @${user.login}"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "Меню")
+            IconButton(onClick = onSettingsClick) {
+                Icon(Icons.Rounded.Settings, contentDescription = "Настройки", modifier = Modifier.size(22.dp))
+            }
+            IconButton(onClick = onDeleteClick) {
+                Icon(Icons.Rounded.Delete, contentDescription = "Удалить", modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+// ─── Filter Bottom Sheet ─────────────────────────────────────────
+@Composable
+private fun FilterBottomSheet(
+    groups: List<GroupDto>,
+    selectedGroupId: Int?,
+    selectedRole: UserRole?,
+    onGroupSelected: (Int?) -> Unit,
+    onRoleSelected: (UserRole?) -> Unit,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = SectionShape
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Фильтры",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = {
+                    onGroupSelected(null)
+                    onRoleSelected(null)
+                }) {
+                    Text("Отмена", color = MaterialTheme.colorScheme.primary)
                 }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Сбросить пароль") },
-                        leadingIcon = { Icon(Icons.Default.LockReset, null) },
-                        onClick = { showMenu = false; onResetPassword() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Изменить роли") },
-                        leadingIcon = { Icon(Icons.Default.Shield, null) },
-                        onClick = { showMenu = false; showRolesDialog = true }
-                    )
-                    Divider()
-                    DropdownMenuItem(
-                        text = { Text("Удалить", color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; onDelete() }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Group filter
+            Text("Группа", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = selectedGroupId == null,
+                    onClick = { onGroupSelected(null) },
+                    label = { Text("Все") },
+                    shape = MaterialTheme.shapes.small
+                )
+                groups.forEach { group ->
+                    FilterChip(
+                        selected = selectedGroupId == group.id,
+                        onClick = { onGroupSelected(if (selectedGroupId == group.id) null else group.id) },
+                        label = { Text(group.name) },
+                        shape = MaterialTheme.shapes.small
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Role filter
+            Text("Роль", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = selectedRole == null,
+                    onClick = { onRoleSelected(null) },
+                    label = { Text("Все") },
+                    shape = MaterialTheme.shapes.small
+                )
+                UserRole.entries.forEach { role ->
+                    FilterChip(
+                        selected = selectedRole == role,
+                        onClick = { onRoleSelected(if (selectedRole == role) null else role) },
+                        label = { Text(role.name) },
+                        shape = MaterialTheme.shapes.small
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onApply,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text("Применить")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+// ─── User Detail Bottom Sheet ────────────────────────────────────
+@Composable
+private fun UserDetailSheet(
+    user: UserDto,
+    groups: List<GroupDto>,
+    onDismiss: () -> Unit,
+    onCopyCredentials: () -> Unit,
+    onResetPassword: () -> Unit,
+    onUpdateRoles: (List<UserRole>) -> Unit,
+    onDelete: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showRolesDialog by remember(user.userId) { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = SectionShape
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Закрыть")
+                }
+            }
+
+            Text(
+                text = "${user.surname} ${user.name}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            user.fatherName?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            val groupName = groups.find { it.id == user.groupId }?.name
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Группа: ", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        groupName ?: "Не назначена",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Роли:", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    user.roles.forEach { role ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                role.name,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onCopyCredentials,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Text("Скопировать логин\nи пароль", fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onResetPassword,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Text("Сменить пароль", fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = { showRolesDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Text("Изменить роли", fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = onDelete,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
+            ) {
+                Text("Удалить пользователя", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -274,35 +665,43 @@ fun UserCard(
         RolesSelectionDialog(
             initialRoles = user.roles,
             onDismiss = { showRolesDialog = false },
-            onConfirm = { showRolesDialog = false; onUpdateRoles(it) }
+            onConfirm = { roles ->
+                showRolesDialog = false
+                onUpdateRoles(roles)
+            }
         )
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+private data class UserCredentials(
+    val login: String,
+    val password: String
+)
+
 @Composable
 fun CreateUserDialog(
     groups: List<GroupDto>,
+    initialGroupId: Int? = null,
     onDismiss: () -> Unit,
     onConfirm: (CreateUserRequest) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
     var fatherName by remember { mutableStateOf("") }
-    var selectedRoles by remember { mutableStateOf(setSet(UserRole.STUDENT)) }
-    var selectedGroupId by remember { mutableStateOf<Int?>(null) }
+    var selectedRoles by remember { mutableStateOf(setOf(UserRole.STUDENT)) }
+    var selectedGroupId by remember(initialGroupId) { mutableStateOf(initialGroupId) }
     var expandedGroup by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         title = { Text("Создать пользователя") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = surname, onValueChange = { surname = it }, label = { Text("Фамилия") }, shape = RoundedCornerShape(12.dp))
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Имя") }, shape = RoundedCornerShape(12.dp))
-                OutlinedTextField(value = fatherName, onValueChange = { fatherName = it }, label = { Text("Отчество") }, shape = RoundedCornerShape(12.dp))
-                
+                OutlinedTextField(value = surname, onValueChange = { surname = it }, label = { Text("Фамилия") }, shape = MaterialTheme.shapes.medium)
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Имя") }, shape = MaterialTheme.shapes.medium)
+                OutlinedTextField(value = fatherName, onValueChange = { fatherName = it }, label = { Text("Отчество") }, shape = MaterialTheme.shapes.medium)
+
                 Text("Роли", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     UserRole.entries.forEach { role ->
@@ -312,7 +711,7 @@ fun CreateUserDialog(
                                 selectedRoles = if (role in selectedRoles) selectedRoles - role else selectedRoles + role
                             },
                             label = { Text(role.name) },
-                            shape = RoundedCornerShape(8.dp)
+                            shape = MaterialTheme.shapes.small
                         )
                     }
                 }
@@ -329,7 +728,7 @@ fun CreateUserDialog(
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGroup) },
                             modifier = Modifier.menuAnchor().fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = MaterialTheme.shapes.medium
                         )
                         ExposedDropdownMenu(expanded = expandedGroup, onDismissRequest = { expandedGroup = false }) {
                             DropdownMenuItem(text = { Text("Без группы") }, onClick = { selectedGroupId = null; expandedGroup = false })
@@ -361,15 +760,18 @@ fun RolesSelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         title = { Text("Изменить роли") },
         text = {
             Column {
                 UserRole.entries.forEach { role ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            selectedRoles = if (role in selectedRoles) selectedRoles - role else selectedRoles + role
-                        }.padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedRoles = if (role in selectedRoles) selectedRoles - role else selectedRoles + role
+                            }
+                            .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
@@ -392,4 +794,3 @@ fun RolesSelectionDialog(
     )
 }
 
-fun <T> setSet(vararg elements: T): Set<T> = elements.toSet()

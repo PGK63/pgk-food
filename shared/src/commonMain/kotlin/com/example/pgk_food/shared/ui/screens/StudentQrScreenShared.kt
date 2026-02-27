@@ -24,8 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -54,50 +53,57 @@ import com.example.pgk_food.shared.platform.PlatformQrCodeImage
 import com.example.pgk_food.shared.platform.currentTimeMillis
 import com.example.pgk_food.shared.platform.generateQrNonce
 import com.example.pgk_food.shared.platform.generateQrSignature
+import com.example.pgk_food.shared.ui.theme.GlassSurface
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
-import com.example.pgk_food.shared.ui.theme.GlassSurface
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.ui.viewmodels.DownloadKeysState
+import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
 import kotlinx.coroutines.delay
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Composable
-fun StudentQrScreenShared(session: UserSession, mealType: String) {
+fun StudentQrScreenShared(
+    session: UserSession,
+    mealType: String,
+    viewModel: StudentViewModel,
+) {
     val studentRepository = remember { StudentRepository() }
-    var timeLeft by remember { mutableIntStateOf(30) }
+    var timeLeft by remember { mutableIntStateOf(60) }
     var qrContent by remember { mutableStateOf("") }
     var serverTimeOffset by remember { mutableLongStateOf(0L) }
+    var refreshTrigger by remember { mutableIntStateOf(0) }
     var qrError by remember { mutableStateOf<String?>(null) }
+    val downloadKeysState by viewModel.downloadKeysState.collectAsState()
+
+    LaunchedEffect(downloadKeysState) {
+        if (downloadKeysState is DownloadKeysState.Success) {
+            viewModel.resetDownloadKeysState()
+            refreshTrigger++
+        }
+    }
 
     LaunchedEffect(Unit) {
         val serverTime = studentRepository.getCurrentTime()
         serverTimeOffset = serverTime - currentTimeMillis()
+        refreshTrigger++
     }
 
-    LaunchedEffect(qrContent, qrError) {
-        if (qrContent.isNotEmpty() || qrError != null) {
-            timeLeft = 30
-            while (timeLeft > 0) {
-                delay(1000)
-                timeLeft--
-            }
-            qrContent = ""
-            qrError = null
-        }
-    }
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger <= 0) return@LaunchedEffect
 
-    LaunchedEffect(qrContent, mealType, session.userId, session.privateKey, serverTimeOffset) {
-        if (qrContent.isNotEmpty()) return@LaunchedEffect
         val privateKey = session.privateKey
         if (privateKey.isNullOrBlank()) {
             qrError = "ERROR_KEY"
+            qrContent = ""
+            timeLeft = 0
             return@LaunchedEffect
         }
 
         val timestampMs = currentTimeMillis() + serverTimeOffset
         val timestampSec = timestampMs / 1000
-        val roundedTimestamp = (timestampSec / 30) * 30
+        val roundedTimestamp = (timestampSec / 60) * 60
         val nonce = generateQrNonce()
 
         val signature = generateQrSignature(
@@ -107,8 +113,11 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
             nonce = nonce,
             privateKeyBase64 = privateKey,
         )
+
         if (signature.isBlank()) {
             qrError = "ERROR_SIG"
+            qrContent = ""
+            timeLeft = 0
             return@LaunchedEffect
         }
 
@@ -122,6 +131,16 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
             )
         )
         qrError = null
+        timeLeft = 60
+    }
+
+    LaunchedEffect(qrContent, refreshTrigger, qrError) {
+        if (qrContent.isBlank() || qrError != null) return@LaunchedEffect
+        while (timeLeft > 0) {
+            delay(1000)
+            timeLeft--
+        }
+        refreshTrigger++
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "qr-glow")
@@ -143,7 +162,9 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
         verticalArrangement = Arrangement.Center
     ) {
         GlassSurface(
-            modifier = Modifier.fillMaxWidth().springEntrance(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .springEntrance(),
             shape = HeroCardShape,
             fillColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
         ) {
@@ -172,11 +193,11 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
                 Box(
                     modifier = Modifier
                         .size(260.dp)
-                        .clip(MaterialTheme.shapes.large)
+                        .clip(RoundedCornerShape(24.dp))
                         .border(
                             width = 2.dp,
                             color = MaterialTheme.colorScheme.tertiary.copy(alpha = glowAlpha),
-                            shape = MaterialTheme.shapes.large
+                            shape = RoundedCornerShape(24.dp)
                         )
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         .padding(20.dp),
@@ -186,12 +207,11 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
                         qrError != null -> {
                             QrErrorContentShared(
                                 qrError = qrError!!,
-                                onRefresh = {
-                                    qrContent = ""
-                                    qrError = null
-                                }
+                                onDownloadKeys = { viewModel.downloadKeys() },
+                                onRefresh = { refreshTrigger++ },
                             )
                         }
+
                         qrContent.isNotEmpty() -> {
                             PlatformQrCodeImage(
                                 content = qrContent,
@@ -199,6 +219,7 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
                                 sizePx = 512
                             )
                         }
+
                         else -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -227,13 +248,25 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
                     )
                 }
 
+                if (downloadKeysState is DownloadKeysState.Loading) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Загрузка ключей...", style = MaterialTheme.typography.labelMedium)
+                }
+
+                if (downloadKeysState is DownloadKeysState.Error) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val state = downloadKeysState as DownloadKeysState.Error
+                    Text(
+                        text = "Ошибка ключей [${state.code}]: ${state.message}",
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
                 if (timeLeft == 0) {
                     Spacer(modifier = Modifier.height(16.dp))
                     TextButton(
-                        onClick = {
-                            qrContent = ""
-                            qrError = null
-                        },
+                        onClick = { refreshTrigger++ },
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         shape = PillShape
                     ) {
@@ -277,6 +310,7 @@ fun StudentQrScreenShared(session: UserSession, mealType: String) {
 @Composable
 private fun QrErrorContentShared(
     qrError: String,
+    onDownloadKeys: () -> Unit,
     onRefresh: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -284,7 +318,7 @@ private fun QrErrorContentShared(
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = if (qrError == "ERROR_KEY") {
-                "Ключи отсутствуют.\nПовторите вход в аккаунт."
+                "Ключи отсутствуют.\nСкачайте ключи для продолжения."
             } else {
                 "Ошибка подписи.\nПопробуйте обновить."
             },
@@ -293,8 +327,15 @@ private fun QrErrorContentShared(
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(8.dp))
-        TextButton(onClick = onRefresh) {
-            Text("Обновить")
+
+        if (qrError == "ERROR_KEY") {
+            TextButton(onClick = onDownloadKeys) {
+                Text("Скачать ключи")
+            }
+        } else {
+            TextButton(onClick = onRefresh) {
+                Text("Обновить")
+            }
         }
     }
 }
