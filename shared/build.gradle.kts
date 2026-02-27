@@ -48,7 +48,7 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(compose.preview)
-            implementation(libs.androidx.activity.compose)
+            compileOnly(libs.androidx.activity.compose)
             implementation(libs.ktor.client.android)
             implementation(libs.room.ktx)
             implementation(libs.zxing.core)

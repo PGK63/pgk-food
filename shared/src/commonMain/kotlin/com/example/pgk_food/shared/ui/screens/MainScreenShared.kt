@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -18,6 +19,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
@@ -148,6 +151,10 @@ fun MainScreenShared(
             showHints = uiSettingsManager.shouldShowHints(session.userId)
         }
     }
+    val onHideHints = {
+        uiSettingsManager.hideHints(session.userId)
+        showHints = uiSettingsManager.shouldShowHints(session.userId)
+    }
 
     Scaffold(
         topBar = {
@@ -166,23 +173,22 @@ fun MainScreenShared(
                         IconButton(onClick = { currentSubScreen = "dashboard" }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
                         }
+                    } else {
+                        IconButton(onClick = { currentSubScreen = "settings" }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Настройки")
+                        }
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { currentSubScreen = "settings" },
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
-                    ) {
-                        Icon(Icons.Default.Settings, contentDescription = "Настройки")
-                    }
-                    IconButton(
-                        onClick = { scope.launch { onLogout() } },
-                        modifier = Modifier.clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
-                    ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Выход", tint = MaterialTheme.colorScheme.error)
+                    if (currentSubScreen == "dashboard") {
+                        IconButton(
+                            onClick = { scope.launch { onLogout() } },
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
+                        ) {
+                            Icon(Icons.Default.ExitToApp, contentDescription = "Выход", tint = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             )
@@ -195,58 +201,66 @@ fun MainScreenShared(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                UserInfoHeaderShared(session)
-                if (roles.size > 1) {
-                    RoleSwitcherShared(roles, selectedRole ?: roles.first()) {
-                        selectedRole = it
-                        currentSubScreen = "dashboard"
-                        selectedMealType = ""
+                if (currentSubScreen == "dashboard") {
+                    UserInfoHeaderShared(session)
+                    if (roles.size > 1) {
+                        RoleSwitcherShared(roles, selectedRole ?: roles.first()) {
+                            selectedRole = it
+                            currentSubScreen = "dashboard"
+                            selectedMealType = ""
+                        }
                     }
                 }
-                if (currentSubScreen == "settings") {
-                    SettingsScreen(
-                        userId = session.userId,
-                        token = session.token,
-                        roles = session.roles,
-                        uiSettingsManager = uiSettingsManager,
-                        notificationRepository = notificationRepository,
-                        onBack = { currentSubScreen = "dashboard" }
-                    )
-                } else {
-                    when (selectedRole ?: roles.firstOrNull()) {
-                        UserRole.STUDENT -> StudentFlowShared(
-                            session = session,
-                            currentSubScreen = currentSubScreen,
-                            selectedMealType = selectedMealType,
-                            studentRepository = studentRepository,
-                            studentViewModel = studentViewModel,
-                            showHints = showHints,
-                            onHideHints = {
-                                uiSettingsManager.hideHints(session.userId)
-                                showHints = uiSettingsManager.shouldShowHints(session.userId)
-                            },
-                            onNavigate = { currentSubScreen = it },
-                            onMealSelect = {
-                                selectedMealType = it
-                                currentSubScreen = "qr"
-                            }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    if (currentSubScreen == "settings") {
+                        SettingsScreen(
+                            userId = session.userId,
+                            token = session.token,
+                            roles = session.roles,
+                            uiSettingsManager = uiSettingsManager,
+                            notificationRepository = notificationRepository,
+                            onBack = { currentSubScreen = "dashboard" }
                         )
-                        UserRole.CHEF -> ChefFlowShared(
-                            session = session,
-                            currentSubScreen = currentSubScreen,
-                            chefRepository = chefRepository,
-                            chefViewModel = chefViewModel,
-                            showHints = showHints,
-                            onHideHints = {
-                                uiSettingsManager.hideHints(session.userId)
-                                showHints = uiSettingsManager.shouldShowHints(session.userId)
-                            },
-                            onNavigate = { currentSubScreen = it }
-                        )
-                        UserRole.REGISTRATOR -> RegistratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
-                        UserRole.CURATOR -> CuratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
-                        UserRole.ADMIN -> AdminFlowShared(session, currentSubScreen) { currentSubScreen = it }
-                        else -> Text("Роль не определена", modifier = Modifier.padding(16.dp))
+                    } else {
+                        when (selectedRole ?: roles.firstOrNull()) {
+                            UserRole.STUDENT -> StudentFlowShared(
+                                session = session,
+                                currentSubScreen = currentSubScreen,
+                                selectedMealType = selectedMealType,
+                                studentRepository = studentRepository,
+                                studentViewModel = studentViewModel,
+                                showHints = showHints,
+                                onHideHints = onHideHints,
+                                onNavigate = { currentSubScreen = it },
+                                onMealSelect = {
+                                    selectedMealType = it
+                                    currentSubScreen = "qr"
+                                }
+                            )
+                            UserRole.CHEF -> ChefFlowShared(
+                                session = session,
+                                currentSubScreen = currentSubScreen,
+                                chefRepository = chefRepository,
+                                chefViewModel = chefViewModel,
+                                showHints = showHints,
+                                onHideHints = onHideHints,
+                                onNavigate = { currentSubScreen = it }
+                            )
+                            UserRole.REGISTRATOR -> RegistratorFlowShared(
+                                session = session,
+                                currentSubScreen = currentSubScreen,
+                                showHints = showHints,
+                                onHideHints = onHideHints,
+                                onNavigate = { currentSubScreen = it }
+                            )
+                            UserRole.CURATOR -> CuratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
+                            UserRole.ADMIN -> AdminFlowShared(session, currentSubScreen) { currentSubScreen = it }
+                            else -> Text("Роль не определена", modifier = Modifier.padding(16.dp))
+                        }
                     }
                 }
             }
@@ -343,12 +357,23 @@ fun ChefFlowShared(
 }
 
 @Composable
-fun RegistratorFlowShared(session: UserSession, currentSubScreen: String, onNavigate: (String) -> Unit) {
+fun RegistratorFlowShared(
+    session: UserSession,
+    currentSubScreen: String,
+    showHints: Boolean,
+    onHideHints: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
     val registratorRepository = remember { RegistratorRepository() }
     when (currentSubScreen) {
         "dashboard" -> RegistratorDashboardShared({ onNavigate("users") }, { onNavigate("groups") })
         "users" -> RegistratorUsersScreen(token = session.token, registratorRepository = registratorRepository)
-        "groups" -> RegistratorGroupsScreen(token = session.token, registratorRepository = registratorRepository)
+        "groups" -> RegistratorGroupsScreen(
+            token = session.token,
+            registratorRepository = registratorRepository,
+            showHints = showHints,
+            onHideHints = onHideHints
+        )
         else -> RegistratorDashboardShared({ onNavigate("users") }, { onNavigate("groups") })
     }
 }
@@ -402,10 +427,14 @@ fun StudentDashboardShared(token: String, studentRepository: StudentRepository, 
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButtonShared("Мои талоны", Icons.Default.ConfirmationNumber, onCouponsClick, Modifier.weight(1f))
-            DashboardButtonShared("Меню", Icons.Default.RestaurantMenu, onMenuClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRowShared(
+            firstText = "Мои талоны",
+            firstIcon = Icons.Default.ConfirmationNumber,
+            onFirstClick = onCouponsClick,
+            secondText = "Меню",
+            secondIcon = Icons.Default.RestaurantMenu,
+            onSecondClick = onMenuClick
+        )
     }
 }
 
@@ -419,14 +448,49 @@ fun MealRightItemShared(label: String, isAllowed: Boolean) {
     }
 }
 
+@Composable
+private fun AdaptiveTwoButtonRowShared(
+    firstText: String,
+    firstIcon: ImageVector,
+    onFirstClick: () -> Unit,
+    secondText: String,
+    secondIcon: ImageVector,
+    onSecondClick: () -> Unit
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val isCompact = maxWidth < 520.dp
+        if (isCompact) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DashboardButtonShared(firstText, firstIcon, onFirstClick, Modifier.fillMaxWidth())
+                DashboardButtonShared(secondText, secondIcon, onSecondClick, Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DashboardButtonShared(firstText, firstIcon, onFirstClick, Modifier.weight(1f))
+                DashboardButtonShared(secondText, secondIcon, onSecondClick, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
 @Composable fun ChefDashboardShared(onScannerClick: () -> Unit, onMenuManageClick: () -> Unit, onStatsClick: () -> Unit) {
     DashboardLayoutShared("Кабинет Повара") {
         DashboardButtonShared("Сканер QR", Icons.Default.QrCodeScanner, onScannerClick)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButtonShared("Меню", Icons.Default.Edit, onMenuManageClick, Modifier.weight(1f))
-            DashboardButtonShared("История", Icons.Default.History, onStatsClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRowShared(
+            firstText = "Меню",
+            firstIcon = Icons.Default.Edit,
+            onFirstClick = onMenuManageClick,
+            secondText = "История",
+            secondIcon = Icons.Default.History,
+            onSecondClick = onStatsClick
+        )
     }
 }
 
@@ -444,7 +508,12 @@ fun ChefStatsScreenShared(chefRepository: ChefRepository) {
         Spacer(Modifier.height(24.dp))
         Text("История сканирований", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(history) { HistoryItemShared(it) } }
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(history) { HistoryItemShared(it) }
+        }
     }
 }
 
@@ -473,10 +542,14 @@ fun ChefStatsScreenShared(chefRepository: ChefRepository) {
 
 @Composable fun RegistratorDashboardShared(onUsersClick: () -> Unit, onGroupsClick: () -> Unit) {
     DashboardLayoutShared("Кабинет Регистратора") {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButtonShared("Пользователи", Icons.Default.Group, onUsersClick, Modifier.weight(1f))
-            DashboardButtonShared("Группы", Icons.Default.Class, onGroupsClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRowShared(
+            firstText = "Пользователи",
+            firstIcon = Icons.Default.Group,
+            onFirstClick = onUsersClick,
+            secondText = "Группы",
+            secondIcon = Icons.Default.Class,
+            onSecondClick = onGroupsClick
+        )
     }
 }
 
@@ -508,17 +581,26 @@ fun CuratorDashboardShared(token: String, curatorRepository: CuratorRepository, 
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DashboardButtonShared("Табель", Icons.Default.ListAlt, onRosterClick, Modifier.weight(1f))
-            DashboardButtonShared("Статистика", Icons.Default.BarChart, onStatsClick, Modifier.weight(1f))
-        }
+        AdaptiveTwoButtonRowShared(
+            firstText = "Табель",
+            firstIcon = Icons.Default.ListAlt,
+            onFirstClick = onRosterClick,
+            secondText = "Статистика",
+            secondIcon = Icons.Default.BarChart,
+            onSecondClick = onStatsClick
+        )
     }
 }
 
 @Composable fun AdminDashboardShared(onReportsClick: () -> Unit) = DashboardLayoutShared("Кабинет Администратора") { DashboardButtonShared("Отчеты", Icons.Default.Assessment, onReportsClick) }
 
 @Composable fun DashboardLayoutShared(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
         Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(24.dp))
         content()
@@ -527,11 +609,27 @@ fun CuratorDashboardShared(token: String, curatorRepository: CuratorRepository, 
 
 @Composable
 fun DashboardButtonShared(text: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(onClick = onClick, modifier = modifier.height(100.dp), shape = RoundedCornerShape(24.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant), elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 92.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(8.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

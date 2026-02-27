@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.util.MenuMealTypeCodec
@@ -44,13 +46,18 @@ fun MenuScreenV2(token: String, studentRepository: StudentRepository) {
     var errorText by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
+
     fun loadMenu() {
         scope.launch {
             isLoading = true
             errorText = null
             studentRepository.getMenu(token)
                 .onSuccess { items = it }
-                .onFailure { errorText = "Не удалось загрузить меню: ${it.message ?: "unknown"}" }
+                .onFailure { errorText = it.userMessageOr("Не удалось загрузить меню") }
             isLoading = false
         }
     }
@@ -66,7 +73,13 @@ fun MenuScreenV2(token: String, studentRepository: StudentRepository) {
 
     if (errorText != null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(errorText!!, color = MaterialTheme.colorScheme.error)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(errorText!!, color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(onClick = { loadMenu() }) {
+                    Text("Повторить")
+                }
+            }
         }
         return
     }

@@ -29,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -49,9 +50,13 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.DailyReportDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.data.repository.AdminRepository
+import com.example.pgk_food.shared.ui.state.UiActionState
+import com.example.pgk_food.shared.ui.state.isLoading
+import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.minusDays
 import com.example.pgk_food.shared.ui.util.plusDays
@@ -81,6 +86,13 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
+    val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
+    val isActionLoading = actionState.value.isLoading
+
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
 
     fun loadReports(parsedStart: LocalDate, parsedEnd: LocalDate) {
         scope.launch {
@@ -88,26 +100,26 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
             if (selectedTab == 0) {
                 val result = mutableListOf<DailyReportDto>()
                 var current = parsedStart
-                var failed = false
+                var loadError: String? = null
                 while (current <= parsedEnd) {
                     adminRepository.getDailyReport(token, current.toString())
                         .onSuccess { result.add(it) }
-                        .onFailure { failed = true }
-                    if (failed) break
+                        .onFailure { loadError = it.userMessageOr("Ошибка загрузки отчётов") }
+                    if (loadError != null) break
                     current = plusDays(current, 1)
                 }
-                if (failed) {
-                    snackbarHostState.showSnackbar("Ошибка загрузки отчетов")
+                if (loadError != null) {
+                    snackbarHostState.showSnackbar(loadError!!)
                 } else {
                     reports = result
                 }
             } else {
-                var failed = false
+                var loadError: String? = null
                 adminRepository.getFraudReports(token, parsedStart.toString(), parsedEnd.toString())
                     .onSuccess { fraudReports = it }
-                    .onFailure { failed = true }
-                if (failed) {
-                    snackbarHostState.showSnackbar("Ошибка загрузки подозрительных отчётов")
+                    .onFailure { loadError = it.userMessageOr("Ошибка загрузки подозрительных отчётов") }
+                if (loadError != null) {
+                    snackbarHostState.showSnackbar(loadError!!)
                 }
             }
             isLoading = false
@@ -271,11 +283,21 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
                                     loadReports(startDate, endDate)
                                 }
                             },
+                            enabled = !isLoading && !isActionLoading,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Сформировать", fontWeight = FontWeight.Bold)
+                            Text(
+                                if (isLoading) "Загрузка..." else "Сформировать",
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
+                }
+            }
+
+            if (isActionLoading) {
+                item {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }
 
@@ -373,14 +395,17 @@ fun AdminReportsScreen(token: String, adminRepository: AdminRepository) {
                     items(fraudReports) { report ->
                         FraudReportItem(
                             report = report,
+                            isResolving = isActionLoading,
                             onResolve = {
                                 scope.launch {
-                                    var resolved = false
-                                    adminRepository.resolveFraud(token, report.id)
-                                        .onSuccess { resolved = true }
-                                        .onFailure { snackbarHostState.showSnackbar("Ошибка при решении кейса") }
-                                    if (resolved) {
-                                        snackbarHostState.showSnackbar("Помечено как решено")
+                                    val ok = runUiAction(
+                                        actionState = actionState,
+                                        successMessage = "Помечено как решено",
+                                        fallbackErrorMessage = "Ошибка при решении кейса",
+                                    ) {
+                                        adminRepository.resolveFraud(token, report.id)
+                                    }
+                                    if (ok) {
                                         loadReports(startDate, endDate)
                                     }
                                 }
@@ -406,7 +431,11 @@ private fun buildCsvReport(reports: List<DailyReportDto>): String {
 }
 
 @Composable
-private fun FraudReportItem(report: FraudReportDto, onResolve: () -> Unit) {
+private fun FraudReportItem(
+    report: FraudReportDto,
+    isResolving: Boolean,
+    onResolve: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -437,8 +466,12 @@ private fun FraudReportItem(report: FraudReportDto, onResolve: () -> Unit) {
 
             if (!report.resolved) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Button(onClick = onResolve, modifier = Modifier.align(Alignment.End)) {
-                    Text("Решить")
+                Button(
+                    onClick = onResolve,
+                    enabled = !isResolving,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(if (isResolving) "..." else "Решить")
                 }
             }
         }

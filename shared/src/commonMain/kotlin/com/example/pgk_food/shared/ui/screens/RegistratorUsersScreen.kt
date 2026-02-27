@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@file:OptIn(ExperimentalMaterial3Api::class)
 
 package com.example.pgk_food.shared.ui.screens
 
@@ -27,6 +27,9 @@ import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.SectionShape
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.ui.state.UiActionState
+import com.example.pgk_food.shared.ui.state.isLoading
+import com.example.pgk_food.shared.ui.state.runUiAction
 import kotlinx.coroutines.launch
 
 @Composable
@@ -50,6 +53,8 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
 
     // User detail sheet
     var selectedUser by remember { mutableStateOf<UserDto?>(null) }
+    val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
+    val isActionLoading = actionState.value.isLoading
 
     fun loadData() {
         scope.launch {
@@ -58,6 +63,9 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
             users = usersResult.getOrDefault(emptyList())
             val groupsResult = registratorRepository.getGroups(token)
             groups = groupsResult.getOrDefault(emptyList())
+            if (usersResult.isFailure || groupsResult.isFailure) {
+                snackbarHostState.showSnackbar("Не удалось обновить данные пользователей")
+            }
             isLoading = false
         }
     }
@@ -180,6 +188,10 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+            if (isActionLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -240,9 +252,14 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                                 onSettingsClick = { selectedUser = user },
                                 onDeleteClick = {
                                     scope.launch {
-                                        registratorRepository.deleteUser(token, user.userId)
-                                        loadData()
-                                        snackbarHostState.showSnackbar("Пользователь удален")
+                                        val ok = runUiAction(
+                                            actionState = actionState,
+                                            successMessage = "Пользователь удален",
+                                            fallbackErrorMessage = "Ошибка удаления пользователя",
+                                        ) {
+                                            registratorRepository.deleteUser(token, user.userId)
+                                        }
+                                        if (ok) loadData()
                                     }
                                 }
                             )
@@ -271,6 +288,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
         UserDetailSheet(
             user = user,
             groups = groups,
+            isProcessing = isActionLoading,
             onDismiss = { selectedUser = null },
             onCopyCredentials = {
                 clipboardManager.setText(AnnotatedString("Логин: ${user.login}"))
@@ -279,28 +297,48 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
             onResetPassword = {
                 scope.launch {
                     val result = registratorRepository.resetPassword(token, user.userId)
-                    result.onSuccess {
-                        credentialsDialog = UserCredentials(it.login, it.passwordClearText)
-                        selectedUser = null
-                    }.onFailure {
-                        scope.launch { snackbarHostState.showSnackbar("Ошибка сброса пароля") }
+                    val ok = runUiAction(
+                        actionState = actionState,
+                        successMessage = "Пароль сброшен",
+                        fallbackErrorMessage = "Ошибка сброса пароля",
+                        emitSuccessFeedback = false
+                    ) { result }
+                    if (ok) {
+                        result.getOrNull()?.let {
+                            credentialsDialog = UserCredentials(it.login, it.passwordClearText)
+                            selectedUser = null
+                        }
                     }
                 }
             },
             onUpdateRoles = { roles ->
                 scope.launch {
-                    registratorRepository.updateRoles(token, user.userId, roles)
-                    loadData()
-                    selectedUser = null
-                    snackbarHostState.showSnackbar("Роли обновлены")
+                    val ok = runUiAction(
+                        actionState = actionState,
+                        successMessage = "Роли обновлены",
+                        fallbackErrorMessage = "Ошибка обновления ролей",
+                    ) {
+                        registratorRepository.updateRoles(token, user.userId, roles)
+                    }
+                    if (ok) {
+                        loadData()
+                        selectedUser = null
+                    }
                 }
             },
             onDelete = {
                 scope.launch {
-                    registratorRepository.deleteUser(token, user.userId)
-                    loadData()
-                    selectedUser = null
-                    snackbarHostState.showSnackbar("Пользователь удален")
+                    val ok = runUiAction(
+                        actionState = actionState,
+                        successMessage = "Пользователь удален",
+                        fallbackErrorMessage = "Ошибка удаления пользователя",
+                    ) {
+                        registratorRepository.deleteUser(token, user.userId)
+                    }
+                    if (ok) {
+                        loadData()
+                        selectedUser = null
+                    }
                 }
             }
         )
@@ -310,6 +348,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
         CreateUserDialog(
             groups = groups,
             initialGroupId = createDialogInitialGroupId,
+            isSubmitting = isActionLoading,
             onDismiss = {
                 showCreateDialog = false
                 createDialogInitialGroupId = null
@@ -317,13 +356,19 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
             onConfirm = { request ->
                 scope.launch {
                     val result = registratorRepository.createUser(token, request)
-                    result.onSuccess {
+                    val ok = runUiAction(
+                        actionState = actionState,
+                        successMessage = "Пользователь создан",
+                        fallbackErrorMessage = "Ошибка создания пользователя",
+                        emitSuccessFeedback = false
+                    ) { result }
+                    if (ok) {
                         showCreateDialog = false
                         createDialogInitialGroupId = null
                         loadData()
-                        credentialsDialog = UserCredentials(it.login, it.passwordClearText)
-                    }.onFailure {
-                        scope.launch { snackbarHostState.showSnackbar("Ошибка создания пользователя") }
+                        result.getOrNull()?.let {
+                            credentialsDialog = UserCredentials(it.login, it.passwordClearText)
+                        }
                     }
                 }
             }
@@ -462,7 +507,12 @@ private fun FilterBottomSheet(
             // Group filter
             Text("Группа", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 FilterChip(
                     selected = selectedGroupId == null,
                     onClick = { onGroupSelected(null) },
@@ -484,7 +534,12 @@ private fun FilterBottomSheet(
             // Role filter
             Text("Роль", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 FilterChip(
                     selected = selectedRole == null,
                     onClick = { onRoleSelected(null) },
@@ -521,6 +576,7 @@ private fun FilterBottomSheet(
 private fun UserDetailSheet(
     user: UserDto,
     groups: List<GroupDto>,
+    isProcessing: Boolean,
     onDismiss: () -> Unit,
     onCopyCredentials: () -> Unit,
     onResetPassword: () -> Unit,
@@ -542,7 +598,7 @@ private fun UserDetailSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = onDismiss) {
+                IconButton(onClick = onDismiss, enabled = !isProcessing) {
                     Icon(Icons.Rounded.Close, contentDescription = "Закрыть")
                 }
             }
@@ -586,7 +642,12 @@ private fun UserDetailSheet(
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Роли:", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     user.roles.forEach { role ->
                         Surface(
                             color = MaterialTheme.colorScheme.primaryContainer,
@@ -608,6 +669,7 @@ private fun UserDetailSheet(
             Button(
                 onClick = onCopyCredentials,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !isProcessing,
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -622,6 +684,7 @@ private fun UserDetailSheet(
             Button(
                 onClick = onResetPassword,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !isProcessing,
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -636,6 +699,7 @@ private fun UserDetailSheet(
             Button(
                 onClick = { showRolesDialog = true },
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !isProcessing,
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -650,6 +714,7 @@ private fun UserDetailSheet(
             Button(
                 onClick = onDelete,
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !isProcessing,
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
@@ -682,6 +747,7 @@ private data class UserCredentials(
 fun CreateUserDialog(
     groups: List<GroupDto>,
     initialGroupId: Int? = null,
+    isSubmitting: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (CreateUserRequest) -> Unit
 ) {
@@ -703,7 +769,12 @@ fun CreateUserDialog(
                 OutlinedTextField(value = fatherName, onValueChange = { fatherName = it }, label = { Text("Отчество") }, shape = MaterialTheme.shapes.medium)
 
                 Text("Роли", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     UserRole.entries.forEach { role ->
                         FilterChip(
                             selected = role in selectedRoles,
@@ -743,8 +814,19 @@ fun CreateUserDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(CreateUserRequest(selectedRoles.toList(), name, surname, fatherName.ifBlank { null }, selectedGroupId)) },
-                enabled = name.isNotBlank() && surname.isNotBlank() && selectedRoles.isNotEmpty()
-            ) { Text("Создать") }
+                enabled = !isSubmitting && name.isNotBlank() && surname.isNotBlank() && selectedRoles.isNotEmpty()
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Создание...")
+                } else {
+                    Text("Создать")
+                }
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
@@ -793,4 +875,3 @@ fun RolesSelectionDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
-

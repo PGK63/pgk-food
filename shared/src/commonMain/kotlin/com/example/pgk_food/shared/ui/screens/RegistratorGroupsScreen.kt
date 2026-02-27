@@ -1,9 +1,11 @@
 package com.example.pgk_food.shared.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
@@ -20,14 +22,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 
 import androidx.compose.ui.unit.dp
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.UserDto
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.state.UiActionState
+import com.example.pgk_food.shared.ui.state.isLoading
+import com.example.pgk_food.shared.ui.state.runUiAction
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegistratorGroupsScreen(
     token: String,
@@ -55,6 +61,13 @@ fun RegistratorGroupsScreen(
     
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
+    val isActionLoading = actionState.value.isLoading
+
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
 
     val filteredGroups = remember(groups, searchQuery) {
         if (searchQuery.isBlank()) groups
@@ -66,6 +79,9 @@ fun RegistratorGroupsScreen(
             isLoading = true
             val result = registratorRepository.getGroups(token)
             groups = result.getOrDefault(emptyList())
+            if (result.isFailure) {
+                snackbarHostState.showSnackbar("Не удалось обновить список групп")
+            }
             isLoading = false
         }
     }
@@ -86,9 +102,11 @@ fun RegistratorGroupsScreen(
     }
 
     suspend fun transferGroup(group: GroupDto, targetName: String) {
+        actionState.value = UiActionState.Loading
         val newGroupNameValue = targetName.trim()
         if (newGroupNameValue.isEmpty()) {
             snackbarHostState.showSnackbar("Введите новое название группы")
+            actionState.value = UiActionState.Idle
             return
         }
 
@@ -97,10 +115,11 @@ fun RegistratorGroupsScreen(
         var curatorReassigned = false
 
         registratorRepository.createGroup(token, newGroupNameValue).onFailure {
-            transferError = "Не удалось создать новую группу: ${it.message ?: "неизвестная ошибка"}"
+            transferError = "Не удалось создать новую группу: ${it.userMessageOr("неизвестная ошибка")}"
         }
         if (transferError != null) {
             snackbarHostState.showSnackbar(transferError!!)
+            actionState.value = UiActionState.Idle
             return
         }
 
@@ -111,6 +130,7 @@ fun RegistratorGroupsScreen(
 
         if (newGroup == null) {
             snackbarHostState.showSnackbar("Новая группа создана, но не найдена в списке")
+            actionState.value = UiActionState.Idle
             return
         }
 
@@ -123,7 +143,7 @@ fun RegistratorGroupsScreen(
             registratorRepository.addStudentToGroup(token, newGroup.id, student.userId)
                 .onSuccess { movedStudents += student.userId }
                 .onFailure {
-                    transferError = "Не удалось перенести студента ${student.surname} ${student.name}: ${it.message ?: "неизвестная ошибка"}"
+                    transferError = "Не удалось перенести студента ${student.surname} ${student.name}: ${it.userMessageOr("неизвестная ошибка")}"
                 }
         }
 
@@ -131,13 +151,13 @@ fun RegistratorGroupsScreen(
             registratorRepository.assignCurator(token, newGroup.id, group.curatorId).onSuccess {
                 curatorReassigned = true
             }.onFailure {
-                transferError = "Не удалось переназначить куратора: ${it.message ?: "неизвестная ошибка"}"
+                transferError = "Не удалось переназначить куратора: ${it.userMessageOr("неизвестная ошибка")}"
             }
         }
 
         if (transferError == null) {
             registratorRepository.deleteGroup(token, group.id).onFailure {
-                transferError = "Студенты перенесены, но удалить старую группу не удалось: ${it.message ?: "неизвестная ошибка"}"
+                transferError = "Студенты перенесены, но удалить старую группу не удалось: ${it.userMessageOr("неизвестная ошибка")}"
             }
         }
 
@@ -174,6 +194,7 @@ fun RegistratorGroupsScreen(
         loadAllUsers()
         loadStudents(group.id)
         loadStudents(newGroup.id)
+        actionState.value = UiActionState.Idle
     }
 
     LaunchedEffect(Unit) {
@@ -227,6 +248,10 @@ fun RegistratorGroupsScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (isActionLoading) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
             if (showHints) {
                 Spacer(modifier = Modifier.height(8.dp))
                 HowItWorksCard(
@@ -310,9 +335,9 @@ fun RegistratorGroupsScreen(
                                         }
                                         Text("Студентов: ${group.studentCount}", style = MaterialTheme.typography.bodySmall)
                                     }
-                                    FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    Row(
+                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         IconButton(onClick = { showAssignMemberDialog = group.id to "CURATOR" }) {
                                             Icon(Icons.Rounded.Person, contentDescription = "Назначить куратора", modifier = Modifier.size(22.dp))
@@ -323,8 +348,14 @@ fun RegistratorGroupsScreen(
                                         if (group.curatorId != null) {
                                             IconButton(onClick = { 
                                                 scope.launch {
-                                                    registratorRepository.removeCurator(token, group.id)
-                                                    refreshGroups()
+                                                    val ok = runUiAction(
+                                                        actionState = actionState,
+                                                        successMessage = "Куратор снят",
+                                                        fallbackErrorMessage = "Ошибка снятия куратора",
+                                                    ) {
+                                                        registratorRepository.removeCurator(token, group.id)
+                                                    }
+                                                    if (ok) refreshGroups()
                                                 }
                                             }) {
                                                 Icon(
@@ -368,9 +399,17 @@ fun RegistratorGroupsScreen(
                                                 )
                                                 IconButton(onClick = {
                                                     scope.launch {
-                                                        registratorRepository.removeStudentFromGroup(token, student.userId)
-                                                        loadStudents(group.id)
-                                                        refreshGroups()
+                                                        val ok = runUiAction(
+                                                            actionState = actionState,
+                                                            successMessage = "Студент убран из группы",
+                                                            fallbackErrorMessage = "Ошибка удаления студента из группы",
+                                                        ) {
+                                                            registratorRepository.removeStudentFromGroup(token, student.userId)
+                                                        }
+                                                        if (ok) {
+                                                            loadStudents(group.id)
+                                                            refreshGroups()
+                                                        }
                                                     }
                                                 }) {
                                                     Icon(Icons.Rounded.Delete, contentDescription = "Убрать из группы", modifier = Modifier.size(20.dp))
@@ -421,13 +460,25 @@ fun RegistratorGroupsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        registratorRepository.createGroup(token, newGroupName)
-                        newGroupName = ""
-                        showAddGroupDialog = false
-                        refreshGroups()
+                        val ok = runUiAction(
+                            actionState = actionState,
+                            successMessage = "Группа создана",
+                            fallbackErrorMessage = "Ошибка создания группы",
+                        ) {
+                            registratorRepository.createGroup(token, newGroupName)
+                        }
+                        if (ok) {
+                            newGroupName = ""
+                            showAddGroupDialog = false
+                            refreshGroups()
+                        }
                     }
-                }) {
-                    Text("Создать")
+                }, enabled = !isActionLoading && newGroupName.isNotBlank()) {
+                    if (isActionLoading) {
+                        Text("Создание...")
+                    } else {
+                        Text("Создать")
+                    }
                 }
             },
             dismissButton = {
@@ -468,9 +519,9 @@ fun RegistratorGroupsScreen(
                             transferGroup(group, targetGroupName)
                         }
                     },
-                    enabled = targetGroupName.isNotBlank()
+                    enabled = targetGroupName.isNotBlank() && !isActionLoading
                 ) {
-                    Text("Перенести")
+                    Text(if (isActionLoading) "Перенос..." else "Перенести")
                 }
             },
             dismissButton = {
@@ -509,9 +560,17 @@ fun RegistratorGroupsScreen(
                                         leadingContent = { Icon(Icons.Rounded.PersonOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                         modifier = Modifier.clickable {
                                             scope.launch {
-                                                registratorRepository.removeCurator(token, groupId)
-                                                refreshGroups()
-                                                showAssignMemberDialog = null
+                                                val ok = runUiAction(
+                                                    actionState = actionState,
+                                                    successMessage = "Куратор снят",
+                                                    fallbackErrorMessage = "Ошибка снятия куратора",
+                                                ) {
+                                                    registratorRepository.removeCurator(token, groupId)
+                                                }
+                                                if (ok) {
+                                                    refreshGroups()
+                                                    showAssignMemberDialog = null
+                                                }
                                             }
                                         }
                                     )
@@ -525,14 +584,30 @@ fun RegistratorGroupsScreen(
                                     modifier = Modifier.clickable {
                                         scope.launch {
                                             if (role == "CURATOR") {
-                                                registratorRepository.assignCurator(token, groupId, user.userId)
-                                                refreshGroups()
+                                                val ok = runUiAction(
+                                                    actionState = actionState,
+                                                    successMessage = "Куратор назначен",
+                                                    fallbackErrorMessage = "Ошибка назначения куратора",
+                                                ) {
+                                                    registratorRepository.assignCurator(token, groupId, user.userId)
+                                                }
+                                                if (ok) refreshGroups()
                                             } else {
-                                                registratorRepository.addStudentToGroup(token, groupId, user.userId)
-                                                loadStudents(groupId)
-                                                refreshGroups()
+                                                val ok = runUiAction(
+                                                    actionState = actionState,
+                                                    successMessage = "Студент добавлен в группу",
+                                                    fallbackErrorMessage = "Ошибка добавления студента в группу",
+                                                ) {
+                                                    registratorRepository.addStudentToGroup(token, groupId, user.userId)
+                                                }
+                                                if (ok) {
+                                                    loadStudents(groupId)
+                                                    refreshGroups()
+                                                }
                                             }
-                                            showAssignMemberDialog = null
+                                            if (actionState.value !is UiActionState.Error) {
+                                                showAssignMemberDialog = null
+                                            }
                                         }
                                     }
                                 )
@@ -569,11 +644,19 @@ fun RegistratorGroupsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        registratorRepository.deleteGroup(token, group.id)
-                        showDeleteGroupDialog = null
-                        refreshGroups()
+                        val ok = runUiAction(
+                            actionState = actionState,
+                            successMessage = "Группа удалена",
+                            fallbackErrorMessage = "Ошибка удаления группы",
+                        ) {
+                            registratorRepository.deleteGroup(token, group.id)
+                        }
+                        if (ok) {
+                            showDeleteGroupDialog = null
+                            refreshGroups()
+                        }
                     }
-                }) { Text("Удалить") }
+                }, enabled = !isActionLoading) { Text(if (isActionLoading) "Удаление..." else "Удалить") }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteGroupDialog = null }) { Text("Отмена") }

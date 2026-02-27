@@ -35,6 +35,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -54,12 +55,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.CreateMenuItemRequest
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.repository.ChefRepository
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.model.MenuMealTypeUi
 import com.example.pgk_food.shared.platform.rememberCsvImportLauncher
+import com.example.pgk_food.shared.ui.state.UiActionState
+import com.example.pgk_food.shared.ui.state.isLoading
+import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.plusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
@@ -89,6 +94,8 @@ fun ChefMenuManageScreenV2(
     val studentRepository = remember { StudentRepository() }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
+    val isActionLoading = actionState.value.isLoading
 
     var selectedDate by remember { mutableStateOf(todayLocalDate()) }
     var menuItems by remember { mutableStateOf<List<MenuItemDto>>(emptyList()) }
@@ -100,17 +107,28 @@ fun ChefMenuManageScreenV2(
     var showCopyDatePicker by remember { mutableStateOf(false) }
     var importReport by remember { mutableStateOf<CsvImportReport?>(null) }
 
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
+
     fun loadMenu() {
         scope.launch {
             isLoading = true
-            menuItems = studentRepository.getMenu(token, selectedDate.toString()).getOrDefault(emptyList())
+            val result = studentRepository.getMenu(token, selectedDate.toString())
+            menuItems = result.getOrDefault(emptyList())
+            if (result.isFailure) {
+                snackbarHostState.showSnackbar(
+                    result.exceptionOrNull()?.userMessageOr("Не удалось загрузить меню") ?: "Не удалось загрузить меню"
+                )
+            }
             isLoading = false
         }
     }
 
     LaunchedEffect(selectedDate) { loadMenu() }
 
-    suspend fun importCsv(fileBytes: ByteArray) {
+    suspend fun importCsv(fileBytes: ByteArray): Result<CsvImportReport> {
         val parseResult = MenuCsvParser.parse(fileBytes, selectedDate)
         val requests = parseResult.rows.map { row ->
             CreateMenuItemRequest(
@@ -130,18 +148,19 @@ fun ChefMenuManageScreenV2(
                 requests.forEachIndexed { index, request ->
                     chefRepository.addMenuItem(token, request)
                         .onSuccess { imported += 1 }
-                        .onFailure { sendErrors += "Строка ${index + 1}: ${it.message ?: "unknown"}" }
+                        .onFailure { sendErrors += "Строка ${index + 1}: ${it.userMessageOr("неизвестная ошибка")}" }
                 }
             }
         }
 
-        importReport = CsvImportReport(
+        return Result.success(
+            CsvImportReport(
             importedCount = imported,
             failedCount = (requests.size - imported).coerceAtLeast(0) + parseResult.errors.size,
             parseErrors = parseResult.errors.map { "Строка ${it.lineNumber}: ${it.reason}" },
             sendErrors = sendErrors,
         )
-        loadMenu()
+        )
     }
 
     val launchCsvImport = rememberCsvImportLauncher { bytes ->
@@ -149,7 +168,24 @@ fun ChefMenuManageScreenV2(
             if (bytes == null) {
                 snackbarHostState.showSnackbar("Импорт CSV недоступен на этой платформе")
             } else {
-                importCsv(bytes)
+                var report: CsvImportReport? = null
+                val ok = runUiAction(
+                    actionState = actionState,
+                    successMessage = "Импорт CSV завершен",
+                    fallbackErrorMessage = "Ошибка импорта CSV",
+                    emitSuccessFeedback = false
+                ) {
+                    importCsv(bytes).onSuccess { report = it }
+                }
+                report?.let { importReport = it }
+                if (ok) {
+                    loadMenu()
+                    if (report?.failedCount ?: 0 > 0) {
+                        snackbarHostState.showSnackbar("Импорт завершен с ошибками")
+                    } else {
+                        snackbarHostState.showSnackbar("Импорт завершен успешно")
+                    }
+                }
             }
         }
     }
@@ -194,6 +230,10 @@ fun ChefMenuManageScreenV2(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Управление меню", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(12.dp))
+                if (isActionLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
                     Column(modifier = Modifier.padding(12.dp)) {
@@ -209,10 +249,13 @@ fun ChefMenuManageScreenV2(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { copyDate = plusDays(selectedDate, 1); showCopyDialog = true }) {
+                            Button(
+                                onClick = { copyDate = plusDays(selectedDate, 1); showCopyDialog = true },
+                                enabled = !isActionLoading
+                            ) {
                                 Text("Копировать меню")
                             }
-                            Button(onClick = launchCsvImport) {
+                            Button(onClick = launchCsvImport, enabled = !isActionLoading) {
                                 Icon(Icons.Rounded.FileUpload, contentDescription = null)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Импорт CSV")
@@ -252,7 +295,21 @@ fun ChefMenuManageScreenV2(
                                                 Text(decoded.description, style = MaterialTheme.typography.bodySmall)
                                             }
                                         }
-                                        IconButton(onClick = { scope.launch { chefRepository.deleteMenuItem(token, item.id); loadMenu() } }) {
+                                        IconButton(
+                                            onClick = {
+                                                scope.launch {
+                                                    val ok = runUiAction(
+                                                        actionState = actionState,
+                                                        successMessage = "Блюдо удалено",
+                                                        fallbackErrorMessage = "Ошибка удаления блюда",
+                                                    ) {
+                                                        chefRepository.deleteMenuItem(token, item.id)
+                                                    }
+                                                    if (ok) loadMenu()
+                                                }
+                                            },
+                                            enabled = !isActionLoading
+                                        ) {
                                             Icon(Icons.Rounded.DeleteOutline, contentDescription = "Удалить")
                                         }
                                     }
@@ -264,7 +321,10 @@ fun ChefMenuManageScreenV2(
             }
 
             ExtendedFloatingActionButton(
-                onClick = { showCreateDialog = true },
+                onClick = { if (!isActionLoading) showCreateDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = MaterialTheme.shapes.large,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
             ) {
                 Icon(Icons.Rounded.Add, contentDescription = null)
@@ -277,19 +337,28 @@ fun ChefMenuManageScreenV2(
     if (showCreateDialog) {
         CreateMenuItemDialogV2(
             selectedDate = selectedDate,
+            isSubmitting = isActionLoading,
             onDismiss = { showCreateDialog = false },
             onCreate = { date, name, description, mealType ->
                 scope.launch {
-                    chefRepository.addMenuItem(
-                        token = token,
-                        request = CreateMenuItemRequest(
-                            date = date.toString(),
-                            name = name,
-                            description = MenuMealTypeCodec.encode(mealType, description),
+                    val ok = runUiAction(
+                        actionState = actionState,
+                        successMessage = "Блюдо добавлено",
+                        fallbackErrorMessage = "Ошибка добавления блюда",
+                    ) {
+                        chefRepository.addMenuItem(
+                            token = token,
+                            request = CreateMenuItemRequest(
+                                date = date.toString(),
+                                name = name,
+                                description = MenuMealTypeCodec.encode(mealType, description),
+                            )
                         )
-                    )
-                    showCreateDialog = false
-                    loadMenu()
+                    }
+                    if (ok) {
+                        showCreateDialog = false
+                        loadMenu()
+                    }
                 }
             },
         )
@@ -311,22 +380,44 @@ fun ChefMenuManageScreenV2(
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    scope.launch {
-                        if (menuItems.isEmpty()) {
-                            snackbarHostState.showSnackbar("Меню пустое, копировать нечего")
+                Button(
+                    onClick = {
+                        scope.launch {
+                            if (menuItems.isEmpty()) {
+                                snackbarHostState.showSnackbar("Меню пустое, копировать нечего")
+                                showCopyDialog = false
+                                return@launch
+                            }
+                            val ok = runUiAction(
+                                actionState = actionState,
+                                successMessage = "Меню скопировано",
+                                fallbackErrorMessage = "Ошибка копирования меню",
+                            ) {
+                                var hasErrors = false
+                                menuItems.forEach { item ->
+                                    val result = chefRepository.addMenuItem(
+                                        token,
+                                        CreateMenuItemRequest(copyDate.toString(), item.name, item.description.orEmpty())
+                                    )
+                                    if (result.isFailure) {
+                                        hasErrors = true
+                                    }
+                                }
+                                if (hasErrors) Result.failure<Unit>(IllegalStateException("Не все блюда удалось скопировать"))
+                                else Result.success(Unit)
+                            }
                             showCopyDialog = false
-                            return@launch
+                            if (ok) {
+                                loadMenu()
+                            }
                         }
-                        menuItems.forEach { item ->
-                            chefRepository.addMenuItem(token, CreateMenuItemRequest(copyDate.toString(), item.name, item.description.orEmpty()))
-                        }
-                        showCopyDialog = false
-                        snackbarHostState.showSnackbar("Меню скопировано")
-                    }
-                }) { Text("Копировать") }
+                    },
+                    enabled = !isActionLoading
+                ) {
+                    Text(if (isActionLoading) "Копирование..." else "Копировать")
+                }
             },
-            dismissButton = { TextButton(onClick = { showCopyDialog = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { showCopyDialog = false }, enabled = !isActionLoading) { Text("Отмена") } },
         )
     }
 
@@ -359,6 +450,7 @@ fun ChefMenuManageScreenV2(
 @Composable
 private fun CreateMenuItemDialogV2(
     selectedDate: LocalDate,
+    isSubmitting: Boolean,
     onDismiss: () -> Unit,
     onCreate: (LocalDate, String, String, MenuMealTypeUi) -> Unit,
 ) {
@@ -390,15 +482,26 @@ private fun CreateMenuItemDialogV2(
         title = { Text("Новое блюдо") },
         text = {
             Column {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") })
-                OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Описание") })
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Название") },
+                    enabled = !isSubmitting
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Описание") },
+                    enabled = !isSubmitting
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = { datePickerVisible = true }) { Text("Дата: ${formatRuDate(date)}") }
-                ExposedDropdownMenuBox(expanded = mealTypeExpanded, onExpandedChange = { mealTypeExpanded = it }) {
+                TextButton(onClick = { datePickerVisible = true }, enabled = !isSubmitting) { Text("Дата: ${formatRuDate(date)}") }
+                ExposedDropdownMenuBox(expanded = mealTypeExpanded, onExpandedChange = { if (!isSubmitting) mealTypeExpanded = it }) {
                     OutlinedTextField(
                         value = mealType?.titleRu ?: "Тип питания",
                         onValueChange = {},
                         readOnly = true,
+                        enabled = !isSubmitting,
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mealTypeExpanded) },
                     )
@@ -422,11 +525,11 @@ private fun CreateMenuItemDialogV2(
                     val selectedMealType = mealType ?: return@Button
                     onCreate(date, name, description, selectedMealType)
                 },
-                enabled = name.isNotBlank() && mealType != null,
+                enabled = name.isNotBlank() && mealType != null && !isSubmitting,
             ) {
-                Text("Сохранить")
+                Text(if (isSubmitting) "Сохранение..." else "Сохранить")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Отмена") } },
     )
 }

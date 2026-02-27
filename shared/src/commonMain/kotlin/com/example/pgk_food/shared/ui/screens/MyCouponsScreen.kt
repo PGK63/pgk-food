@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,6 +40,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,12 +48,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.repository.MealsTodayResponse
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.viewmodels.DownloadKeysState
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun MyCouponsScreen(
@@ -67,6 +71,12 @@ fun MyCouponsScreen(
     var isOfflineMode by remember { mutableStateOf(false) }
     val downloadState by viewModel.downloadKeysState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
 
     suspend fun loadMeals() {
         isLoading = true
@@ -89,7 +99,7 @@ fun MyCouponsScreen(
                     isSnackAllowed = false,
                     isSpecialAllowed = false
                 )
-                pendingError = "Не удалось загрузить талоны"
+                pendingError = it.userMessageOr("Не удалось загрузить талоны")
             }
         pendingError?.let { snackbarHostState.showSnackbar(it) }
         isLoading = false
@@ -194,6 +204,17 @@ fun MyCouponsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Скачать оффлайн-ключи")
                         }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { scope.launch { loadMeals() } },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = PillShape,
+                        enabled = !isLoading
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Обновить талоны")
                     }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
