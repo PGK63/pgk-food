@@ -1,17 +1,23 @@
 package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.data.remote.dto.AuthResponse
+import com.example.pgk_food.shared.data.remote.dto.AuthKeysDto
 import com.example.pgk_food.shared.data.remote.dto.LoginRequest
 import com.example.pgk_food.shared.data.session.SessionStore
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.network.SharedNetworkModule
 import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 
 class AuthRepository {
+    fun getToken(): String? = SessionStore.session.value?.token
+
     suspend fun login(request: LoginRequest): Result<AuthResponse> {
         return try {
             val response: AuthResponse =
@@ -41,5 +47,23 @@ class AuthRepository {
 
     fun logout() {
         SessionStore.clear()
+    }
+
+    suspend fun getMyKeys(token: String): Result<AuthKeysDto> {
+        return runCatching {
+            val response: AuthKeysDto = SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/auth/my-keys")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }.body()
+
+            SessionStore.session.value?.let { current ->
+                SessionStore.save(
+                    current.copy(
+                        publicKey = response.publicKey,
+                        privateKey = response.privateKey,
+                    )
+                )
+            }
+            response
+        }
     }
 }

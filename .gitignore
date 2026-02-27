@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Nested build outputs
+**/build/
+iosApp/build-device/
+shared/build/

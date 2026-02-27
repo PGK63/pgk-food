@@ -10,7 +10,7 @@ lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.2"
 composeBom = "2024.09.00"
 ktor = "3.0.1"
-room = "2.6.1"
+room = "2.7.0-alpha10"
 kotlinxSerialization = "1.7.3"
 navigationCompose = "2.8.5"
 zxing = "3.5.3"
@@ -45,6 +45,7 @@ ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version = "2.5.0-alpha10" }
 
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }

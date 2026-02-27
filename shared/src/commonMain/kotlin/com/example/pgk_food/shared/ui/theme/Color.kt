@@ -2,26 +2,72 @@ package com.example.pgk_food.shared.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Brand Colors
-val PrimaryColor = Color(0xFFF26D21) // Energetic Orange
-val SecondaryColor = Color(0xFF2EC4B6) // Fresh Teal
-val AccentColor = Color(0xFFE71D36) // Appetite Red
+object CyberIcePalette {
+    val Primary10 = Color(0xFF001849)
+    val Primary20 = Color(0xFF002D6E)
+    val Primary30 = Color(0xFF004396)
+    val Primary40 = Color(0xFF1A5DC0)
+    val Primary50 = Color(0xFF3D78DA)
+    val Primary60 = Color(0xFF5B93F5)
+    val Primary70 = Color(0xFF89B4FF)
+    val Primary80 = Color(0xFFB0CFFF)
+    val Primary90 = Color(0xFFD6E4FF)
+    val Primary95 = Color(0xFFECF1FF)
+    val Primary99 = Color(0xFFF9FAFF)
 
-// Neutral Colors
-val BackgroundColor = Color(0xFFFDFDFD)
-val SurfaceColor = Color(0xFFFFFFFF)
-val CardColor = Color(0xFFFFFFFF)
+    val Secondary10 = Color(0xFF0D1B3A)
+    val Secondary20 = Color(0xFF1B2E52)
+    val Secondary30 = Color(0xFF2E446C)
+    val Secondary40 = Color(0xFF445B87)
+    val Secondary50 = Color(0xFF5C74A2)
+    val Secondary60 = Color(0xFF768EBD)
+    val Secondary70 = Color(0xFF90A9D9)
+    val Secondary80 = Color(0xFFABC5F5)
+    val Secondary90 = Color(0xFFD3E1FF)
+    val Secondary95 = Color(0xFFEAF0FF)
 
-// Text Colors
-val TextPrimary = Color(0xFF1A1C1E)
-val TextSecondary = Color(0xFF42474E)
-val TextTertiary = Color(0xFF72777F)
+    val Tertiary10 = Color(0xFF002022)
+    val Tertiary20 = Color(0xFF003739)
+    val Tertiary30 = Color(0xFF004F52)
+    val Tertiary40 = Color(0xFF00696D)
+    val Tertiary50 = Color(0xFF008488)
+    val Tertiary60 = Color(0xFF18A0A4)
+    val Tertiary70 = Color(0xFF4CBCC0)
+    val Tertiary80 = Color(0xFF7AD8DC)
+    val Tertiary90 = Color(0xFFA9F4F7)
+    val Tertiary95 = Color(0xFFD4FAFB)
 
-// Functional Colors
+    val Error10 = Color(0xFF410002)
+    val Error20 = Color(0xFF690005)
+    val Error30 = Color(0xFF93000A)
+    val Error40 = Color(0xFFBA1A1A)
+    val Error50 = Color(0xFFDE3730)
+    val Error60 = Color(0xFFFF5449)
+    val Error70 = Color(0xFFFF897D)
+    val Error80 = Color(0xFFFFB4AB)
+    val Error90 = Color(0xFFFFDAD6)
+
+    val Neutral4 = Color(0xFF0B0E14)
+    val Neutral6 = Color(0xFF101319)
+    val Neutral10 = Color(0xFF181B22)
+    val Neutral20 = Color(0xFF2D303A)
+    val Neutral90 = Color(0xFFE1E2EE)
+    val Neutral95 = Color(0xFFF0F1FD)
+    val Neutral98 = Color(0xFFF9F9FF)
+    val Neutral99 = Color(0xFFFCFCFF)
+
+    val NeutralVariant30 = Color(0xFF404350)
+    val NeutralVariant50 = Color(0xFF707381)
+    val NeutralVariant60 = Color(0xFF8A8D9B)
+    val NeutralVariant80 = Color(0xFFC0C3D2)
+    val NeutralVariant90 = Color(0xFFDCDFEE)
+
+    val GlassWhite = Color(0x33FFFFFF)
+    val GlassBorder = Color(0x4DFFFFFF)
+    val GlassWhiteMedium = Color(0x80FFFFFF)
+    val GlassDark = Color(0x26000000)
+    val GlassDarkBorder = Color(0x33FFFFFF)
+}
+
 val Success = Color(0xFF238636)
-val Error = Color(0xFFBA1A1A)
-val Warning = Color(0xFF8B6700)
-
-// Transparent variations
-val PrimaryTransparent = PrimaryColor.copy(alpha = 0.1f)
-val SecondaryTransparent = SecondaryColor.copy(alpha = 0.1f)
+val Warning = Color(0xFFB98A00)

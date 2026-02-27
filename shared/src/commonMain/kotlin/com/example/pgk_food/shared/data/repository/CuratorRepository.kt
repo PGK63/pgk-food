@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.repository
 
+import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.remote.dto.SaveRosterRequest
 import com.example.pgk_food.shared.data.remote.dto.StudentMealStatus
@@ -16,10 +17,19 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 
 class CuratorRepository {
-    suspend fun getRoster(token: String, date: String): Result<List<StudentRosterDto>> = runCatching {
+    suspend fun getCuratorGroups(token: String, curatorId: String): Result<List<GroupDto>> = runCatching {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/groups")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.body<List<GroupDto>>()
+            .filter { it.curatorId == curatorId }
+            .sortedBy { it.id }
+    }
+
+    suspend fun getRoster(token: String, date: String, groupId: Int? = null): Result<List<StudentRosterDto>> = runCatching {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/roster")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("date", date)
+            if (groupId != null) parameter("groupId", groupId)
         }.body()
     }
 
@@ -31,10 +41,11 @@ class CuratorRepository {
         }
     }
 
-    suspend fun getMyGroupStatistics(token: String, date: String): Result<List<StudentMealStatus>> = runCatching {
+    suspend fun getMyGroupStatistics(token: String, date: String, groupId: Int? = null): Result<List<StudentMealStatus>> = runCatching {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/statistics/my-group")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("date", date)
+            if (groupId != null) parameter("groupId", groupId)
         }.body()
     }
 

@@ -29,6 +29,30 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
+private fun mainScreenTitle(subScreen: String): String = when (subScreen) {
+    "dashboard" -> "ПГК ПИТАНИЕ"
+    "roster" -> "ОТМЕТКА ПИТАНИЯ"
+    "stats" -> "СТАТИСТИКА"
+    "users" -> "ПОЛЬЗОВАТЕЛИ"
+    "groups" -> "ГРУППЫ"
+    "reports" -> "ОТЧЕТЫ"
+    "menu" -> "МЕНЮ В СТОЛОВОЙ"
+    "coupons" -> "МОИ ТАЛОНЫ"
+    "qr" -> "МОЙ QR-КОД"
+    "scanner" -> "СКАНЕР QR"
+    "menu_manage" -> "УПРАВЛЕНИЕ МЕНЮ"
+    "settings" -> "НАСТРОЙКИ"
+    else -> "ПГК ПИТАНИЕ"
+}
+
+private fun UserRole.titleRu(): String = when (this) {
+    UserRole.STUDENT -> "Студент"
+    UserRole.CHEF -> "Повар"
+    UserRole.REGISTRATOR -> "Регистратор"
+    UserRole.CURATOR -> "Куратор"
+    UserRole.ADMIN -> "Администратор"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenShared(
@@ -36,6 +60,8 @@ fun MainScreenShared(
     onLogout: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val notificationRepository = remember { NotificationRepository() }
+    val uiSettingsManager = remember { com.example.pgk_food.shared.util.UiSettingsManager() }
     var currentSubScreen by remember { mutableStateOf("dashboard") }
     var selectedMealType by remember { mutableStateOf("") }
     var selectedRole by remember { mutableStateOf<UserRole?>(null) }
@@ -45,10 +71,11 @@ fun MainScreenShared(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        if (currentSubScreen == "dashboard") "ПГК ПИТАНИЕ" else "НАЗАД",
+                        mainScreenTitle(currentSubScreen),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp
+                        letterSpacing = 2.sp,
+                        maxLines = 1
                     )
                 },
                 navigationIcon = {
@@ -59,6 +86,14 @@ fun MainScreenShared(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { currentSubScreen = "settings" },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = "Настройки")
+                    }
                     IconButton(
                         onClick = { scope.launch { onLogout() } },
                         modifier = Modifier.clip(CircleShape)
@@ -89,15 +124,26 @@ fun MainScreenShared(
                         selectedMealType = ""
                     }
                 }
-                when (selectedRole ?: roles.firstOrNull()) {
-                    UserRole.STUDENT -> StudentFlowShared(session, currentSubScreen, selectedMealType, { currentSubScreen = it }, {
-                        selectedMealType = it; currentSubScreen = "qr"
-                    })
-                    UserRole.CHEF -> ChefFlowShared(session, currentSubScreen) { currentSubScreen = it }
-                    UserRole.REGISTRATOR -> RegistratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
-                    UserRole.CURATOR -> CuratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
-                    UserRole.ADMIN -> AdminFlowShared(session, currentSubScreen) { currentSubScreen = it }
-                    else -> Text("Роль не определена", modifier = Modifier.padding(16.dp))
+                if (currentSubScreen == "settings") {
+                    SettingsScreen(
+                        userId = session.userId,
+                        token = session.token,
+                        roles = session.roles,
+                        uiSettingsManager = uiSettingsManager,
+                        notificationRepository = notificationRepository,
+                        onBack = { currentSubScreen = "dashboard" }
+                    )
+                } else {
+                    when (selectedRole ?: roles.firstOrNull()) {
+                        UserRole.STUDENT -> StudentFlowShared(session, currentSubScreen, selectedMealType, { currentSubScreen = it }, {
+                            selectedMealType = it; currentSubScreen = "qr"
+                        })
+                        UserRole.CHEF -> ChefFlowShared(session, currentSubScreen) { currentSubScreen = it }
+                        UserRole.REGISTRATOR -> RegistratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
+                        UserRole.CURATOR -> CuratorFlowShared(session, currentSubScreen) { currentSubScreen = it }
+                        UserRole.ADMIN -> AdminFlowShared(session, currentSubScreen) { currentSubScreen = it }
+                        else -> Text("Роль не определена", modifier = Modifier.padding(16.dp))
+                    }
                 }
             }
         }
@@ -107,14 +153,14 @@ fun MainScreenShared(
 @Composable
 fun RoleSwitcherShared(roles: List<UserRole>, selectedRole: UserRole, onSelect: (UserRole) -> Unit) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text("Роль:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Выберите вашу роль для работы:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             roles.forEach { role ->
-                FilterChip(selected = role == selectedRole, onClick = { onSelect(role) }, label = { Text(role.name) })
+                FilterChip(selected = role == selectedRole, onClick = { onSelect(role) }, label = { Text(role.titleRu()) })
             }
         }
     }
@@ -134,7 +180,7 @@ fun UserInfoHeaderShared(session: UserSession) {
             Spacer(Modifier.width(16.dp))
             Column {
                 Text("${session.surname} ${session.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(session.roles.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(session.roles.joinToString(", ") { it.titleRu() }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -147,7 +193,7 @@ fun StudentFlowShared(session: UserSession, currentSubScreen: String, selectedMe
         "dashboard" -> StudentDashboardShared(session.token, studentRepository, { onNavigate("coupons") }, { onNavigate("menu") })
         "coupons" -> MyCouponsScreen(token = session.token, studentRepository = studentRepository, onCouponClick = onMealSelect)
         "qr" -> StudentQrScreenShared(session, selectedMealType)
-        "menu" -> MenuScreen(token = session.token, studentRepository = studentRepository)
+        "menu" -> MenuScreenV2(token = session.token, studentRepository = studentRepository)
         else -> StudentDashboardShared(session.token, studentRepository, { onNavigate("coupons") }, { onNavigate("menu") })
     }
 }
@@ -158,7 +204,7 @@ fun ChefFlowShared(session: UserSession, currentSubScreen: String, onNavigate: (
     when (currentSubScreen) {
         "dashboard" -> ChefDashboardShared({ onNavigate("scanner") }, { onNavigate("menu_manage") }, { onNavigate("stats") })
         "scanner" -> ChefScannerScreenShared(token = session.token, chefRepository = chefRepository)
-        "menu_manage" -> ChefMenuManageScreen(token = session.token, chefRepository = chefRepository)
+        "menu_manage" -> ChefMenuManageScreenV2(token = session.token, chefRepository = chefRepository)
         "stats" -> ChefStatsScreenShared(chefRepository)
         else -> ChefDashboardShared({ onNavigate("scanner") }, { onNavigate("menu_manage") }, { onNavigate("stats") })
     }
