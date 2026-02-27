@@ -18,10 +18,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.*
 import com.example.pgk_food.shared.data.repository.ChefRepository
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.ui.components.ThreeInputDatePicker
+import com.example.pgk_food.shared.ui.state.UiActionState
+import com.example.pgk_food.shared.ui.state.isLoading
+import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.util.todayDateParts
 import kotlinx.coroutines.launch
 
@@ -34,6 +38,8 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
     var isCopying by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
+    val isActionLoading = actionState.value.isLoading
 
     val today = remember { todayDateParts() }
     
@@ -54,12 +60,22 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
     var copyMonth by remember { mutableStateOf(viewMonth) }
     var copyYear by remember { mutableStateOf(viewYear) }
 
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
+
     fun loadMenu() {
         scope.launch {
             isLoading = true
             val dateStr = "$viewYear-${viewMonth.padStart(2, '0')}-${viewDay.padStart(2, '0')}"
             val result = studentRepository.getMenu(token, dateStr)
             menuItems = result.getOrDefault(emptyList())
+            if (result.isFailure) {
+                snackbarHostState.showSnackbar(
+                    result.exceptionOrNull()?.userMessageOr("Не удалось загрузить меню") ?: "Не удалось загрузить меню"
+                )
+            }
             isLoading = false
         }
     }
@@ -80,6 +96,10 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
+                if (isActionLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
 
                 Card(
                     shape = RoundedCornerShape(24.dp),
@@ -106,7 +126,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                                 showCopyDialog = true
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isCopying
+                            enabled = !isCopying && !isActionLoading
                         ) {
                             Text("Скопировать меню на дату")
                         }
@@ -129,8 +149,14 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                             items(items = menuItems) { item ->
                                 MenuItemCard(item) {
                                     scope.launch {
-                                        chefRepository.deleteMenuItem(token, item.id)
-                                        loadMenu()
+                                        val ok = runUiAction(
+                                            actionState = actionState,
+                                            successMessage = "Блюдо удалено",
+                                            fallbackErrorMessage = "Ошибка удаления блюда",
+                                        ) {
+                                            chefRepository.deleteMenuItem(token, item.id)
+                                        }
+                                        if (ok) loadMenu()
                                     }
                                 }
                             }
@@ -142,7 +168,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
             }
 
             ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
+                onClick = { if (!isActionLoading) showAddDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(24.dp),
@@ -194,19 +220,32 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                     onClick = {
                         scope.launch {
                             val dateStr = "$newYear-${newMonth.padStart(2, '0')}-${newDay.padStart(2, '0')}"
-                            chefRepository.addMenuItem(token, CreateMenuItemRequest(dateStr, newName, newDescription))
-                            showAddDialog = false
-                            newName = ""; newDescription = ""
-                            loadMenu()
+                            val ok = runUiAction(
+                                actionState = actionState,
+                                successMessage = "Блюдо добавлено",
+                                fallbackErrorMessage = "Ошибка добавления блюда",
+                            ) {
+                                chefRepository.addMenuItem(token, CreateMenuItemRequest(dateStr, newName, newDescription))
+                            }
+                            if (ok) {
+                                showAddDialog = false
+                                newName = ""
+                                newDescription = ""
+                                loadMenu()
+                            }
                         }
                     },
-                    enabled = newName.isNotBlank() && newDay.length == 2 && newMonth.length == 2 && newYear.length == 4
+                    enabled = newName.isNotBlank() &&
+                        newDay.length == 2 &&
+                        newMonth.length == 2 &&
+                        newYear.length == 4 &&
+                        !isActionLoading
                 ) {
-                    Text("Сохранить")
+                    Text(if (isActionLoading) "Сохранение..." else "Сохранить")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) { Text("Отмена") }
+                TextButton(onClick = { showAddDialog = false }, enabled = !isActionLoading) { Text("Отмена") }
             }
         )
     }
@@ -231,47 +270,60 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
             },
             confirmButton = {
                 Button(
-                    onClick = {
-                        scope.launch {
-                            if (menuItems.isEmpty()) {
-                                snackbarHostState.showSnackbar("Меню пустое — нечего копировать")
-                                showCopyDialog = false
-                                return@launch
+                        onClick = {
+                            scope.launch {
+                                if (menuItems.isEmpty()) {
+                                    snackbarHostState.showSnackbar("Меню пустое — нечего копировать")
+                                    showCopyDialog = false
+                                    return@launch
+                                }
+                                val targetDate = "$copyYear-${copyMonth.padStart(2, '0')}-${copyDay.padStart(2, '0')}"
+                                isCopying = true
+                                var successCount = 0
+                            val ok = runUiAction(
+                                actionState = actionState,
+                                successMessage = "Копирование завершено",
+                                fallbackErrorMessage = "Ошибка копирования меню",
+                                emitSuccessFeedback = false
+                            ) {
+                                var failed = false
+                                menuItems.forEach { item ->
+                                    val result = chefRepository.addMenuItem(
+                                        token,
+                                        CreateMenuItemRequest(targetDate, item.name, item.description ?: "-")
+                                    )
+                                    if (result.isSuccess) {
+                                        successCount += 1
+                                    } else {
+                                        failed = true
+                                    }
+                                }
+                                if (failed) Result.failure<Unit>(IllegalStateException("Часть блюд не скопирована"))
+                                else Result.success(Unit)
                             }
-                            val targetDate = "$copyYear-${copyMonth.padStart(2, '0')}-${copyDay.padStart(2, '0')}"
-                            isCopying = true
-                            var successCount = 0
-                            var failed = false
-                            menuItems.forEach { item ->
-                                val result = chefRepository.addMenuItem(
-                                    token,
-                                    CreateMenuItemRequest(targetDate, item.name, item.description ?: "-")
-                                )
-                                if (result.isSuccess) {
-                                    successCount += 1
+                                isCopying = false
+                                showCopyDialog = false
+                                if (targetDate == "$viewYear-${viewMonth.padStart(2, '0')}-${viewDay.padStart(2, '0')}") {
+                                    loadMenu()
+                                }
+                                if (!ok) {
+                                    snackbarHostState.showSnackbar("Часть блюд не скопирована")
                                 } else {
-                                    failed = true
+                                    snackbarHostState.showSnackbar("Скопировано блюд: $successCount")
                                 }
                             }
-                            isCopying = false
-                            showCopyDialog = false
-                            if (targetDate == "$viewYear-${viewMonth.padStart(2, '0')}-${viewDay.padStart(2, '0')}") {
-                                loadMenu()
-                            }
-                            if (failed) {
-                                snackbarHostState.showSnackbar("Часть блюд не скопирована")
-                            } else {
-                                snackbarHostState.showSnackbar("Скопировано блюд: $successCount")
-                            }
-                        }
-                    },
-                    enabled = copyDay.length == 2 && copyMonth.length == 2 && copyYear.length == 4 && !isCopying
+                        },
+                    enabled = copyDay.length == 2 &&
+                        copyMonth.length == 2 &&
+                        copyYear.length == 4 &&
+                        !isCopying &&
+                        !isActionLoading
                 ) {
-                    Text("Скопировать")
+                    Text(if (isCopying || isActionLoading) "Копирование..." else "Скопировать")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCopyDialog = false }) { Text("Отмена") }
+                TextButton(onClick = { showCopyDialog = false }, enabled = !isCopying && !isActionLoading) { Text("Отмена") }
             }
         )
     }

@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -45,6 +46,9 @@ import com.example.pgk_food.shared.data.remote.dto.NotificationDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.repository.NotificationRepository
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.ui.state.UiActionState
+import com.example.pgk_food.shared.ui.state.isLoading
+import com.example.pgk_food.shared.ui.state.runUiApiAction
 import com.example.pgk_food.shared.util.NotificationAutoRefreshBus
 import com.example.pgk_food.shared.util.UiSettingsManager
 import kotlinx.coroutines.launch
@@ -72,6 +76,8 @@ fun SettingsScreen(
     val isCurator = remember(roles) { UserRole.CURATOR in roles }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
+    val isActionLoading = actionState.value.isLoading
 
     fun updateHints(enabled: Boolean) {
         uiSettingsManager.setHintsOverride(userId, enabled)
@@ -125,30 +131,37 @@ fun SettingsScreen(
     fun markAsRead(id: Long) {
         scope.launch {
             val wasUnread = notifications.firstOrNull { it.id == id }?.isRead == false
-            var errorText: String? = null
-            notificationRepository.markAsRead(token, id)
-                .onSuccess {
-                    notifications = notifications.map { if (it.id == id) it.copy(isRead = true) else it }
-                    if (wasUnread && unreadCount > 0) unreadCount -= 1
-                }
-                .onFailure { errorText = it.userMessage }
-            errorText?.let { snackbarHostState.showSnackbar(it) }
+            val ok = runUiApiAction(
+                actionState = actionState,
+                successMessage = null,
+                fallbackErrorMessage = "Не удалось отметить уведомление",
+                emitSuccessFeedback = false
+            ) {
+                notificationRepository.markAsRead(token, id)
+            }
+            if (ok) {
+                notifications = notifications.map { if (it.id == id) it.copy(isRead = true) else it }
+                if (wasUnread && unreadCount > 0) unreadCount -= 1
+            }
         }
     }
 
     fun markAllRead() {
         val unreadIds = notifications.filterNot { it.isRead }.map { it.id }
-        if (unreadIds.isEmpty() || isMarkingAllRead) return
+        if (unreadIds.isEmpty() || isMarkingAllRead || isActionLoading) return
         scope.launch {
             isMarkingAllRead = true
-            var errorText: String? = null
-            notificationRepository.markAsReadBatch(token, unreadIds)
-                .onSuccess {
-                    notifications = notifications.map { it.copy(isRead = true) }
-                    unreadCount = (unreadCount - unreadIds.size).coerceAtLeast(0)
-                }
-                .onFailure { errorText = it.userMessage }
-            errorText?.let { snackbarHostState.showSnackbar(it) }
+            val ok = runUiApiAction(
+                actionState = actionState,
+                successMessage = "Все уведомления прочитаны",
+                fallbackErrorMessage = "Не удалось отметить уведомления",
+            ) {
+                notificationRepository.markAsReadBatch(token, unreadIds)
+            }
+            if (ok) {
+                notifications = notifications.map { it.copy(isRead = true) }
+                unreadCount = (unreadCount - unreadIds.size).coerceAtLeast(0)
+            }
             isMarkingAllRead = false
         }
     }
@@ -242,13 +255,20 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { scope.launch { loadNotifications() } }, enabled = !isLoading) { Text("Обновить") }
+                                Button(onClick = { scope.launch { loadNotifications() } }, enabled = !isLoading && !isActionLoading) {
+                                    Text("Обновить")
+                                }
                                 Button(
                                     onClick = { markAllRead() },
-                                    enabled = notifications.any { !it.isRead } && !isMarkingAllRead,
+                                    enabled = notifications.any { !it.isRead } && !isMarkingAllRead && !isActionLoading,
                                 ) {
                                     Text(if (isMarkingAllRead) "..." else "Прочитать все")
                                 }
+                            }
+
+                            if (isActionLoading) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             }
 
                             if (isCurator && rosterDeadline != null) {
@@ -276,7 +296,11 @@ fun SettingsScreen(
                     }
                 } else {
                     items(notifications, key = { it.id }) { item ->
-                        NotificationRow(item = item, onMarkRead = { markAsRead(item.id) })
+                        NotificationRow(
+                            item = item,
+                            isProcessing = isActionLoading,
+                            onMarkRead = { markAsRead(item.id) }
+                        )
                     }
                 }
 
@@ -293,7 +317,11 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun NotificationRow(item: NotificationDto, onMarkRead: () -> Unit) {
+private fun NotificationRow(
+    item: NotificationDto,
+    isProcessing: Boolean,
+    onMarkRead: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -310,7 +338,9 @@ private fun NotificationRow(item: NotificationDto, onMarkRead: () -> Unit) {
             Text(item.createdAt, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!item.isRead) {
                 Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = onMarkRead) { Text("Прочитать") }
+                TextButton(onClick = onMarkRead, enabled = !isProcessing) {
+                    Text(if (isProcessing) "..." else "Прочитать")
+                }
             }
         }
     }

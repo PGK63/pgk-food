@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -30,6 +32,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -57,6 +60,10 @@ import com.example.pgk_food.shared.data.remote.dto.RosterDayDto
 import com.example.pgk_food.shared.data.remote.dto.SaveRosterRequest
 import com.example.pgk_food.shared.data.remote.dto.StudentRosterDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
+import com.example.pgk_food.shared.core.network.ApiCallException
+import com.example.pgk_food.shared.ui.state.UiActionState
+import com.example.pgk_food.shared.ui.state.isLoading
+import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.plusDays
@@ -94,6 +101,13 @@ fun CuratorRosterScreen(
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
+    val isActionLoading = actionState.value.isLoading
+
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
 
     fun loadGroups() {
         scope.launch {
@@ -101,6 +115,11 @@ fun CuratorRosterScreen(
             groups = result.getOrDefault(emptyList())
             if (selectedGroupId == null || groups.none { it.id == selectedGroupId }) {
                 selectedGroupId = groups.firstOrNull()?.id
+            }
+            if (result.isFailure) {
+                snackbarHostState.showSnackbar(
+                    result.exceptionOrNull()?.userMessageOr("Не удалось загрузить группы") ?: "Не удалось загрузить группы"
+                )
             }
             groupsLoaded = true
         }
@@ -120,6 +139,11 @@ fun CuratorRosterScreen(
                 groupId = selectedGroupId,
             )
             entries = result.getOrDefault(emptyList())
+            if (result.isFailure) {
+                snackbarHostState.showSnackbar(
+                    result.exceptionOrNull()?.userMessageOr("Не удалось загрузить табель") ?: "Не удалось загрузить табель"
+                )
+            }
             isLoading = false
         }
     }
@@ -211,17 +235,26 @@ fun CuratorRosterScreen(
                     onClick = {
                         scope.launch {
                             isCopying = true
-                            var success = true
-                            for (entry in entries) {
-                                val currentDayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
-                                if (currentDayDto != null) {
-                                    val request = SaveRosterRequest(
-                                        studentId = entry.studentId,
-                                        permissions = listOf(currentDayDto.copy(date = copyDate.toString()))
-                                    )
-                                    val result = curatorRepository.updateRoster(token, request)
-                                    if (result.isFailure) success = false
+                            val success = runUiAction(
+                                actionState = actionState,
+                                successMessage = "Успешно скопировано на ${formatRuDate(copyDate)}",
+                                fallbackErrorMessage = "Копирование завершилось с ошибками",
+                                emitSuccessFeedback = false
+                            ) {
+                                var hasError = false
+                                for (entry in entries) {
+                                    val currentDayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
+                                    if (currentDayDto != null) {
+                                        val request = SaveRosterRequest(
+                                            studentId = entry.studentId,
+                                            permissions = listOf(currentDayDto.copy(date = copyDate.toString()))
+                                        )
+                                        val result = curatorRepository.updateRoster(token, request)
+                                        if (result.isFailure) hasError = true
+                                    }
                                 }
+                                if (hasError) Result.failure<Unit>(IllegalStateException("Копирование завершилось с ошибками"))
+                                else Result.success(Unit)
                             }
                             isCopying = false
                             showCopyDialog = false
@@ -232,9 +265,9 @@ fun CuratorRosterScreen(
                             }
                         }
                     },
-                    enabled = !isCopying
+                    enabled = !isCopying && !isActionLoading
                 ) {
-                    Text("Копировать")
+                    Text(if (isCopying || isActionLoading) "Копирование..." else "Копировать")
                 }
             },
             dismissButton = {
@@ -347,6 +380,10 @@ fun CuratorRosterScreen(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+            if (isActionLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             if (groupsLoaded && groups.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -377,17 +414,26 @@ fun CuratorRosterScreen(
                 Button(
                     onClick = {
                         scope.launch {
-                            var success = true
-                            for (entry in entries) {
-                                val dayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
-                                if (dayDto != null) {
-                                    val request = SaveRosterRequest(
-                                        studentId = entry.studentId,
-                                        permissions = listOf(dayDto),
-                                    )
-                                    val result = curatorRepository.updateRoster(token, request)
-                                    if (result.isFailure) success = false
+                            val success = runUiAction(
+                                actionState = actionState,
+                                successMessage = "Сохранено",
+                                fallbackErrorMessage = "Ошибка сохранения некоторых записей",
+                                emitSuccessFeedback = false
+                            ) {
+                                var hasError = false
+                                for (entry in entries) {
+                                    val dayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
+                                    if (dayDto != null) {
+                                        val request = SaveRosterRequest(
+                                            studentId = entry.studentId,
+                                            permissions = listOf(dayDto),
+                                        )
+                                        val result = curatorRepository.updateRoster(token, request)
+                                        if (result.isFailure) hasError = true
+                                    }
                                 }
+                                if (hasError) Result.failure<Unit>(IllegalStateException("Ошибка сохранения некоторых записей"))
+                                else Result.success(Unit)
                             }
                             if (success) {
                                 snackbarHostState.showSnackbar("Сохранено")
@@ -396,11 +442,12 @@ fun CuratorRosterScreen(
                             }
                         }
                     },
+                    enabled = !isActionLoading,
                     modifier = Modifier.fillMaxWidth(),
                     shape = PillShape
                 ) {
                     Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                    Text("Сохранить", fontWeight = FontWeight.Bold)
+                    Text(if (isActionLoading) "Сохранение..." else "Сохранить", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -438,7 +485,10 @@ private fun RosterCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 MealToggleChip("Завтрак", dayEntry.isBreakfast) {
                     val updatedDay = dayEntry.copy(isBreakfast = it)
                     val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
@@ -458,7 +508,10 @@ private fun RosterCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 MealToggleChip("Полдник", dayEntry.isSnack) {
                     val updatedDay = dayEntry.copy(isSnack = it)
                     val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay

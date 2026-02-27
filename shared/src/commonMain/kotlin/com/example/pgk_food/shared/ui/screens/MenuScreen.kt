@@ -17,23 +17,58 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.repository.StudentRepository
+import kotlinx.coroutines.launch
 
 @Composable
 fun MenuScreen(token: String, studentRepository: StudentRepository) {
     var menuItems by remember { mutableStateOf<List<MenuItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var errorText by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun Throwable.userMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.userMessage?.ifBlank { default } ?: message ?: default
+    }
+
+    fun loadMenu() {
+        scope.launch {
+            isLoading = true
+            errorText = null
+            val result = studentRepository.getMenu(token)
+            menuItems = result.getOrDefault(emptyList())
+            if (result.isFailure) {
+                errorText = result.exceptionOrNull()?.userMessageOr("Не удалось загрузить меню")
+                    ?: "Не удалось загрузить меню"
+            }
+            isLoading = false
+        }
+    }
 
     LaunchedEffect(Unit) {
-        val result = studentRepository.getMenu(token)
-        menuItems = result.getOrDefault(emptyList())
-        isLoading = false
+        loadMenu()
     }
 
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
+        }
+    } else if (errorText != null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = errorText!!,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(onClick = { loadMenu() }) {
+                    Text("Повторить")
+                }
+            }
         }
     } else {
         LazyColumn(
