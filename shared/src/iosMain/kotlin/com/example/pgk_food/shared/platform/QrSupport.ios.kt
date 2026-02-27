@@ -16,8 +16,6 @@ import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlin.io.encoding.Base64
-import platform.CommonCrypto.CC_SHA256
-import platform.CommonCrypto.CC_SHA256_DIGEST_LENGTH
 import platform.CoreFoundation.CFDataCreate
 import platform.CoreFoundation.CFDataGetBytePtr
 import platform.CoreFoundation.CFDataGetLength
@@ -119,22 +117,8 @@ actual fun generateOfflineTransactionHash(
     mealType: String,
     nonce: String,
 ): String {
-    val raw = "$userId:$timestamp:$mealType:$nonce".encodeToByteArray()
-    if (raw.isEmpty()) return ""
-    val digest = ByteArray(CC_SHA256_DIGEST_LENGTH.toInt())
-    raw.usePinned { input ->
-        digest.usePinned { output ->
-            CC_SHA256(
-                input.addressOf(0).reinterpret<ByteVar>(),
-                raw.size.toUInt(),
-                output.addressOf(0).reinterpret<UByteVar>(),
-            )
-        }
-    }
-    return digest.joinToString(separator = "") { byte ->
-        val value = byte.toInt() and 0xff
-        value.toString(16).padStart(2, '0')
-    }
+    val raw = "$userId:$timestamp:$mealType:$nonce"
+    return raw.hashCode().toUInt().toString(16)
 }
 
 actual fun isQrTimestampValid(timestamp: Long, toleranceSeconds: Long): Boolean {

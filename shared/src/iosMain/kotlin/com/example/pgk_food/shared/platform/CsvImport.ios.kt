@@ -9,6 +9,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import platform.Foundation.NSData
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
@@ -80,7 +81,8 @@ private fun readUrlBytes(url: NSURL?): ByteArray? {
     if (url == null) return null
     val didAccess = url.startAccessingSecurityScopedResource()
     return try {
-        val data = NSData.dataWithContentsOfURL(url) ?: return null
+        val path = url.path ?: return null
+        val data = NSFileManager.defaultManager.contentsAtPath(path) as NSData? ?: return null
         val bytes = data.bytes ?: return null
         bytes.reinterpret<ByteVar>().readBytes(data.length.toInt())
     } finally {
@@ -89,7 +91,7 @@ private fun readUrlBytes(url: NSURL?): ByteArray? {
 }
 
 private fun resolvePresenterViewController(): UIViewController? {
-    val root = UIApplication.sharedApplication.windows.firstOrNull()?.rootViewController ?: return null
+    val root = UIApplication.sharedApplication.keyWindow?.rootViewController ?: return null
     return root.topPresented()
 }
 
