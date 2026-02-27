@@ -1,0 +1,20 @@
+old_route,new_route,role_scope,status,notes
+dashboard,dashboard,all_roles,matched,Main landing screen preserved
+settings,settings,all_roles,matched,Old root settings route moved into shared shell
+users,users,REGISTRATOR,matched,Registrator users flow preserved
+groups,groups,REGISTRATOR,matched,Registrator groups flow preserved
+roster,roster,CURATOR,matched,Curator roster flow preserved
+stats,stats,CHEF|CURATOR,matched,Stats route preserved for both flows
+reports,reports,ADMIN,matched,Admin reports flow preserved
+scanner,scanner,CHEF,matched,Chef scanner route preserved
+chef_scan,scanner,CHEF,renamed_alias,Old alias consolidated into canonical scanner route
+menu_manage,menu_manage,CHEF,matched,Chef menu management preserved
+chef_stats,stats,CHEF,renamed_alias,Chef-specific alias consolidated into stats
+coupons,coupons,STUDENT,matched,Student coupons flow preserved
+qr,qr,STUDENT,matched,Student QR flow preserved
+student_scan,qr,STUDENT,renamed_alias,Legacy alias consolidated into qr
+menu,menu,STUDENT,matched,Student menu flow preserved
+student_menu,menu,STUDENT,renamed_alias,Legacy alias consolidated into menu
+splash,splash,root_navigation,matched,Splash retained
+login,login,root_navigation,matched,Login retained
+main_shell,main_shell,root_navigation,reworked_same_scope,Root shell moved from Android NavGraph to shared App container

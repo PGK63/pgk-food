@@ -1,0 +1,169 @@
+
+> Configure project :shared
+w: Kotlin Multiplatform <-> Android Gradle Plugin compatibility issue:
+The applied Android Gradle Plugin version (8.10.1) is higher 
+than the maximum known to the Kotlin Gradle Plugin.
+Tooling stability in such configuration isn't tested, please report encountered issues to https://kotl.in/issue
+
+Minimum supported Android Gradle Plugin version: 7.1
+Maximum tested Android Gradle Plugin version: 8.5
+
+To suppress this message add 'kotlin.mpp.androidGradlePluginCompatibility.nowarn=true' to your gradle.properties
+
+w: The following Kotlin/Native targets cannot be built on this machine and are disabled:
+iosArm64, iosSimulatorArm64, iosX64
+To hide this message, add 'kotlin.native.ignoreDisabledTargets=true' to the Gradle properties.
+
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :shared:preBuild UP-TO-DATE
+> Task :shared:preReleaseBuild UP-TO-DATE
+> Task :shared:mergeReleaseJniLibFolders
+> Task :shared:mergeReleaseNativeLibs NO-SOURCE
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:copyReleaseJniLibsProjectOnly
+> Task :shared:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :shared:generateResourceAccessorsForAndroidMain NO-SOURCE
+> Task :shared:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForCommonMain
+> Task :shared:prepareComposeResourcesTaskForCommonMain
+> Task :shared:generateResourceAccessorsForCommonMain
+> Task :shared:generateActualResourceCollectorsForAndroidMain
+> Task :shared:generateComposeResClass
+> Task :shared:generateExpectResourceCollectorsForCommonMain
+> Task :shared:generateReleaseResValues
+> Task :shared:generateReleaseResources
+> Task :shared:packageReleaseResources
+> Task :shared:convertXmlValueResourcesForAndroidRelease NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForAndroidRelease NO-SOURCE
+> Task :shared:parseReleaseLocalResources
+> Task :shared:prepareComposeResourcesTaskForAndroidRelease NO-SOURCE
+> Task :shared:generateResourceAccessorsForAndroidRelease NO-SOURCE
+> Task :shared:javaPreCompileRelease
+> Task :shared:generateReleaseRFile
+> Task :app:mergeReleaseNativeLibs
+> Task :app:checkReleaseDuplicateClasses
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libbarhopper_v3.so, libimage_processing_util_jni.so, libsqliteJni.so, libsurface_util_jni.so. Run with --info option to learn more.
+
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:buildKotlinToolingMetadata
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:writeReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :shared:extractDeepLinksRelease
+> Task :shared:processReleaseManifest
+> Task :shared:compileReleaseLibraryResources
+> Task :app:mergeReleaseResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:javaPreCompileRelease
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :shared:prepareReleaseArtProfile
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :shared:mergeReleaseShaders
+> Task :shared:compileReleaseShaders NO-SOURCE
+> Task :shared:copyReleaseComposeResourcesToAndroidAssets
+> Task :shared:generateReleaseAssets UP-TO-DATE
+> Task :shared:releaseAssetsCopyForAGP NO-SOURCE
+> Task :shared:mergeReleaseAssets
+> Task :app:mergeReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:extractProguardFiles
+> Task :shared:extractProguardFiles
+> Task :shared:stripReleaseDebugSymbols NO-SOURCE
+> Task :shared:prepareLintJarForPublish
+> Task :shared:extractDeepLinksForAarRelease
+> Task :shared:copyReleaseJniLibsProjectAndLocalJars
+> Task :shared:writeReleaseLintModelMetadata
+> Task :app:compressReleaseAssets
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:processReleaseResources
+> Task :app:optimizeReleaseResources
+> Task :shared:kspReleaseKotlinAndroid
+> Task :app:mergeExtDexRelease
+
+> Task :shared:compileReleaseKotlinAndroid
+w: file:///home/wsr/pgk-food/shared/build/generated/ksp/android/androidRelease/kotlin/com/example/pgk_food/shared/data/local/AppDatabaseConstructor.kt:5:8 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/platform/KeyValueStore.android.kt:21:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefScannerScreenShared.android.kt:366:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefScannerScreenShared.android.kt:501:1 Annotation 'androidx.camera.core.ExperimentalGetImage' is not annotated with '@RequiresOptIn'. '@OptIn' has no effect.
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/util/DailyAutoSyncManager.android.kt:6:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/core/network/ApiCaller.kt:8:8 'typealias IOException = IOException' is deprecated. Use kotlinx.io.IOException instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/core/network/ApiCaller.kt:40:17 'typealias IOException = IOException' is deprecated. Use kotlinx.io.IOException instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/local/AppDatabase.kt:49:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/repository/ChefRepository.kt:291:17 Redundant creation of Json format. Creating instances for each usage can be slow.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/platform/KeyValueStore.kt:3:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/AdminReportsScreen.kt:83:28 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefMenuManageScreenV2.kt:402:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:287:30 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorStatsScreen.kt:166:26 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:167:48 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:185:44 'val Icons.Filled.ExitToApp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ExitToApp.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:512:59 'val Icons.Filled.ListAlt: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ListAlt.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorUsersScreen.kt:39:28 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorUsersScreen.kt:730:49 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/util/DailyAutoSyncManager.kt:44:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+
+> Task :shared:compileReleaseJavaWithJavac NO-SOURCE
+> Task :shared:processReleaseJavaRes
+> Task :shared:bundleLibCompileToJarRelease
+> Task :shared:bundleLibRuntimeToJarRelease
+> Task :shared:generateReleaseLintModel
+> Task :shared:bundleLibRuntimeToDirRelease
+> Task :shared:createFullJarRelease
+> Task :shared:extractReleaseAnnotations
+> Task :shared:mergeReleaseGeneratedProguardFiles
+> Task :shared:mergeReleaseConsumerProguardFiles
+> Task :shared:mergeReleaseJavaResource
+> Task :app:kspReleaseKotlin
+> Task :shared:syncReleaseLibJars
+> Task :shared:bundleReleaseLocalLintAar
+> Task :shared:generateReleaseLintVitalModel
+> Task :app:compileReleaseKotlin
+> Task :app:compileReleaseJavaWithJavac NO-SOURCE
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :shared:lintVitalAnalyzeRelease
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+[Incubating] Problems report is available at: file:///home/wsr/pgk-food/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 15s
+91 actionable tasks: 91 executed

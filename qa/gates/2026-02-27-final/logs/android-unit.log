@@ -1,0 +1,132 @@
+
+> Configure project :shared
+w: Kotlin Multiplatform <-> Android Gradle Plugin compatibility issue:
+The applied Android Gradle Plugin version (8.10.1) is higher 
+than the maximum known to the Kotlin Gradle Plugin.
+Tooling stability in such configuration isn't tested, please report encountered issues to https://kotl.in/issue
+
+Minimum supported Android Gradle Plugin version: 7.1
+Maximum tested Android Gradle Plugin version: 8.5
+
+To suppress this message add 'kotlin.mpp.androidGradlePluginCompatibility.nowarn=true' to your gradle.properties
+
+w: The following Kotlin/Native targets cannot be built on this machine and are disabled:
+iosArm64, iosSimulatorArm64, iosX64
+To hide this message, add 'kotlin.native.ignoreDisabledTargets=true' to the Gradle properties.
+
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :shared:preBuild UP-TO-DATE
+> Task :shared:preDebugBuild UP-TO-DATE
+> Task :shared:writeDebugAarMetadata
+> Task :app:generateDebugResValues
+> Task :shared:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :shared:generateDebugResources
+> Task :shared:packageDebugResources
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :shared:extractDeepLinksDebug
+> Task :shared:compileDebugLibraryResources
+> Task :app:parseDebugLocalResources
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:processDebugManifest
+> Task :shared:convertXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :shared:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :shared:copyNonXmlValueResourcesForAndroidMain NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForAndroidMain NO-SOURCE
+> Task :app:mergeDebugResources
+> Task :shared:generateResourceAccessorsForAndroidMain NO-SOURCE
+> Task :shared:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :shared:generateDebugRFile
+> Task :shared:copyNonXmlValueResourcesForCommonMain
+> Task :shared:prepareComposeResourcesTaskForCommonMain
+> Task :shared:generateResourceAccessorsForCommonMain
+> Task :shared:generateActualResourceCollectorsForAndroidMain
+> Task :shared:generateComposeResClass
+> Task :shared:generateExpectResourceCollectorsForCommonMain
+> Task :shared:convertXmlValueResourcesForAndroidDebug NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForAndroidDebug NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForAndroidDebug NO-SOURCE
+> Task :shared:generateResourceAccessorsForAndroidDebug NO-SOURCE
+> Task :shared:javaPreCompileDebug
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :shared:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebug
+> Task :app:javaPreCompileDebugUnitTest
+> Task :shared:convertXmlValueResourcesForAndroidUnitTest NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForAndroidUnitTest NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForAndroidUnitTest NO-SOURCE
+> Task :shared:generateResourceAccessorsForAndroidUnitTest NO-SOURCE
+> Task :shared:convertXmlValueResourcesForAndroidUnitTestDebug NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForAndroidUnitTestDebug NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForAndroidUnitTestDebug NO-SOURCE
+> Task :shared:generateResourceAccessorsForAndroidUnitTestDebug NO-SOURCE
+> Task :shared:convertXmlValueResourcesForCommonTest NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForCommonTest NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForCommonTest NO-SOURCE
+> Task :shared:generateResourceAccessorsForCommonTest NO-SOURCE
+> Task :shared:javaPreCompileDebugUnitTest
+> Task :app:processDebugManifestForPackage
+> Task :shared:generateDebugUnitTestStubRFile
+> Task :app:processDebugResources
+> Task :shared:kspDebugKotlinAndroid
+
+> Task :shared:compileDebugKotlinAndroid
+w: file:///home/wsr/pgk-food/shared/build/generated/ksp/android/androidDebug/kotlin/com/example/pgk_food/shared/data/local/AppDatabaseConstructor.kt:5:8 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/platform/KeyValueStore.android.kt:21:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefScannerScreenShared.android.kt:366:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefScannerScreenShared.android.kt:501:1 Annotation 'androidx.camera.core.ExperimentalGetImage' is not annotated with '@RequiresOptIn'. '@OptIn' has no effect.
+w: file:///home/wsr/pgk-food/shared/src/androidMain/kotlin/com/example/pgk_food/shared/util/DailyAutoSyncManager.android.kt:6:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/core/network/ApiCaller.kt:8:8 'typealias IOException = IOException' is deprecated. Use kotlinx.io.IOException instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/core/network/ApiCaller.kt:40:17 'typealias IOException = IOException' is deprecated. Use kotlinx.io.IOException instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/local/AppDatabase.kt:49:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/repository/ChefRepository.kt:291:17 Redundant creation of Json format. Creating instances for each usage can be slow.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/platform/KeyValueStore.kt:3:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/AdminReportsScreen.kt:83:28 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefMenuManageScreenV2.kt:402:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:287:30 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorStatsScreen.kt:166:26 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:167:48 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:185:44 'val Icons.Filled.ExitToApp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ExitToApp.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:512:59 'val Icons.Filled.ListAlt: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ListAlt.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorUsersScreen.kt:39:28 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorUsersScreen.kt:730:49 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/util/DailyAutoSyncManager.kt:44:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+
+> Task :shared:compileDebugJavaWithJavac NO-SOURCE
+> Task :shared:processDebugJavaRes
+> Task :shared:bundleLibCompileToJarDebug
+> Task :shared:bundleLibRuntimeToJarDebug
+> Task :shared:compileDebugUnitTestKotlinAndroid NO-SOURCE
+> Task :shared:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :shared:processDebugUnitTestJavaRes NO-SOURCE
+> Task :shared:testDebugUnitTest NO-SOURCE
+> Task :app:kspDebugKotlin
+> Task :app:compileDebugKotlin
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:kspDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:testDebugUnitTest
+[Incubating] Problems report is available at: file:///home/wsr/pgk-food/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 8s
+47 actionable tasks: 47 executed

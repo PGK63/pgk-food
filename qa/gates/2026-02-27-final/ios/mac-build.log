@@ -1,0 +1,10 @@
+[2026-02-27] iOS Mac Build Evidence
+host_uname=Linux wsr-B650M-HDV-M-2 6.17.0-14-generic #14~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Thu Jan 15 15:52:10 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+xcodegen=not_found
+xcodebuild=not_found
+status=BLOCKED
+reason=Linux runner: xcodegen/xcodebuild are unavailable; mandatory iOS build must run on Mac runner
+required_commands:
+cd iosApp
+xcodegen generate
+xcodebuild -project iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 15' build

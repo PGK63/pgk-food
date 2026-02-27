@@ -1,0 +1,41 @@
+endpoint,old_client_usage,new_shared_usage,backend_coverage,status,notes
+/api/v1/auth/login,yes,yes,yes,matched,Auth login contract unchanged
+/api/v1/auth/my-keys,yes,yes,yes,matched,Student key refresh unchanged
+/api/v1/chef/keys,yes,yes,yes,matched,Offline key preload unchanged
+/api/v1/chef/permissions/today,yes,yes,yes,matched,Offline permissions preload unchanged
+/api/v1/qr/validate,yes,yes,yes,matched,Online scanner validation unchanged
+/api/v1/transactions/batch,yes,yes,yes,matched,Primary offline sync endpoint unchanged
+/api/v1/menu,yes,yes,yes,matched,Menu read/create contract preserved
+/api/v1/menu/$id,yes,yes,yes,matched,Menu delete preserved
+/api/v1/menu/batch,yes,yes,yes,matched,Batch menu import preserved
+/api/v1/student/meals/today,yes,yes,yes,matched,Student coupons source preserved
+/api/v1/time/current,yes,yes,yes,matched,Time sync fallback preserved
+/api/v1/groups,yes,yes,yes,matched,Groups list preserved
+/api/v1/groups/$groupId,yes,yes,yes,matched,Group delete preserved
+/api/v1/groups/$groupId/curator/$curatorId,yes,yes,yes,matched,Assign curator preserved
+/api/v1/groups/$groupId/curator,yes,yes,yes,matched,Remove curator preserved
+/api/v1/groups/$groupId/students/$studentId,yes,yes,yes,matched,Add student preserved
+/api/v1/groups/students/$studentId,yes,yes,yes,matched,Remove/transfer student preserved
+/api/v1/registrator/users,yes,yes,yes,matched,Users list preserved
+/api/v1/registrator/users/create,yes,yes,yes,matched,Create user preserved
+/api/v1/registrator/users/$userId,yes,yes,yes,matched,Delete user preserved
+/api/v1/registrator/users/$userId/reset-password,yes,yes,yes,matched,Reset password preserved
+/api/v1/registrator/users/$userId/roles,yes,yes,yes,matched,Role update preserved
+/api/v1/registrator/import/students,yes,yes,yes,matched,Student CSV import preserved
+/api/v1/roster,yes,yes,yes,matched,Curator roster get/save preserved
+/api/v1/statistics/my-group,yes,yes,yes,matched,Curator statistics preserved
+/api/v1/notifications,yes,yes,yes,matched,Notifications list preserved
+/api/v1/notifications/unread-count,yes,yes,yes,matched,Unread counter preserved
+/api/v1/notifications/$id/read,yes,yes,yes,matched,Mark read preserved
+/api/v1/notifications/read-batch,yes,yes,yes,matched,Batch mark read preserved
+/api/v1/notifications/roster-deadline,yes,yes,yes,matched,Curator deadline reminder preserved
+/api/v1/reports/daily,yes,yes,yes,matched,Admin daily report preserved
+/api/v1/reports/weekly,yes,yes,yes,matched,Admin weekly report preserved
+/api/v1/reports/export/csv,yes,yes,yes,matched,CSV export preserved
+/api/v1/reports/export/pdf,yes,yes,yes,matched,PDF export preserved
+/api/v1/reports/fraud,yes,yes,yes,matched,Fraud list preserved
+/api/v1/reports/fraud/$id/resolve,yes,yes,yes,matched,Fraud resolve preserved
+/api/v1/qr/validate-offline,no,no,yes,intentional_compatibility,Backend endpoint retained as compatibility; KMP client performs local offline validation
+/api/v1/qr/sync,no,no,yes,deprecated_backend_path,Legacy sync path present in backend while client uses /api/v1/transactions/batch
+/api/v1/student/roster,no,no,yes,backend_extra,Backend extra route not required for parity matrix
+/api/v1/registrator/users (POST /users),no,no,yes,backend_extra,Alternative create route exists; client uses /users/create

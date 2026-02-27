@@ -1,0 +1,493 @@
+> Task :clean
+> Task :checkKotlinGradlePluginConfigurationErrors
+> Task :processResources
+> Task :processTestResources NO-SOURCE
+
+> Task :compileKotlin
+w: file:///home/wsr/pgk-food/backend-kmp/src/main/kotlin/com/example/demo/features/qr/service/QRValidationService.kt:87:13 'when' is exhaustive so 'else' is redundant here
+w: file:///home/wsr/pgk-food/backend-kmp/src/main/kotlin/com/example/demo/features/transactions/service/TransactionsService.kt:100:13 'when' is exhaustive so 'else' is redundant here
+
+> Task :compileJava NO-SOURCE
+> Task :classes
+
+> Task :compileTestKotlin
+w: file:///home/wsr/pgk-food/backend-kmp/src/test/kotlin/com/example/demo/features/auth/RegistratorUsersControllerTest.kt:172:13 Variable 'chef' is never used
+w: file:///home/wsr/pgk-food/backend-kmp/src/test/kotlin/com/example/demo/features/auth/UserServiceTest.kt:155:13 Variable 'user' is never used
+w: file:///home/wsr/pgk-food/backend-kmp/src/test/kotlin/com/example/demo/features/qr/QRValidationServiceTest.kt:112:13 Variable 'testChef' is never used
+w: file:///home/wsr/pgk-food/backend-kmp/src/test/kotlin/com/example/demo/features/qr/QRValidationServiceTest.kt:323:13 Variable 'chef' is never used
+w: file:///home/wsr/pgk-food/backend-kmp/src/test/kotlin/com/example/demo/integration/FullFlowTest.kt:140:13 Variable 'monday' is never used
+w: file:///home/wsr/pgk-food/backend-kmp/src/test/kotlin/com/example/demo/integration/FullFlowTest.kt:304:13 Variable 'fakeQr' is never used
+w: file:///home/wsr/pgk-food/backend-kmp/src/test/kotlin/com/example/demo/integration/FullFlowTest.kt:327:13 Variable 'expiredQr' is never used
+
+> Task :compileTestJava NO-SOURCE
+> Task :testClasses UP-TO-DATE
+
+> Task :test
+
+NotificationService - напоминания по табелю > Куратор без группы - нет напоминания, есть reason FAILED
+    org.opentest4j.AssertionFailedError at NotificationServiceTest.kt:99
+
+RosterService - Управление табелем питания > Исключение, если куратор не привязан к группе FAILED
+    org.opentest4j.AssertionFailedError at RosterServiceTest.kt:239
+
+StatisticsService - статистика по питанию группы > Исключение, если куратор не привязан к группе FAILED
+    org.opentest4j.AssertionFailedError at StatisticsServiceTest.kt:212
+
+2026-02-27 14:39:58 - Closing org.springframework.web.context.support.GenericWebApplicationContext@2abbd0d9, started on Fri Feb 27 14:39:47 SAMT 2026
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - Closing org.springframework.web.context.support.GenericWebApplicationContext@66c3c813, started on Fri Feb 27 14:39:51 SAMT 2026
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - Closing org.springframework.web.context.support.GenericWebApplicationContext@2922bf92, started on Fri Feb 27 14:39:52 SAMT 2026
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+2026-02-27 14:39:58 - HHH000477: Starting delayed evictData of schema as part of SessionFactory shut-down'
+2026-02-27 14:39:58 - 
+    drop table if exists groups cascade 
+Hibernate: 
+    drop table if exists groups cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_permission cascade 
+Hibernate: 
+    drop table if exists meal_permission cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists meal_transaction cascade 
+Hibernate: 
+    drop table if exists meal_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists menu_items cascade 
+Hibernate: 
+    drop table if exists menu_items cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists notifications cascade 
+Hibernate: 
+    drop table if exists notifications cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists password_reset_log cascade 
+Hibernate: 
+    drop table if exists password_reset_log cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists suspicious_transaction cascade 
+Hibernate: 
+    drop table if exists suspicious_transaction cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists user_roles cascade 
+Hibernate: 
+    drop table if exists user_roles cascade 
+2026-02-27 14:39:58 - 
+    drop table if exists users cascade 
+Hibernate: 
+    drop table if exists users cascade 
+
+> Task :test FAILED
+
+[Incubating] Problems report is available at: file:///home/wsr/pgk-food/backend-kmp/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+6 actionable tasks: 6 executed

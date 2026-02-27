@@ -1,0 +1,40 @@
+{
+  "go_no_go": "NO-GO",
+  "date": "2026-02-27",
+  "build_refs": {
+    "root_head": "e8cb925dfec51bdc241f45b3f85498555530504f",
+    "backend_head": "ea54245e87d186566ddca9c888b5db2d5d5f9108",
+    "origin_oleg": "461e44231f4a931875b3dc2e423f492131f81562"
+  },
+  "failed_scenarios": [
+    "LGN-01", "LGN-02", "LGN-03", "LGN-04",
+    "QR-01", "QR-02", "QR-03",
+    "SCN-01", "SCN-02", "SCN-03", "SCN-04", "SCN-05",
+    "SYNC-01", "SYNC-02", "SYNC-03", "SYNC-04", "SYNC-05",
+    "REGU-01", "REGU-02", "REGU-03", "REGU-04", "REGU-05", "REGU-06",
+    "REGG-01", "REGG-02", "REGG-03", "REGG-04",
+    "CUR-01", "CUR-02", "CUR-03", "CUR-04", "CUR-05", "CUR-06",
+    "ADM-01", "ADM-02", "ADM-03", "ADM-04", "ADM-05",
+    "PAR-01"
+  ],
+  "sev12_open_count": 0,
+  "ios_mac_evidence": false,
+  "ios_device_evidence": false,
+  "waivers": {
+    "backend_text_assertions": {
+      "status": "CONDITIONAL_OPEN",
+      "file": "qa/gates/2026-02-27-final/waivers/backend-text-assertions.md",
+      "tests": [
+        "NotificationServiceTest.kt:99",
+        "RosterServiceTest.kt:239",
+        "StatisticsServiceTest.kt:212"
+      ]
+    }
+  },
+  "blockers": [
+    "Mandatory iOS Mac build evidence is missing",
+    "Mandatory iOS real-device scanner/camera evidence is missing",
+    "Manual smoke/regression matrix is incomplete",
+    "Backend suite has 3 known text assertion failures and waiver is not yet compensated by manual CUR-01..06 evidence"
+  ]
+}
