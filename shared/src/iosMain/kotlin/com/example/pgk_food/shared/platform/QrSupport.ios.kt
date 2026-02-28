@@ -36,7 +36,7 @@ import platform.Security.kSecAttrKeyTypeECSECPrimeRandom
 import platform.Security.kSecKeyAlgorithmECDSASignatureMessageX962SHA256
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageView
-import platform.UIKit.UIViewContentModeScaleAspectFit
+import platform.UIKit.UIViewContentMode
 import platform.darwin.NSObject
 import qrcode.QRCode
 import kotlin.math.abs
@@ -134,7 +134,7 @@ actual fun PlatformQrCodeImage(content: String, modifier: Modifier, sizePx: Int)
         factory = {
             UIImageView().apply {
                 clipsToBounds = true
-                contentMode = UIViewContentModeScaleAspectFit
+                contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
                 this.image = image
             }
         },
