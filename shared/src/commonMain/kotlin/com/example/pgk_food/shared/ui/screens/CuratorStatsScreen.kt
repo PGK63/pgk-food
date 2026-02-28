@@ -1,17 +1,17 @@
 package com.example.pgk_food.shared.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -26,7 +26,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -49,6 +48,7 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.StudentMealStatus
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.ui.theme.PillShape
+import com.example.pgk_food.shared.ui.theme.TagShape
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.todayLocalDate
 import kotlinx.coroutines.launch
@@ -238,6 +238,7 @@ fun CuratorStatsScreen(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun MealStatusCard(student: StudentMealStatus) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -252,19 +253,13 @@ private fun MealStatusCard(student: StudentMealStatus) {
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 MealStatusBadge("Завтрак", student.hadBreakfast)
                 MealStatusBadge("Обед", student.hadLunch)
                 MealStatusBadge("Ужин", student.hadDinner)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
                 MealStatusBadge("Полдник", student.hadSnack)
                 MealStatusBadge("Спец. питание", student.hadSpecial)
             }
@@ -274,11 +269,27 @@ private fun MealStatusCard(student: StudentMealStatus) {
 
 @Composable
 private fun MealStatusBadge(label: String, hadMeal: Boolean) {
-    FilterChip(
-        selected = hadMeal,
-        onClick = { },
-        enabled = false,
-        label = { Text(label) },
-        shape = PillShape
-    )
+    val containerColor = if (hadMeal) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.errorContainer
+    }
+    val contentColor = if (hadMeal) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onErrorContainer
+    }
+
+    Surface(
+        color = containerColor,
+        shape = TagShape
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            fontWeight = FontWeight.Medium
+        )
+    }
 }

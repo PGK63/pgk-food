@@ -1,0 +1,13 @@
+{
+  "go_no_go": "PENDING",
+  "date": "2026-02-28",
+  "build_refs": {
+    "root_head": "",
+    "origin_oleg": ""
+  },
+  "failed_scenarios": [],
+  "sev12_open_count": 0,
+  "ios_mac_evidence": false,
+  "ios_device_evidence": false,
+  "blockers": []
+}

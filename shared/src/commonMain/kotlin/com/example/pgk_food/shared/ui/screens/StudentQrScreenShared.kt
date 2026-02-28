@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,10 +17,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
@@ -50,6 +55,7 @@ import com.example.pgk_food.shared.data.remote.dto.QrPayload
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.platform.PlatformQrCodeImage
+import com.example.pgk_food.shared.platform.PlatformQrBrightnessEffect
 import com.example.pgk_food.shared.platform.currentTimeMillis
 import com.example.pgk_food.shared.platform.generateQrNonce
 import com.example.pgk_food.shared.platform.generateQrSignature
@@ -154,154 +160,181 @@ fun StudentQrScreenShared(
         label = "glow-alpha"
     )
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(horizontal = 16.dp)
     ) {
-        GlassSurface(
+        PlatformQrBrightnessEffect(enabled = true)
+
+        val isCompactHeight = maxHeight < 760.dp
+        val verticalPadding = if (isCompactHeight) 12.dp else 24.dp
+        val cardPadding = if (isCompactHeight) 20.dp else 32.dp
+        val maxQrByWidth = maxWidth - if (isCompactHeight) 72.dp else 96.dp
+        val maxQrByHeight = maxHeight - if (isCompactHeight) 440.dp else 500.dp
+        val preferredQrSize = if (maxQrByWidth < maxQrByHeight) maxQrByWidth else maxQrByHeight
+        val qrSizeCandidate = if (preferredQrSize > 0.dp) preferredQrSize else maxQrByWidth
+        val qrSize = when {
+            qrSizeCandidate < 228.dp -> 228.dp
+            qrSizeCandidate > 360.dp -> 360.dp
+            else -> qrSizeCandidate
+        }
+        val sectionSpacer = if (isCompactHeight) 20.dp else 32.dp
+        val infoWidthFraction = if (isCompactHeight) 1f else 0.9f
+
+        Column(
             modifier = Modifier
+                .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .springEntrance(),
-            shape = HeroCardShape,
-            fillColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+                .widthIn(max = 560.dp)
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight)
+                .padding(vertical = verticalPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = if (isCompactHeight) Arrangement.Top else Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier.padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            GlassSurface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .springEntrance(),
+                shape = HeroCardShape,
+                fillColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
             ) {
-                Text(
-                    text = "ТАЛОН НА ПИТАНИЕ",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 1.5.sp
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = displayMealType(mealType),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Black
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Box(
-                    modifier = Modifier
-                        .size(260.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .border(
-                            width = 2.dp,
-                            color = MaterialTheme.colorScheme.tertiary.copy(alpha = glowAlpha),
-                            shape = RoundedCornerShape(24.dp)
-                        )
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .padding(20.dp),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier.padding(cardPadding),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    when {
-                        qrError != null -> {
-                            QrErrorContentShared(
-                                qrError = qrError!!,
-                                onDownloadKeys = { viewModel.downloadKeys() },
-                                onRefresh = { refreshTrigger++ },
-                            )
-                        }
-
-                        qrContent.isNotEmpty() -> {
-                            PlatformQrCodeImage(
-                                content = qrContent,
-                                modifier = Modifier.fillMaxSize(),
-                                sizePx = 512
-                            )
-                        }
-
-                        else -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(PillShape)
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.Timer,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Обновление через $timeLeft сек",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontWeight = FontWeight.Bold
+                        text = "ТАЛОН НА ПИТАНИЕ",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.5.sp
                     )
-                }
 
-                if (downloadKeysState is DownloadKeysState.Loading) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Загрузка ключей...", style = MaterialTheme.typography.labelMedium)
-                }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                if (downloadKeysState is DownloadKeysState.Error) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val state = downloadKeysState as DownloadKeysState.Error
                     Text(
-                        text = "Ошибка ключей [${state.code}]: ${state.message}",
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center,
+                        text = displayMealType(mealType),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Black
                     )
-                }
 
-                if (timeLeft == 0) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    TextButton(
-                        onClick = { refreshTrigger++ },
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        shape = PillShape
+                    Spacer(modifier = Modifier.height(sectionSpacer))
+
+                    Box(
+                        modifier = Modifier
+                            .size(qrSize)
+                            .clip(RoundedCornerShape(24.dp))
+                            .border(
+                                width = 2.dp,
+                                color = MaterialTheme.colorScheme.tertiary.copy(alpha = glowAlpha),
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(10.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = null)
+                        when {
+                            qrError != null -> {
+                                QrErrorContentShared(
+                                    qrError = qrError!!,
+                                    onDownloadKeys = { viewModel.downloadKeys() },
+                                    onRefresh = { refreshTrigger++ },
+                                )
+                            }
+
+                            qrContent.isNotEmpty() -> {
+                                PlatformQrCodeImage(
+                                    content = qrContent,
+                                    modifier = Modifier.fillMaxSize(),
+                                    sizePx = 768
+                                )
+                            }
+
+                            else -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(sectionSpacer))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(PillShape)
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Обновить сейчас")
+                        Text(
+                            text = "Обновление через $timeLeft сек",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (downloadKeysState is DownloadKeysState.Loading) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Загрузка ключей...", style = MaterialTheme.typography.labelMedium)
+                    }
+
+                    if (downloadKeysState is DownloadKeysState.Error) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val state = downloadKeysState as DownloadKeysState.Error
+                        Text(
+                            text = "Ошибка ключей [${state.code}]: ${state.message}",
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
+                    if (timeLeft == 0) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TextButton(
+                            onClick = { refreshTrigger++ },
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            shape = PillShape
+                        ) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Обновить сейчас")
+                        }
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(sectionSpacer))
 
-        Surface(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            shape = PillShape,
-            modifier = Modifier.fillMaxWidth(0.9f)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                shape = PillShape,
+                modifier = Modifier.fillMaxWidth(infoWidthFraction)
             ) {
-                Icon(
-                    Icons.Rounded.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Покажите этот QR-код повару",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Покажите этот QR-код повару",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
