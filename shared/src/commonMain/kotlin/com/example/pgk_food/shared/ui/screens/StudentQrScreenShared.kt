@@ -59,6 +59,7 @@ import com.example.pgk_food.shared.platform.PlatformQrBrightnessEffect
 import com.example.pgk_food.shared.platform.currentTimeMillis
 import com.example.pgk_food.shared.platform.generateQrNonce
 import com.example.pgk_food.shared.platform.generateQrSignature
+import com.example.pgk_food.shared.platform.getLastQrSignatureDebugInfo
 import com.example.pgk_food.shared.ui.theme.GlassSurface
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
@@ -81,6 +82,7 @@ fun StudentQrScreenShared(
     var serverTimeOffset by remember { mutableLongStateOf(0L) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var qrError by remember { mutableStateOf<String?>(null) }
+    var qrDebugInfo by remember { mutableStateOf("init") }
     val downloadKeysState by viewModel.downloadKeysState.collectAsState()
 
     LaunchedEffect(downloadKeysState) {
@@ -93,6 +95,7 @@ fun StudentQrScreenShared(
     LaunchedEffect(Unit) {
         val serverTime = studentRepository.getCurrentTime()
         serverTimeOffset = serverTime - currentTimeMillis()
+        qrDebugInfo = "time-sync server=$serverTime offsetMs=$serverTimeOffset"
         refreshTrigger++
     }
 
@@ -104,6 +107,7 @@ fun StudentQrScreenShared(
             qrError = "ERROR_KEY"
             qrContent = ""
             timeLeft = 0
+            qrDebugInfo = "error key-missing userId=${session.userId} mealType=$mealType"
             return@LaunchedEffect
         }
 
@@ -111,19 +115,22 @@ fun StudentQrScreenShared(
         val timestampSec = timestampMs / 1000
         val roundedTimestamp = (timestampSec / 60) * 60
         val nonce = generateQrNonce()
+        qrDebugInfo = "signing-start userId=${session.userId} mealType=$mealType ts=$roundedTimestamp nonceLen=${nonce.length} keyLen=${privateKey.length}"
 
-        val signature = generateQrSignature(
+        var signature = generateQrSignature(
             userId = session.userId,
             timestamp = roundedTimestamp,
             mealType = mealType,
             nonce = nonce,
             privateKeyBase64 = privateKey,
+            publicKeyBase64 = session.publicKey,
         )
 
         if (signature.isBlank()) {
             qrError = "ERROR_SIG"
             qrContent = ""
             timeLeft = 0
+            qrDebugInfo = "error signature-blank; platform=${getLastQrSignatureDebugInfo()}"
             return@LaunchedEffect
         }
 
@@ -138,6 +145,7 @@ fun StudentQrScreenShared(
         )
         qrError = null
         timeLeft = 60
+        qrDebugInfo = "ok signatureLen=${signature.length}; platform=${getLastQrSignatureDebugInfo()}"
     }
 
     LaunchedEffect(qrContent, refreshTrigger, qrError) {
@@ -239,6 +247,7 @@ fun StudentQrScreenShared(
                             qrError != null -> {
                                 QrErrorContentShared(
                                     qrError = qrError!!,
+                                    debugInfo = qrDebugInfo,
                                     onDownloadKeys = { viewModel.downloadKeys() },
                                     onRefresh = { refreshTrigger++ },
                                 )
@@ -295,6 +304,16 @@ fun StudentQrScreenShared(
                         )
                     }
 
+                    if (qrDebugInfo.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "QR debug: ${qrDebugInfo.take(700)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
                     if (timeLeft == 0) {
                         Spacer(modifier = Modifier.height(16.dp))
                         TextButton(
@@ -343,6 +362,7 @@ fun StudentQrScreenShared(
 @Composable
 private fun QrErrorContentShared(
     qrError: String,
+    debugInfo: String,
     onDownloadKeys: () -> Unit,
     onRefresh: () -> Unit,
 ) {
@@ -369,6 +389,16 @@ private fun QrErrorContentShared(
             TextButton(onClick = onRefresh) {
                 Text("Обновить")
             }
+        }
+
+        if (debugInfo.isNotBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Debug: ${debugInfo.take(500)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

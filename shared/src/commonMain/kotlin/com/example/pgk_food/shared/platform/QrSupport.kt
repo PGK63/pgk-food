@@ -9,7 +9,9 @@ expect fun generateQrSignature(
     mealType: String,
     nonce: String,
     privateKeyBase64: String,
+    publicKeyBase64: String? = null,
 ): String
+expect fun getLastQrSignatureDebugInfo(): String
 
 expect fun generateQrNonce(): String
 

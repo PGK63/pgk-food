@@ -17,14 +17,18 @@ import java.security.spec.X509EncodedKeySpec
 import java.util.UUID
 import kotlin.math.abs
 
+private var lastQrSignatureDebugInfo: String = "not-generated-yet"
+
 actual fun generateQrSignature(
     userId: String,
     timestamp: Long,
     mealType: String,
     nonce: String,
     privateKeyBase64: String,
+    publicKeyBase64: String?,
 ): String {
     return try {
+        lastQrSignatureDebugInfo = "start keyLen=${privateKeyBase64.length} payload=$userId:$timestamp:$mealType:${nonce.length}"
         val data = "$userId:$timestamp:$mealType:$nonce"
         val keyBytes = Base64.decode(privateKeyBase64, Base64.DEFAULT)
         val keySpec = PKCS8EncodedKeySpec(keyBytes)
@@ -33,12 +37,17 @@ actual fun generateQrSignature(
         val signature = Signature.getInstance("SHA256withECDSA")
         signature.initSign(privateKey)
         signature.update(data.toByteArray())
-        Base64.encodeToString(signature.sign(), Base64.NO_WRAP)
+        val signatureBase64 = Base64.encodeToString(signature.sign(), Base64.NO_WRAP)
+        lastQrSignatureDebugInfo = "ok keyBytes=${keyBytes.size} signatureLen=${signatureBase64.length}"
+        signatureBase64
     } catch (t: Throwable) {
+        lastQrSignatureDebugInfo = "error ${t::class.simpleName}: ${t.message ?: "no-message"}"
         Log.e("QrSupport", "Failed to generate QR signature", t)
         ""
     }
 }
+
+actual fun getLastQrSignatureDebugInfo(): String = lastQrSignatureDebugInfo
 
 actual fun generateQrNonce(): String = UUID.randomUUID().toString()
 
