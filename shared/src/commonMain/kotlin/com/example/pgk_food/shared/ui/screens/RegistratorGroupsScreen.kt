@@ -1,11 +1,9 @@
 package com.example.pgk_food.shared.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
@@ -33,7 +31,7 @@ import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RegistratorGroupsScreen(
     token: String,
@@ -335,9 +333,9 @@ fun RegistratorGroupsScreen(
                                         }
                                         Text("Студентов: ${group.studentCount}", style = MaterialTheme.typography.bodySmall)
                                     }
-                                    Row(
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
                                         IconButton(onClick = { showAssignMemberDialog = group.id to "CURATOR" }) {
                                             Icon(Icons.Rounded.Person, contentDescription = "Назначить куратора", modifier = Modifier.size(22.dp))

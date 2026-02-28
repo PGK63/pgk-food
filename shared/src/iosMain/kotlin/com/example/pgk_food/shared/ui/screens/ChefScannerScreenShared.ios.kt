@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
@@ -63,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.UIKitView
@@ -173,13 +177,42 @@ actual fun ChefScannerScreenShared(
             )
         }
     ) { padding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val isCompactHeight = maxHeight < 760.dp
+            val horizontalPadding = if (isCompactHeight) 16.dp else 24.dp
+            val verticalPadding = if (isCompactHeight) 12.dp else 24.dp
+            val cameraHeightCandidate = if (isCompactHeight) maxHeight * 0.44f else maxHeight * 0.5f
+            val cameraHeight = when {
+                cameraHeightCandidate < 280.dp -> 280.dp
+                cameraHeightCandidate > 430.dp -> 430.dp
+                else -> cameraHeightCandidate
+            }
+            val frameByHeight = cameraHeight - if (isCompactHeight) 22.dp else 28.dp
+            val frameByWidth = maxWidth - if (isCompactHeight) 56.dp else 72.dp
+            val frameSizeCandidate = if (frameByHeight < frameByWidth) frameByHeight else frameByWidth
+            val scannerFrameSize = when {
+                frameSizeCandidate < 244.dp -> 244.dp
+                frameSizeCandidate > 372.dp -> 372.dp
+                else -> frameSizeCandidate
+            }
+            val hintsTopSpacer = if (isCompactHeight) 8.dp else 12.dp
+            val hintsBottomSpacer = if (isCompactHeight) 16.dp else 24.dp
+            val loadingTopSpacer = if (isCompactHeight) 24.dp else 40.dp
+            val resultTopSpacer = if (isCompactHeight) 16.dp else 24.dp
+            val controlsSpacer = if (isCompactHeight) 12.dp else 16.dp
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(min = maxHeight)
+                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -208,7 +241,7 @@ actual fun ChefScannerScreenShared(
             }
 
             if (showHints) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(hintsTopSpacer))
                 HowItWorksCard(
                     steps = listOf(
                         "Сканируйте QR студента и дождитесь карточки результата.",
@@ -219,9 +252,9 @@ actual fun ChefScannerScreenShared(
                     note = "Онлайн-результат приоритетнее оффлайн-проверки.",
                     onHideHints = onHideHints,
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(hintsBottomSpacer))
             } else {
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(if (isCompactHeight) 12.dp else 20.dp))
             }
 
             val isScannerActive =
@@ -231,7 +264,7 @@ actual fun ChefScannerScreenShared(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(300.dp)
+                        .height(cameraHeight)
                         .clip(MaterialTheme.shapes.extraLarge)
                         .background(Color.Black),
                     contentAlignment = Alignment.Center
@@ -246,13 +279,16 @@ actual fun ChefScannerScreenShared(
                         },
                         onError = { scannerError = it }
                     )
-                    ScannerOverlayIos(isActive = isScannerActive)
+                    ScannerOverlayIos(
+                        isActive = isScannerActive,
+                        frameSize = scannerFrameSize,
+                    )
                 }
             } else if (!hasCameraPermission) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(300.dp)
+                        .height(cameraHeight)
                         .clip(MaterialTheme.shapes.extraLarge)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
@@ -277,14 +313,14 @@ actual fun ChefScannerScreenShared(
             }
 
             if (scanState is ScanState.Loading || syncState is SyncState.Loading) {
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(loadingTopSpacer))
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(controlsSpacer))
                 Text(if (syncState is SyncState.Loading) (syncState as SyncState.Loading).message else "Проверка...")
             }
 
             if (scanState is ScanState.Error) {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(resultTopSpacer))
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     shape = MaterialTheme.shapes.large,
@@ -299,7 +335,7 @@ actual fun ChefScannerScreenShared(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(controlsSpacer))
                 Button(onClick = { viewModel.resetScanState() }, modifier = Modifier.fillMaxWidth(), shape = PillShape) {
                     Text("ПОПРОБОВАТЬ СНОВА")
                 }
@@ -307,7 +343,7 @@ actual fun ChefScannerScreenShared(
 
             scannerError?.let { cameraError ->
                 if (scanState is ScanState.Idle && syncState !is SyncState.Loading) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(controlsSpacer))
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                         shape = MaterialTheme.shapes.large,
@@ -325,7 +361,7 @@ actual fun ChefScannerScreenShared(
             if (scanState is ScanState.Success) {
                 val scanResponse = (scanState as ScanState.Success).response
                 val isValid = scanResponse.isValid
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(resultTopSpacer))
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = if (isValid)
@@ -367,7 +403,7 @@ actual fun ChefScannerScreenShared(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(controlsSpacer))
 
                 Button(
                     onClick = {
@@ -384,7 +420,7 @@ actual fun ChefScannerScreenShared(
             }
 
             if (hasCameraPermission && scanState is ScanState.Idle) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(controlsSpacer))
                 Text(
                     text = "Наведите камеру на QR-код студента",
                     style = MaterialTheme.typography.bodySmall,
@@ -392,6 +428,7 @@ actual fun ChefScannerScreenShared(
                     textAlign = TextAlign.Center
                 )
             }
+        }
         }
     }
 }
@@ -601,7 +638,10 @@ private class QrMetadataDelegate(
 }
 
 @Composable
-private fun ScannerOverlayIos(isActive: Boolean) {
+private fun ScannerOverlayIos(
+    isActive: Boolean,
+    frameSize: Dp,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -610,7 +650,7 @@ private fun ScannerOverlayIos(isActive: Boolean) {
     ) {
         Box(
             modifier = Modifier
-                .size(220.dp)
+                .size(frameSize)
                 .border(
                     width = 2.dp,
                     color = if (isActive) Color(0xFF00E676) else Color.White,
@@ -618,13 +658,13 @@ private fun ScannerOverlayIos(isActive: Boolean) {
                 )
         )
         if (isActive) {
-            ScannerLineIos()
+            ScannerLineIos(frameSize = frameSize)
         }
     }
 }
 
 @Composable
-private fun ScannerLineIos() {
+private fun ScannerLineIos(frameSize: Dp) {
     val transition = rememberInfiniteTransition(label = "scanner-line")
     val offset by transition.animateFloat(
         initialValue = 0f,
@@ -636,7 +676,7 @@ private fun ScannerLineIos() {
         label = "scanner-line-offset",
     )
 
-    BoxWithConstraints(modifier = Modifier.size(220.dp)) {
+    BoxWithConstraints(modifier = Modifier.size(frameSize)) {
         val y = maxHeight * offset
         Box(
             modifier = Modifier
