@@ -99,7 +99,7 @@ fun LoginScreen(authRepository: AuthRepository) {
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .heightIn(min = maxHeight)
-                    .padding(top = verticalPadding, bottom = verticalPadding + 48.dp),
+                    .padding(top = verticalPadding, bottom = verticalPadding + 80.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = if (isCompactHeight) Arrangement.Top else Arrangement.Center
             ) {
