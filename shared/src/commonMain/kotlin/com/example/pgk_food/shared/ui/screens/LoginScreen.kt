@@ -99,7 +99,7 @@ fun LoginScreen(authRepository: AuthRepository) {
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .heightIn(min = maxHeight)
-                    .padding(vertical = verticalPadding),
+                    .padding(top = verticalPadding, bottom = verticalPadding + 48.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = if (isCompactHeight) Arrangement.Top else Arrangement.Center
             ) {
@@ -231,6 +231,16 @@ fun LoginScreen(authRepository: AuthRepository) {
                     }
                 }
             }
+
+            Text(
+                text = "HM team",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W800),
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp)
+                    .springEntrance(200)
+            )
         }
     }
 }
