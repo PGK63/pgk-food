@@ -19,7 +19,9 @@ data class MealsTodayResponse(
     val date: String,
     val isBreakfastAllowed: Boolean,
     val isLunchAllowed: Boolean,
-    val reason: String? = null
+    val reason: String? = null,
+    val isBreakfastConsumed: Boolean? = null,
+    val isLunchConsumed: Boolean? = null,
 )
 
 @Serializable
@@ -56,6 +58,8 @@ class StudentRepository {
                 isBreakfastAllowed = cached.isBreakfastAllowed,
                 isLunchAllowed = cached.isLunchAllowed,
                 reason = "Оффлайн режим",
+                isBreakfastConsumed = null,
+                isLunchConsumed = null,
             )
         }
     }

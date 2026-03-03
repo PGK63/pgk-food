@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +57,28 @@ import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.viewmodels.DownloadKeysState
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
 import kotlinx.coroutines.launch
+
+private enum class CouponStatus {
+    AVAILABLE,
+    USED,
+    UNAVAILABLE,
+    UNKNOWN,
+}
+
+private data class CouponUi(
+    val name: String,
+    val type: String,
+    val status: CouponStatus,
+)
+
+private fun resolveCouponStatus(allowed: Boolean, consumed: Boolean?): CouponStatus {
+    return when {
+        consumed == true -> CouponStatus.USED
+        !allowed -> CouponStatus.UNAVAILABLE
+        consumed == false -> CouponStatus.AVAILABLE
+        else -> CouponStatus.UNKNOWN
+    }
+}
 
 @Composable
 fun MyCouponsScreen(
@@ -217,18 +240,52 @@ fun MyCouponsScreen(
                 }
 
                 mealsToday?.let { meals ->
-                    val availableMeals = mutableListOf<Pair<String, String>>()
-                    if (meals.isBreakfastAllowed) availableMeals.add("Завтрак" to "BREAKFAST")
-                    if (meals.isLunchAllowed) availableMeals.add("Обед" to "LUNCH")
+                    val coupons = buildList {
+                        val breakfastStatus = resolveCouponStatus(
+                            allowed = meals.isBreakfastAllowed,
+                            consumed = meals.isBreakfastConsumed,
+                        )
+                        if (meals.isBreakfastAllowed || breakfastStatus == CouponStatus.USED) {
+                            add(CouponUi(name = "Завтрак", type = "BREAKFAST", status = breakfastStatus))
+                        }
 
-                    if (availableMeals.isEmpty()) {
+                        val lunchStatus = resolveCouponStatus(
+                            allowed = meals.isLunchAllowed,
+                            consumed = meals.isLunchConsumed,
+                        )
+                        if (meals.isLunchAllowed || lunchStatus == CouponStatus.USED) {
+                            add(CouponUi(name = "Обед", type = "LUNCH", status = lunchStatus))
+                        }
+                    }
+
+                    if (coupons.isEmpty()) {
                         item {
                             EmptyCouponsState()
                         }
                     } else {
-                        items(availableMeals.size) { index ->
-                            val (name, type) = availableMeals[index]
-                            CouponItem(name) { onCouponClick(type) }
+                        items(coupons.size) { index ->
+                            val coupon = coupons[index]
+                            CouponItem(
+                                name = coupon.name,
+                                status = coupon.status,
+                                onClick = {
+                                    when (coupon.status) {
+                                        CouponStatus.AVAILABLE -> onCouponClick(coupon.type)
+                                        CouponStatus.UNKNOWN -> {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    "Статус не проверен, открываем QR по сохраненным данным"
+                                                )
+                                            }
+                                            onCouponClick(coupon.type)
+                                        }
+
+                                        CouponStatus.USED,
+                                        CouponStatus.UNAVAILABLE,
+                                        -> Unit
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -245,14 +302,45 @@ fun MyCouponsScreen(
 }
 
 @Composable
-fun CouponItem(name: String, onClick: () -> Unit) {
+private fun CouponItem(name: String, status: CouponStatus, onClick: () -> Unit) {
+    val clickable = status == CouponStatus.AVAILABLE || status == CouponStatus.UNKNOWN
+    val containerColor = when (status) {
+        CouponStatus.AVAILABLE -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+        CouponStatus.UNKNOWN -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+        CouponStatus.USED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        CouponStatus.UNAVAILABLE -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
+    }
+    val titleColor = when (status) {
+        CouponStatus.AVAILABLE -> MaterialTheme.colorScheme.onPrimaryContainer
+        CouponStatus.UNKNOWN -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val subtitleColor = when (status) {
+        CouponStatus.AVAILABLE -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+        CouponStatus.UNKNOWN -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val statusLabel = when (status) {
+        CouponStatus.AVAILABLE -> "Доступен"
+        CouponStatus.USED -> "Использован"
+        CouponStatus.UNAVAILABLE -> "Недоступен"
+        CouponStatus.UNKNOWN -> "Статус не проверен"
+    }
+    val statusColor = when (status) {
+        CouponStatus.AVAILABLE -> MaterialTheme.colorScheme.primary
+        CouponStatus.USED -> MaterialTheme.colorScheme.tertiary
+        CouponStatus.UNAVAILABLE -> MaterialTheme.colorScheme.error
+        CouponStatus.UNKNOWN -> MaterialTheme.colorScheme.secondary
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 10.dp)
-            .clickable { onClick() },
+            .alpha(if (clickable) 1f else 0.8f)
+            .clickable(enabled = clickable) { onClick() },
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(
             modifier = Modifier
@@ -281,28 +369,46 @@ fun CouponItem(name: String, onClick: () -> Unit) {
                         text = name,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = titleColor
                     )
                     Text(
                         text = "На сегодня",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        color = subtitleColor
                     )
                 }
             }
 
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    Icons.Default.QrCode,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(24.dp),
-                    tint = Color.White
-                )
+                Surface(
+                    color = statusColor.copy(alpha = 0.18f),
+                    shape = PillShape,
+                ) {
+                    Text(
+                        text = statusLabel,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = if (clickable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Icon(
+                        Icons.Default.QrCode,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(24.dp),
+                        tint = if (clickable) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

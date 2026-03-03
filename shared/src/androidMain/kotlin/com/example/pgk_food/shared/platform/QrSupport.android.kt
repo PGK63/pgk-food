@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -97,7 +98,13 @@ actual fun isQrTimestampValid(timestamp: Long, toleranceSeconds: Long): Boolean 
 actual fun PlatformQrCodeImage(content: String, modifier: Modifier, sizePx: Int) {
     val bitmap = remember(content, sizePx) {
         val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, sizePx, sizePx)
+        val bitMatrix = writer.encode(
+            content,
+            BarcodeFormat.QR_CODE,
+            sizePx,
+            sizePx,
+            mapOf(EncodeHintType.MARGIN to 2),
+        )
         val bitmap = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.RGB_565)
         for (x in 0 until sizePx) {
             for (y in 0 until sizePx) {

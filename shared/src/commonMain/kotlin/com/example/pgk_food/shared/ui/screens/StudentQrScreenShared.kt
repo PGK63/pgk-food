@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.data.remote.dto.QrPayload
+import com.example.pgk_food.shared.data.repository.MealsTodayResponse
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.data.session.SessionStore
 import com.example.pgk_food.shared.data.session.UserSession
@@ -85,23 +86,77 @@ fun StudentQrScreenShared(
     var qrError by remember { mutableStateOf<String?>(null) }
     var qrSignatureDebugInfo by remember { mutableStateOf("SIG_NOT_RUN") }
     var signatureRetryTriggered by remember { mutableStateOf(false) }
+    var bootstrapTrigger by remember(mealType) { mutableIntStateOf(0) }
+    var awaitingKeyRefreshForGeneration by remember(mealType) { mutableStateOf(false) }
+    var generationEnabled by remember(mealType) { mutableStateOf(false) }
+    var usingCachedKeys by remember(mealType) { mutableStateOf(false) }
     val downloadKeysState by viewModel.downloadKeysState.collectAsState()
 
-    LaunchedEffect(downloadKeysState) {
-        if (downloadKeysState is DownloadKeysState.Success) {
-            viewModel.resetDownloadKeysState()
-            refreshTrigger++
+    LaunchedEffect(mealType, bootstrapTrigger) {
+        generationEnabled = false
+        awaitingKeyRefreshForGeneration = false
+        usingCachedKeys = false
+        signatureRetryTriggered = false
+        qrContent = ""
+        qrError = null
+        qrSignatureDebugInfo = "SIG_BOOTSTRAP"
+        timeLeft = 0
+        val serverTime = studentRepository.getCurrentTime()
+        serverTimeOffset = serverTime - currentTimeMillis()
+        val mealStatus = studentRepository.getMealsToday(session.token)
+            .getOrNull()
+            ?.statusForMealType(mealType)
+            ?: MealCouponStatus.UNKNOWN
+
+        when (mealStatus) {
+            MealCouponStatus.USED -> {
+                qrError = "ERROR_COUPON_USED"
+                qrSignatureDebugInfo = "SIG_COUPON_USED"
+                return@LaunchedEffect
+            }
+
+            MealCouponStatus.UNAVAILABLE -> {
+                qrError = "ERROR_COUPON_UNAVAILABLE"
+                qrSignatureDebugInfo = "SIG_COUPON_UNAVAILABLE"
+                return@LaunchedEffect
+            }
+
+            MealCouponStatus.AVAILABLE,
+            MealCouponStatus.UNKNOWN,
+            -> Unit
+        }
+
+        awaitingKeyRefreshForGeneration = true
+        viewModel.resetDownloadKeysState()
+        viewModel.downloadKeys()
+    }
+
+    LaunchedEffect(downloadKeysState, awaitingKeyRefreshForGeneration) {
+        if (!awaitingKeyRefreshForGeneration) return@LaunchedEffect
+
+        when (downloadKeysState) {
+            is DownloadKeysState.Success -> {
+                awaitingKeyRefreshForGeneration = false
+                generationEnabled = true
+                usingCachedKeys = false
+                viewModel.resetDownloadKeysState()
+                refreshTrigger++
+            }
+
+            is DownloadKeysState.Error -> {
+                awaitingKeyRefreshForGeneration = false
+                generationEnabled = true
+                usingCachedKeys = true
+                viewModel.resetDownloadKeysState()
+                refreshTrigger++
+            }
+
+            else -> Unit
         }
     }
 
-    LaunchedEffect(Unit) {
-        val serverTime = studentRepository.getCurrentTime()
-        serverTimeOffset = serverTime - currentTimeMillis()
-        refreshTrigger++
-    }
-
-    LaunchedEffect(refreshTrigger) {
-        if (refreshTrigger <= 0) return@LaunchedEffect
+    LaunchedEffect(refreshTrigger, generationEnabled) {
+        if (refreshTrigger <= 0 || !generationEnabled) return@LaunchedEffect
 
         val activeSession = SessionStore.session.value ?: session
         val privateKey = activeSession.privateKey
@@ -153,6 +208,7 @@ fun StudentQrScreenShared(
     LaunchedEffect(qrError, signatureRetryTriggered) {
         if (qrError != "ERROR_SIG" || signatureRetryTriggered) return@LaunchedEffect
         signatureRetryTriggered = true
+        awaitingKeyRefreshForGeneration = true
         viewModel.downloadKeys()
     }
 
@@ -197,12 +253,13 @@ fun StudentQrScreenShared(
         }
         val sectionSpacer = if (isCompactHeight) 20.dp else 32.dp
         val infoWidthFraction = if (isCompactHeight) 1f else 0.9f
+        val contentAlignment = if (isCompactHeight) Alignment.TopCenter else Alignment.Center
         val density = LocalDensity.current
         val qrSizePx = with(density) { qrSize.roundToPx().coerceAtLeast(320) }
 
         Column(
             modifier = Modifier
-                .align(Alignment.TopCenter)
+                .align(contentAlignment)
                 .fillMaxWidth()
                 .widthIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
@@ -258,8 +315,17 @@ fun StudentQrScreenShared(
                                     qrError = qrError!!,
                                     retryAttempted = signatureRetryTriggered,
                                     signatureDebugInfo = qrSignatureDebugInfo,
-                                    onDownloadKeys = { viewModel.downloadKeys() },
-                                    onRefresh = { refreshTrigger++ },
+                                    onDownloadKeys = {
+                                        awaitingKeyRefreshForGeneration = true
+                                        viewModel.downloadKeys()
+                                    },
+                                    onRefresh = {
+                                        if (qrError == "ERROR_COUPON_USED" || qrError == "ERROR_COUPON_UNAVAILABLE") {
+                                            bootstrapTrigger++
+                                        } else {
+                                            refreshTrigger++
+                                        }
+                                    },
                                 )
                             }
 
@@ -304,6 +370,16 @@ fun StudentQrScreenShared(
                         Text("Загрузка ключей...", style = MaterialTheme.typography.labelMedium)
                     }
 
+                    if (usingCachedKeys) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Ключи не обновились, используется сохраненная версия.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
                     if (downloadKeysState is DownloadKeysState.Error) {
                         Spacer(modifier = Modifier.height(12.dp))
                         val state = downloadKeysState as DownloadKeysState.Error
@@ -317,7 +393,13 @@ fun StudentQrScreenShared(
                     if (timeLeft == 0) {
                         Spacer(modifier = Modifier.height(16.dp))
                         TextButton(
-                            onClick = { refreshTrigger++ },
+                            onClick = {
+                                if (qrError == "ERROR_COUPON_USED" || qrError == "ERROR_COUPON_UNAVAILABLE") {
+                                    bootstrapTrigger++
+                                } else {
+                                    refreshTrigger++
+                                }
+                            },
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             shape = PillShape
                         ) {
@@ -369,20 +451,22 @@ private fun QrErrorContentShared(
 ) {
     val signatureCode = signatureDebugInfo.substringBefore('|').ifBlank { "SIG_UNKNOWN" }
     val signatureTail = signatureDebugInfo.substringAfter('|', "").takeIf { it.isNotBlank() }?.take(72)
+    val errorText = when (qrError) {
+        "ERROR_KEY" -> "Ключи отсутствуют.\nСкачайте ключи для продолжения."
+        "ERROR_COUPON_USED" -> "Талон уже использован.\nОбновите список талонов."
+        "ERROR_COUPON_UNAVAILABLE" -> "Талон недоступен на сегодня."
+        else -> "Не удалось подписать QR (код: $signatureCode).\nОбновите ключи iOS."
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = if (qrError == "ERROR_KEY") {
-                "Ключи отсутствуют.\nСкачайте ключи для продолжения."
-            } else {
-                "Не удалось подписать QR (код: $signatureCode).\nОбновите ключи iOS."
-            },
+            text = errorText,
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.labelMedium,
             textAlign = TextAlign.Center
         )
-        if (qrError != "ERROR_KEY" && retryAttempted) {
+        if (qrError == "ERROR_SIG" && retryAttempted) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "Повтор уже выполнен после обновления ключей iOS.",
@@ -391,7 +475,7 @@ private fun QrErrorContentShared(
                 textAlign = TextAlign.Center
             )
         }
-        if (qrError != "ERROR_KEY" && signatureTail != null) {
+        if (qrError == "ERROR_SIG" && signatureTail != null) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = signatureTail,
@@ -418,4 +502,31 @@ private fun displayMealType(mealType: String): String = when (mealType.uppercase
     "BREAKFAST" -> "ЗАВТРАК"
     "LUNCH" -> "ОБЕД"
     else -> mealType.uppercase()
+}
+
+private enum class MealCouponStatus {
+    AVAILABLE,
+    USED,
+    UNAVAILABLE,
+    UNKNOWN,
+}
+
+private fun MealsTodayResponse.statusForMealType(mealType: String): MealCouponStatus {
+    val normalized = mealType.uppercase()
+    val allowed = when (normalized) {
+        "BREAKFAST" -> isBreakfastAllowed
+        "LUNCH" -> isLunchAllowed
+        else -> false
+    }
+    val consumed = when (normalized) {
+        "BREAKFAST" -> isBreakfastConsumed
+        "LUNCH" -> isLunchConsumed
+        else -> null
+    }
+    return when {
+        consumed == true -> MealCouponStatus.USED
+        !allowed -> MealCouponStatus.UNAVAILABLE
+        consumed == false -> MealCouponStatus.AVAILABLE
+        else -> MealCouponStatus.UNKNOWN
+    }
 }

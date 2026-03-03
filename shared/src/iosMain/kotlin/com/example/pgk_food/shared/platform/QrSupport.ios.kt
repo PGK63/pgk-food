@@ -197,10 +197,12 @@ private fun generateQrUiImage(content: String, sizePx: Int): UIImage? {
 }
 
 private fun renderQrPngBytes(content: String, targetSizePx: Int): ByteArray? {
+    val quietZoneModules = 2
     val targetSize = targetSizePx.coerceIn(256, 1024)
     val qr = runCatching { QRCode.ofSquares().build(content) }.getOrNull() ?: return null
     val moduleCount = qr.rawData.size.coerceAtLeast(21)
-    val baseCellSize = (targetSize / (moduleCount + 2)).coerceIn(2, 24)
+    val totalModules = moduleCount + quietZoneModules * 2
+    val baseCellSize = (targetSize / totalModules).coerceIn(2, 24)
     val cellSizes = buildList {
         add(baseCellSize)
         add((baseCellSize - 1).coerceAtLeast(2))
