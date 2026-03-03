@@ -9,6 +9,7 @@ import androidx.compose.ui.interop.UIKitView
 import cnames.structs.__CFData
 import cnames.structs.__CFDictionary
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CValuesRef
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.UByteVar
 import kotlinx.cinterop.addressOf
@@ -38,6 +39,7 @@ import platform.Security.kSecAttrKeyClassPrivate
 import platform.Security.kSecAttrKeyClassPublic
 import platform.Security.kSecAttrKeySizeInBits
 import platform.Security.kSecAttrKeyType
+import platform.Security.kSecAttrKeyTypeEC
 import platform.Security.kSecAttrKeyTypeECSECPrimeRandom
 import platform.Security.kSecKeyAlgorithmECDSASignatureMessageX962SHA256
 import platform.UIKit.UIImage
@@ -193,7 +195,11 @@ private fun ByteArray.toCfData() = usePinned {
 private fun decodeBase64KeyMaterial(raw: String): ByteArray {
     val sanitized = normalizeKeyBase64(raw)
     if (sanitized.isBlank()) return ByteArray(0)
-    return runCatching { Base64.Default.decode(sanitized) }.getOrDefault(ByteArray(0))
+    base64DecodeCandidates(sanitized).forEach { candidate ->
+        val decoded = runCatching { Base64.Default.decode(candidate) }.getOrNull()
+        if (decoded != null && decoded.isNotEmpty()) return decoded
+    }
+    return ByteArray(0)
 }
 
 private fun normalizeKeyBase64(raw: String): String {
@@ -213,13 +219,47 @@ private fun normalizeKeyBase64(raw: String): String {
     }
 }
 
-private fun createEcAttributes(isPrivate: Boolean): kotlinx.cinterop.CPointer<__CFDictionary>? {
+private fun base64DecodeCandidates(source: String): List<String> {
+    val candidates = mutableListOf<String>()
+    appendBase64Candidate(candidates, source)
+    appendBase64Candidate(candidates, source.replace('-', '+').replace('_', '/'))
+    return candidates
+}
+
+private fun appendBase64Candidate(candidates: MutableList<String>, value: String) {
+    if (value.isBlank()) return
+    if (value !in candidates) candidates += value
+    val padded = padBase64(value)
+    if (padded !in candidates) candidates += padded
+}
+
+private fun padBase64(value: String): String {
+    val remainder = value.length % 4
+    if (remainder == 0) return value
+    return value + "=".repeat(4 - remainder)
+}
+
+private fun createEcAttributes(
+    isPrivate: Boolean,
+    keyType: CValuesRef<*>?,
+    includeClass: Boolean,
+    includeSize: Boolean,
+): kotlinx.cinterop.CPointer<__CFDictionary>? {
+    if (keyType == null) return null
     val attrs = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, null, null)
         ?.reinterpret<__CFDictionary>() ?: return null
-    CFDictionaryAddValue(attrs, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom)
-    CFDictionaryAddValue(attrs, kSecAttrKeyClass, if (isPrivate) kSecAttrKeyClassPrivate else kSecAttrKeyClassPublic)
-    createCfNumber(256)?.let { keySize ->
-        CFDictionaryAddValue(attrs, kSecAttrKeySizeInBits, keySize)
+    CFDictionaryAddValue(attrs, kSecAttrKeyType, keyType)
+    if (includeClass) {
+        CFDictionaryAddValue(
+            attrs,
+            kSecAttrKeyClass,
+            if (isPrivate) kSecAttrKeyClassPrivate else kSecAttrKeyClassPublic
+        )
+    }
+    if (includeSize) {
+        createCfNumber(256)?.let { keySize ->
+            CFDictionaryAddValue(attrs, kSecAttrKeySizeInBits, keySize)
+        }
     }
     return attrs
 }
@@ -234,8 +274,10 @@ private fun createCfNumber(value: Int): kotlinx.cinterop.CPointer<*>? {
 private fun createPrivateEcKeys(source: ByteArray): List<SecKeyRef> {
     val sec1Blob = extractPkcs8PrivateKeyBlob(source)
     val sec1Source = sec1Blob ?: source.takeIf { isSec1EcPrivateKey(it) }
+    val scalarSec1Source = extractEcPrivateScalar(source)?.let(::buildSec1EcPrivateKeyFromScalar)
     val candidates = buildList {
         sec1Source?.let { add(it) }
+        scalarSec1Source?.let { add(it) }
         add(source)
     }
     return createEcKeysFromCandidates(candidates, isPrivate = true)
@@ -257,14 +299,46 @@ private fun createEcKeysFromCandidates(
     isPrivate: Boolean,
 ): List<SecKeyRef> {
     val keys = mutableListOf<SecKeyRef>()
-    val uniqueCandidates = candidates.filter { it.isNotEmpty() }.distinctBy { it.joinToString(",") }
+    val uniqueCandidates = uniqueKeyCandidates(candidates)
+    val keyTypes = listOf(kSecAttrKeyTypeECSECPrimeRandom, kSecAttrKeyTypeEC)
+    val attrVariants = listOf(
+        AttrVariant(includeClass = true, includeSize = true),
+        AttrVariant(includeClass = true, includeSize = false),
+        AttrVariant(includeClass = false, includeSize = true),
+        AttrVariant(includeClass = false, includeSize = false),
+    )
+
     uniqueCandidates.forEach { keyBytes ->
-        val attrs = createEcAttributes(isPrivate) ?: return@forEach
         val keyData = keyBytes.toCfData() ?: return@forEach
-        val key = SecKeyCreateWithData(keyData, attrs, null)
-        if (key != null) keys += key
+        keyTypes.forEach { keyType ->
+            attrVariants.forEach { variant ->
+                val attrs = createEcAttributes(
+                    isPrivate = isPrivate,
+                    keyType = keyType,
+                    includeClass = variant.includeClass,
+                    includeSize = variant.includeSize,
+                ) ?: return@forEach
+                val key = SecKeyCreateWithData(keyData, attrs, null)
+                if (key != null) keys += key
+            }
+        }
     }
     return keys
+}
+
+private data class AttrVariant(
+    val includeClass: Boolean,
+    val includeSize: Boolean,
+)
+
+private fun uniqueKeyCandidates(candidates: List<ByteArray>): List<ByteArray> {
+    val unique = mutableListOf<ByteArray>()
+    candidates.filter { it.isNotEmpty() }.forEach { candidate ->
+        if (unique.none { it.contentEquals(candidate) }) {
+            unique += candidate
+        }
+    }
+    return unique
 }
 
 private fun normalizeRawPublicPoint(source: ByteArray): ByteArray? {
@@ -342,6 +416,60 @@ private fun isSec1EcPrivateKey(der: ByteArray): Boolean {
     if (version != 1) return false
     val keyNode = children[1]
     return keyNode.tag == 0x04 && keyNode.contentEnd > keyNode.contentStart
+}
+
+private fun extractEcPrivateScalar(source: ByteArray): ByteArray? {
+    if (source.size == 32) return source
+    if (source.size == 33 && source[0] == 0x00.toByte()) return source.copyOfRange(1, source.size)
+    val sec1Source = when {
+        isSec1EcPrivateKey(source) -> source
+        else -> extractPkcs8PrivateKeyBlob(source)
+    } ?: return null
+    val root = readAsn1Node(sec1Source, 0) ?: return null
+    val children = readAsn1Children(sec1Source, root)
+    if (children.size < 2) return null
+    val privateKeyNode = children[1]
+    if (privateKeyNode.tag != 0x04) return null
+    val scalar = sec1Source.copyOfRange(privateKeyNode.contentStart, privateKeyNode.contentEnd)
+    return normalizePrivateScalar(scalar)
+}
+
+private fun normalizePrivateScalar(raw: ByteArray): ByteArray? {
+    if (raw.isEmpty()) return null
+    return when {
+        raw.size == 32 -> raw
+        raw.size > 32 -> raw.takeLast(32).toByteArray()
+        else -> ByteArray(32 - raw.size) + raw
+    }
+}
+
+private fun buildSec1EcPrivateKeyFromScalar(scalar: ByteArray): ByteArray {
+    val normalizedScalar = normalizePrivateScalar(scalar) ?: scalar
+    val versionNode = byteArrayOf(0x02, 0x01, 0x01)
+    val privateKeyNode = derNode(0x04, normalizedScalar)
+    val namedCurve = byteArrayOf(
+        0xA0.toByte(), 0x0A,
+        0x06, 0x08,
+        0x2A, 0x86.toByte(), 0x48, 0xCE.toByte(), 0x3D, 0x03, 0x01, 0x07,
+    )
+    val body = versionNode + privateKeyNode + namedCurve
+    return derNode(0x30, body)
+}
+
+private fun derNode(tag: Int, value: ByteArray): ByteArray {
+    return byteArrayOf(tag.toByte()) + derLength(value.size) + value
+}
+
+private fun derLength(length: Int): ByteArray {
+    if (length < 0x80) return byteArrayOf(length.toByte())
+    var remainder = length
+    val bytes = mutableListOf<Byte>()
+    while (remainder > 0) {
+        bytes += (remainder and 0xFF).toByte()
+        remainder = remainder ushr 8
+    }
+    val lengthBytes = bytes.asReversed().toByteArray()
+    return byteArrayOf((0x80 or lengthBytes.size).toByte()) + lengthBytes
 }
 
 private fun extractSpkiPublicKeyBytes(der: ByteArray): ByteArray? {

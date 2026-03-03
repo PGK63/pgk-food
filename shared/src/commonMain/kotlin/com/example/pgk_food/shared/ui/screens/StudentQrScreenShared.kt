@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.data.remote.dto.QrPayload
 import com.example.pgk_food.shared.data.repository.StudentRepository
+import com.example.pgk_food.shared.data.session.SessionStore
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.platform.PlatformQrCodeImage
 import com.example.pgk_food.shared.platform.PlatformQrBrightnessEffect
@@ -100,7 +101,8 @@ fun StudentQrScreenShared(
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger <= 0) return@LaunchedEffect
 
-        val privateKey = session.privateKey
+        val activeSession = SessionStore.session.value ?: session
+        val privateKey = activeSession.privateKey
         if (privateKey.isNullOrBlank()) {
             qrError = "ERROR_KEY"
             qrContent = ""
@@ -114,7 +116,7 @@ fun StudentQrScreenShared(
         val nonce = generateQrNonce()
 
         val signature = generateQrSignature(
-            userId = session.userId,
+            userId = activeSession.userId,
             timestamp = roundedTimestamp,
             mealType = mealType,
             nonce = nonce,
@@ -130,7 +132,7 @@ fun StudentQrScreenShared(
 
         qrContent = Json.encodeToString(
             QrPayload(
-                userId = session.userId,
+                userId = activeSession.userId,
                 timestamp = roundedTimestamp,
                 mealType = mealType,
                 nonce = nonce,

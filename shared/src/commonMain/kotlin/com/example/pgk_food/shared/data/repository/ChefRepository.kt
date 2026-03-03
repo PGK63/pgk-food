@@ -287,20 +287,62 @@ class ChefRepository {
             }.getOrNull()
         }
 
-        val parts = qrContent.split("&")
+        val query = qrContent.substringAfter('?', qrContent)
+        val parts = query.split("&")
             .mapNotNull { part ->
                 val kv = part.split("=", limit = 2)
-                if (kv.size == 2) kv[0] to kv[1] else null
+                if (kv.size == 2) {
+                    decodeLegacyQueryComponent(kv[0]) to decodeLegacyQueryComponent(kv[1])
+                } else {
+                    null
+                }
             }
             .toMap()
+
+        val nonce = normalizeLegacyBase64Like(parts["nonce"] ?: return null)
+        val signature = normalizeLegacyBase64Like(parts["sig"] ?: return null)
 
         return QrPayload(
             userId = parts["userId"] ?: return null,
             timestamp = parts["ts"]?.toLongOrNull() ?: return null,
             mealType = parts["type"] ?: return null,
-            nonce = parts["nonce"] ?: return null,
-            signature = parts["sig"] ?: return null
+            nonce = nonce,
+            signature = signature,
         )
+    }
+
+    private fun decodeLegacyQueryComponent(source: String): String {
+        if (source.isEmpty()) return source
+        val out = StringBuilder(source.length)
+        var index = 0
+        while (index < source.length) {
+            val ch = source[index]
+            if (ch == '%' && index + 2 < source.length) {
+                val hi = hexDigitToInt(source[index + 1])
+                val lo = hexDigitToInt(source[index + 2])
+                if (hi >= 0 && lo >= 0) {
+                    out.append(((hi shl 4) or lo).toChar())
+                    index += 3
+                    continue
+                }
+            }
+            out.append(ch)
+            index++
+        }
+        return out.toString()
+    }
+
+    private fun normalizeLegacyBase64Like(source: String): String {
+        return source.replace(' ', '+')
+    }
+
+    private fun hexDigitToInt(ch: Char): Int {
+        return when (ch) {
+            in '0'..'9' -> ch.code - '0'.code
+            in 'a'..'f' -> ch.code - 'a'.code + 10
+            in 'A'..'F' -> ch.code - 'A'.code + 10
+            else -> -1
+        }
     }
 
     fun getScanHistory(): Flow<List<SharedScannedQrRecord>> {
