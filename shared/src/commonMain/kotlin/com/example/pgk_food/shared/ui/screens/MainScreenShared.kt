@@ -660,7 +660,12 @@ fun ChefDashboardShared(
     onStatsClick: () -> Unit
 ) {
     DashboardLayoutShared("Кабинет Повара") {
-        DashboardButtonShared("Сканер QR", Icons.Default.QrCodeScanner, onScannerClick)
+        DashboardButtonShared(
+            text = "Сканер QR",
+            icon = Icons.Default.QrCodeScanner,
+            onClick = onScannerClick,
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(8.dp))
         AdaptiveTwoButtonRowShared(
             firstText = "Меню",
@@ -869,7 +874,8 @@ fun AdminDashboardShared(onReportsClick: () -> Unit) =
         DashboardButtonShared(
             "Отчеты",
             Icons.Default.Assessment,
-            onReportsClick
+            onReportsClick,
+            Modifier.fillMaxWidth()
         )
     }
 

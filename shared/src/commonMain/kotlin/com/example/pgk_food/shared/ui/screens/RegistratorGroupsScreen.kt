@@ -43,6 +43,17 @@ private fun StudentGroupFilter.title(groups: List<GroupDto>): String = when (thi
     is StudentGroupFilter.Specific -> groups.firstOrNull { it.id == groupId }?.name ?: "Группа #$groupId"
 }
 
+private fun normalizeGroupName(raw: String): String {
+    return raw.trim()
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+}
+
+private fun Throwable?.apiCodeOrNull(): String? {
+    return (this as? ApiCallException)?.apiError?.code
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RegistratorGroupsScreen(
@@ -82,6 +93,12 @@ fun RegistratorGroupsScreen(
     val filteredGroups = remember(groups, searchQuery) {
         if (searchQuery.isBlank()) groups
         else groups.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
+    val normalizedNewGroupName = remember(newGroupName) { normalizeGroupName(newGroupName) }
+    val hasDuplicateGroupName = remember(groups, normalizedNewGroupName) {
+        normalizedNewGroupName.isNotBlank() && groups.any {
+            normalizeGroupName(it.name).equals(normalizedNewGroupName, ignoreCase = true)
+        }
     }
 
     suspend fun refreshGroups(showLoader: Boolean = true) {
@@ -126,9 +143,17 @@ fun RegistratorGroupsScreen(
 
     suspend fun transferGroup(group: GroupDto, targetName: String) {
         actionState.value = UiActionState.Loading
-        val newGroupNameValue = targetName.trim()
+        val newGroupNameValue = normalizeGroupName(targetName)
         if (newGroupNameValue.isEmpty()) {
             snackbarHostState.showSnackbar("Введите новое название группы")
+            actionState.value = UiActionState.Idle
+            return
+        }
+        val localDuplicate = groups.any {
+            it.id != group.id && normalizeGroupName(it.name).equals(newGroupNameValue, ignoreCase = true)
+        }
+        if (localDuplicate) {
+            snackbarHostState.showSnackbar("Группа с таким названием уже существует")
             actionState.value = UiActionState.Idle
             return
         }
@@ -137,8 +162,13 @@ fun RegistratorGroupsScreen(
         val movedStudents = mutableListOf<String>()
         val reassignedCuratorIds = mutableListOf<String>()
 
-        registratorRepository.createGroup(token, newGroupNameValue).onFailure {
-            transferError = "Не удалось создать новую группу: ${it.userMessageOr("неизвестная ошибка")}"
+        val createGroupResult = registratorRepository.createGroup(token, newGroupNameValue)
+        createGroupResult.onFailure {
+            transferError = if (it.apiCodeOrNull() == "ACCESS_DENIED") {
+                "Нет доступа к созданию группы. Выполните повторный вход."
+            } else {
+                "Не удалось создать новую группу: ${it.userMessageOr("неизвестная ошибка")}"
+            }
         }
         if (transferError != null) {
             snackbarHostState.showSnackbar(transferError!!)
@@ -148,7 +178,9 @@ fun RegistratorGroupsScreen(
 
         val freshGroups = registratorRepository.getGroups(token).getOrDefault(emptyList())
         val newGroup = freshGroups
-            .filter { it.id != group.id && it.name == newGroupNameValue }
+            .filter {
+                it.id != group.id && normalizeGroupName(it.name).equals(newGroupNameValue, ignoreCase = true)
+            }
             .maxByOrNull { it.id }
 
         if (newGroup == null) {
@@ -491,6 +523,14 @@ fun RegistratorGroupsScreen(
                         shape = MaterialTheme.shapes.medium,
                         singleLine = true
                     )
+                    if (hasDuplicateGroupName) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Группа с таким названием уже существует",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Действие требует роль REGISTRATOR/ADMIN. При совпадении названий ориентируйтесь по ID группы.",
@@ -502,20 +542,31 @@ fun RegistratorGroupsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
+                        if (normalizedNewGroupName.isBlank()) {
+                            snackbarHostState.showSnackbar("Введите название группы")
+                            return@launch
+                        }
+                        if (hasDuplicateGroupName) {
+                            snackbarHostState.showSnackbar("Группа с таким названием уже существует")
+                            return@launch
+                        }
+                        val result = registratorRepository.createGroup(token, normalizedNewGroupName)
                         val ok = runUiAction(
                             actionState = actionState,
                             successMessage = "Группа создана",
                             fallbackErrorMessage = "Ошибка создания группы",
                         ) {
-                            registratorRepository.createGroup(token, newGroupName)
+                            result
                         }
                         if (ok) {
                             newGroupName = ""
                             showAddGroupDialog = false
                             refreshUiAfterMutation()
+                        } else if (result.exceptionOrNull().apiCodeOrNull() == "ACCESS_DENIED") {
+                            snackbarHostState.showSnackbar("Нет доступа к созданию группы. Выполните повторный вход.")
                         }
                     }
-                }, enabled = !isActionLoading && newGroupName.isNotBlank()) {
+                }, enabled = !isActionLoading && normalizedNewGroupName.isNotBlank() && !hasDuplicateGroupName) {
                     if (isActionLoading) {
                         Text("Создание...")
                     } else {
