@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -25,6 +26,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -50,6 +52,7 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
+import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import kotlinx.coroutines.launch
 
@@ -69,7 +72,8 @@ fun CuratorCategoriesScreen(
     var selectedGroupId by remember { mutableStateOf<Int?>(null) }
     var students by remember { mutableStateOf<List<CuratorStudentRow>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var showGroupMenu by remember { mutableStateOf(false) }
+    var showGroupPicker by remember { mutableStateOf(false) }
+    var groupSearchQuery by remember { mutableStateOf("") }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var createdCredentials by remember { mutableStateOf<UserCredentialsUi?>(null) }
@@ -110,6 +114,37 @@ fun CuratorCategoriesScreen(
     LaunchedEffect(Unit) { loadGroups() }
     LaunchedEffect(selectedGroupId) { loadStudents() }
 
+    val selectedGroupLabel = remember(groups, selectedGroupId) {
+        if (selectedGroupId == null) {
+            "Все группы"
+        } else {
+            groups.firstOrNull { it.id == selectedGroupId }?.let { "${it.name} (#${it.id})" }
+                ?: "Все группы"
+        }
+    }
+
+    if (showGroupPicker) {
+        GroupPickerDialog(
+            groups = groups,
+            searchQuery = groupSearchQuery,
+            onSearchQueryChange = { groupSearchQuery = it },
+            onDismiss = {
+                showGroupPicker = false
+                groupSearchQuery = ""
+            },
+            onSelectAll = {
+                selectedGroupId = null
+                showGroupPicker = false
+                groupSearchQuery = ""
+            },
+            onSelectGroup = {
+                selectedGroupId = it.id
+                showGroupPicker = false
+                groupSearchQuery = ""
+            }
+        )
+    }
+
     Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
         Column(
             modifier = Modifier
@@ -121,34 +156,22 @@ fun CuratorCategoriesScreen(
             Text("Категории студентов", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
 
             if (groups.isNotEmpty()) {
-                ExposedDropdownMenuBox(expanded = showGroupMenu, onExpandedChange = { showGroupMenu = it }) {
-                    OutlinedTextField(
-                        value = groups.firstOrNull { it.id == selectedGroupId }?.name ?: "Все группы",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Группа") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showGroupMenu) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    DropdownMenu(expanded = showGroupMenu, onDismissRequest = { showGroupMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Все группы") },
-                            onClick = {
-                                selectedGroupId = null
-                                showGroupMenu = false
-                            }
-                        )
-                        groups.forEach { group ->
-                            DropdownMenuItem(
-                                text = { Text(group.name) },
-                                onClick = {
-                                    selectedGroupId = group.id
-                                    showGroupMenu = false
-                                }
-                            )
+                OutlinedTextField(
+                    value = groupSearchQuery,
+                    onValueChange = {
+                        groupSearchQuery = it
+                        showGroupPicker = true
+                    },
+                    label = { Text("Группа (опционально)") },
+                    placeholder = { Text(selectedGroupLabel) },
+                    trailingIcon = {
+                        IconButton(onClick = { showGroupPicker = true }) {
+                            Icon(Icons.Rounded.Search, contentDescription = null)
                         }
-                    }
-                }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
             }
 
             Button(

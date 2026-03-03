@@ -1,16 +1,20 @@
 package com.example.pgk_food.shared.ui.util
 
-import kotlinx.datetime.Clock
+import com.example.pgk_food.shared.platform.currentTimeMillis
 import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
-import kotlinx.datetime.todayIn
+import kotlinx.datetime.toLocalDateTime
 
 data class DateParts(val day: String, val month: String, val year: String)
 
-fun todayLocalDate(): LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
+fun todayLocalDate(): LocalDate =
+    Instant.fromEpochMilliseconds(currentTimeMillis())
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .date
 
 fun todayDateParts(): DateParts {
     val d = todayLocalDate()

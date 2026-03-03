@@ -76,6 +76,7 @@ import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.ScanState
 import com.example.pgk_food.shared.ui.viewmodels.SyncState
+import com.example.pgk_food.shared.platform.currentTimeMillis
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.AVAuthorizationStatusAuthorized
 import platform.AVFoundation.AVAuthorizationStatusNotDetermined
@@ -93,6 +94,10 @@ import platform.AVFoundation.AVLayerVideoGravityResizeAspectFill
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.AVMetadataMachineReadableCodeObject
 import platform.AVFoundation.AVMetadataObjectTypeQRCode
+import platform.AVFoundation.authorizationStatusForMediaType
+import platform.AVFoundation.hasTorch
+import platform.AVFoundation.requestAccessForMediaType
+import platform.AVFoundation.setTorchMode
 import platform.QuartzCore.CALayer
 import platform.UIKit.UIColor
 import platform.UIKit.UIView
@@ -120,10 +125,10 @@ actual fun ChefScannerScreenShared(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
-        when (AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)) {
+        when (AVCaptureDevice.Companion.authorizationStatusForMediaType(mediaType = AVMediaTypeVideo)) {
             AVAuthorizationStatusAuthorized -> hasCameraPermission = true
             AVAuthorizationStatusNotDetermined -> {
-                AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
+                AVCaptureDevice.Companion.requestAccessForMediaType(mediaType = AVMediaTypeVideo) { granted: Boolean ->
                     dispatch_async(dispatch_get_main_queue()) {
                         hasCameraPermission = granted
                     }
@@ -298,7 +303,7 @@ actual fun ChefScannerScreenShared(
                         Text("Нужно разрешение на камеру", modifier = Modifier.padding(16.dp))
                         Button(
                             onClick = {
-                                AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
+                                AVCaptureDevice.Companion.requestAccessForMediaType(mediaType = AVMediaTypeVideo) { granted: Boolean ->
                                     dispatch_async(dispatch_get_main_queue()) {
                                         hasCameraPermission = granted
                                     }
@@ -541,7 +546,7 @@ private class IOSQrScannerController {
         val device = videoDevice ?: return
         if (!device.hasTorch()) return
         if (device.lockForConfiguration(null)) {
-            device.torchMode = if (enabled) AVCaptureTorchModeOn else AVCaptureTorchModeOff
+            device.setTorchMode(if (enabled) AVCaptureTorchModeOn else AVCaptureTorchModeOff)
             device.unlockForConfiguration()
         }
     }
@@ -561,7 +566,7 @@ private class IOSQrScannerController {
     private fun configureSession() {
         if (isConfigured) return
 
-        val device = AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo)
+        val device = AVCaptureDevice.defaultDeviceWithMediaType(mediaType = AVMediaTypeVideo)
         if (device == null) {
             onError?.invoke("Камера недоступна")
             return
@@ -626,7 +631,7 @@ private class QrMetadataDelegate(
             val codeObject = obj as? AVMetadataMachineReadableCodeObject ?: continue
             val value = codeObject.stringValue ?: continue
 
-            val now = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+            val now = currentTimeMillis()
             val last = getLastScannedAtMillis()
             if (now - last > 2000) {
                 setLastScannedAtMillis(now)

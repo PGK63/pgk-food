@@ -10,12 +10,14 @@ import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import platform.Foundation.NSData
 import platform.Foundation.NSURL
+import platform.Foundation.dataWithContentsOfURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UINavigationControllerDelegateProtocol
 import platform.UIKit.UIViewController
+import platform.UIKit.UIWindow
 import platform.darwin.NSObject
 
 @OptIn(ExperimentalForeignApi::class)
@@ -89,7 +91,7 @@ private fun readUrlBytes(url: NSURL?): ByteArray? {
 }
 
 private fun resolvePresenterViewController(): UIViewController? {
-    val root = UIApplication.sharedApplication.windows.firstOrNull()?.rootViewController ?: return null
+    val root = (UIApplication.sharedApplication.windows.firstOrNull() as? UIWindow)?.rootViewController ?: return null
     return root.topPresented()
 }
 

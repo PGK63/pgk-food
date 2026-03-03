@@ -100,11 +100,15 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     }
 
     // Group users by groupId
-    val groupedUsers = remember(filteredUsers, groups) {
+    val groupedUsers: List<Pair<String, List<UserDto>>> = remember(filteredUsers, groups) {
         val groupMap = groups.associateBy { it.id }
-        filteredUsers.groupBy { it.groupId }
-            .toSortedMap(compareBy { it ?: Int.MAX_VALUE })
-            .map { (groupId, usersList) ->
+        filteredUsers
+            .groupBy { user -> user.groupId }
+            .entries
+            .sortedBy { entry -> entry.key ?: Int.MAX_VALUE }
+            .map { entry ->
+                val groupId = entry.key
+                val usersList = entry.value
                 val groupName = if (groupId != null) groupMap[groupId]?.name ?: "Группа $groupId" else "Без группы"
                 groupName to usersList
             }

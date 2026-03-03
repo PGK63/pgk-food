@@ -27,7 +27,6 @@ import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.repository.*
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.model.UserRole
-import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.runtime.MainLoopSnapshot
 import com.example.pgk_food.shared.runtime.MainLoopStateStore
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
@@ -386,7 +385,6 @@ fun StudentFlowShared(
         "dashboard" -> StudentDashboardShared(
             session.token,
             studentRepository,
-            session.studentCategory?.titleRu(),
             { onNavigate("coupons") },
             { onNavigate("menu") })
 
@@ -404,7 +402,6 @@ fun StudentFlowShared(
         else -> StudentDashboardShared(
             session.token,
             studentRepository,
-            session.studentCategory?.titleRu(),
             { onNavigate("coupons") },
             { onNavigate("menu") })
     }
@@ -543,7 +540,6 @@ fun AdminFlowShared(session: UserSession, currentSubScreen: String, onNavigate: 
 fun StudentDashboardShared(
     token: String,
     studentRepository: StudentRepository,
-    studentCategoryLabel: String?,
     onCouponsClick: () -> Unit,
     onMenuClick: () -> Unit
 ) {
@@ -560,26 +556,6 @@ fun StudentDashboardShared(
                 contentAlignment = Alignment.Center
             ) { CircularProgressIndicator() }
         } else if (mealsResponse != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Категория", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        studentCategoryLabel ?: "Не указана",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
             Card(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 shape = RoundedCornerShape(24.dp),

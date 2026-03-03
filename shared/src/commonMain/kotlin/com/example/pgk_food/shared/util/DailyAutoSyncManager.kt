@@ -1,7 +1,8 @@
 package com.example.pgk_food.shared.util
 
 import com.example.pgk_food.shared.platform.PlatformKeyValueStore
-import kotlinx.datetime.Clock
+import com.example.pgk_food.shared.platform.currentTimeMillis
+import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -15,7 +16,8 @@ class DailyAutoSyncManager {
     }
 
     fun todayKey(): String {
-        val dt = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        val dt = Instant.fromEpochMilliseconds(currentTimeMillis())
+            .toLocalDateTime(TimeZone.currentSystemDefault())
         val y = dt.year.toString().padStart(4, '0')
         val m = dt.monthNumber.toString().padStart(2, '0')
         val d = dt.dayOfMonth.toString().padStart(2, '0')
