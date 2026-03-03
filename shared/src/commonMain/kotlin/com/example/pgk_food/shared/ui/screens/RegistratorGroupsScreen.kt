@@ -31,6 +31,18 @@ import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import kotlinx.coroutines.launch
 
+private sealed interface StudentGroupFilter {
+    object All : StudentGroupFilter
+    object NoGroup : StudentGroupFilter
+    data class Specific(val groupId: Int) : StudentGroupFilter
+}
+
+private fun StudentGroupFilter.title(groups: List<GroupDto>): String = when (this) {
+    StudentGroupFilter.All -> "Все группы"
+    StudentGroupFilter.NoGroup -> "Без группы"
+    is StudentGroupFilter.Specific -> groups.firstOrNull { it.id == groupId }?.name ?: "Группа #$groupId"
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RegistratorGroupsScreen(
@@ -203,6 +215,11 @@ fun RegistratorGroupsScreen(
     LaunchedEffect(Unit) {
         refreshGroups()
         loadAllUsers()
+    }
+    LaunchedEffect(showAssignMemberDialog) {
+        if (showAssignMemberDialog != null && allUsers.isEmpty()) {
+            loadAllUsers()
+        }
     }
 
     Scaffold(
@@ -549,9 +566,56 @@ fun RegistratorGroupsScreen(
 
     if (showAssignMemberDialog != null) {
         val (groupId, role) = showAssignMemberDialog!!
-        val filteredUsers = allUsers.filter { user ->
-            if (role == "CURATOR") user.roles.contains(UserRole.CURATOR)
-            else user.roles.contains(UserRole.STUDENT)
+        var memberSearchQuery by remember(showAssignMemberDialog) { mutableStateOf("") }
+        var studentGroupFilter by remember(showAssignMemberDialog) {
+            mutableStateOf<StudentGroupFilter>(StudentGroupFilter.All)
+        }
+        var isStudentGroupFilterExpanded by remember(showAssignMemberDialog) { mutableStateOf(false) }
+
+        val queryTokens = remember(memberSearchQuery) {
+            memberSearchQuery.trim()
+                .lowercase()
+                .split(Regex("\\s+"))
+                .filter { it.isNotBlank() }
+        }
+        val selectableUsers = remember(allUsers, role, groupId, studentGroupFilter, queryTokens) {
+            allUsers
+                .asSequence()
+                .filter { user ->
+                    if (role == "CURATOR") user.roles.contains(UserRole.CURATOR)
+                    else user.roles.contains(UserRole.STUDENT)
+                }
+                .filter { user ->
+                    if (role != "STUDENT") return@filter true
+                    if (user.groupId == groupId) return@filter false
+                    when (val filter = studentGroupFilter) {
+                        StudentGroupFilter.All -> true
+                        StudentGroupFilter.NoGroup -> user.groupId == null
+                        is StudentGroupFilter.Specific -> user.groupId == filter.groupId
+                    }
+                }
+                .filter { user ->
+                    if (queryTokens.isEmpty()) return@filter true
+                    val searchable = buildString {
+                        append(user.surname)
+                        append(' ')
+                        append(user.name)
+                        append(' ')
+                        append(user.fatherName.orEmpty())
+                        append(' ')
+                        append(user.login)
+                    }.lowercase()
+                    queryTokens.all { token -> searchable.contains(token) }
+                }
+                .sortedWith(
+                    compareBy<UserDto>(
+                        { it.surname.lowercase() },
+                        { it.name.lowercase() },
+                        { it.fatherName.orEmpty().lowercase() },
+                        { it.login.lowercase() }
+                    )
+                )
+                .toList()
         }
 
         AlertDialog(
@@ -566,6 +630,76 @@ fun RegistratorGroupsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
+                    OutlinedTextField(
+                        value = memberSearchQuery,
+                        onValueChange = { memberSearchQuery = it },
+                        placeholder = { Text("Поиск по ФИО или логину") },
+                        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (memberSearchQuery.isNotBlank()) {
+                                IconButton(onClick = { memberSearchQuery = "" }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = "Очистить")
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.medium
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Найдено: ${selectableUsers.size}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (role == "STUDENT") {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = isStudentGroupFilterExpanded,
+                            onExpandedChange = { isStudentGroupFilterExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = studentGroupFilter.title(groups),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Фильтр по группе") },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = isStudentGroupFilterExpanded)
+                                },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                shape = MaterialTheme.shapes.medium
+                            )
+                            ExposedDropdownMenu(
+                                expanded = isStudentGroupFilterExpanded,
+                                onDismissRequest = { isStudentGroupFilterExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Все группы") },
+                                    onClick = {
+                                        studentGroupFilter = StudentGroupFilter.All
+                                        isStudentGroupFilterExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Без группы") },
+                                    onClick = {
+                                        studentGroupFilter = StudentGroupFilter.NoGroup
+                                        isStudentGroupFilterExpanded = false
+                                    }
+                                )
+                                groups.sortedBy { it.name }.forEach { group ->
+                                    DropdownMenuItem(
+                                        text = { Text(group.name) },
+                                        onClick = {
+                                            studentGroupFilter = StudentGroupFilter.Specific(group.id)
+                                            isStudentGroupFilterExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(modifier = Modifier.heightIn(max = 400.dp)) {
                         LazyColumn {
                             if (role == "CURATOR") {
@@ -604,40 +738,51 @@ fun RegistratorGroupsScreen(
                                     HorizontalDivider()
                                 }
                             }
-                            items(filteredUsers) { user ->
-                                ListItem(
-                                    headlineContent = { Text("${user.surname} ${user.name}") },
-                                    supportingContent = { Text(user.login) },
-                                    modifier = Modifier.clickable {
-                                        scope.launch {
-                                            if (role == "CURATOR") {
-                                                val ok = runUiAction(
-                                                    actionState = actionState,
-                                                    successMessage = "Куратор назначен",
-                                                    fallbackErrorMessage = "Ошибка назначения куратора",
-                                                ) {
-                                                    registratorRepository.assignCurator(token, groupId, user.userId)
+                            if (selectableUsers.isEmpty()) {
+                                item {
+                                    Text(
+                                        text = "Ничего не найдено",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(vertical = 12.dp)
+                                    )
+                                }
+                            } else {
+                                items(selectableUsers) { user ->
+                                    ListItem(
+                                        headlineContent = { Text("${user.surname} ${user.name}") },
+                                        supportingContent = { Text(user.login) },
+                                        modifier = Modifier.clickable {
+                                            scope.launch {
+                                                if (role == "CURATOR") {
+                                                    val ok = runUiAction(
+                                                        actionState = actionState,
+                                                        successMessage = "Куратор назначен",
+                                                        fallbackErrorMessage = "Ошибка назначения куратора",
+                                                    ) {
+                                                        registratorRepository.assignCurator(token, groupId, user.userId)
+                                                    }
+                                                    if (ok) refreshGroups()
+                                                } else {
+                                                    val ok = runUiAction(
+                                                        actionState = actionState,
+                                                        successMessage = "Студент добавлен в группу",
+                                                        fallbackErrorMessage = "Ошибка добавления студента в группу",
+                                                    ) {
+                                                        registratorRepository.addStudentToGroup(token, groupId, user.userId)
+                                                    }
+                                                    if (ok) {
+                                                        loadStudents(groupId)
+                                                        refreshGroups()
+                                                    }
                                                 }
-                                                if (ok) refreshGroups()
-                                            } else {
-                                                val ok = runUiAction(
-                                                    actionState = actionState,
-                                                    successMessage = "Студент добавлен в группу",
-                                                    fallbackErrorMessage = "Ошибка добавления студента в группу",
-                                                ) {
-                                                    registratorRepository.addStudentToGroup(token, groupId, user.userId)
+                                                if (actionState.value !is UiActionState.Error) {
+                                                    showAssignMemberDialog = null
                                                 }
-                                                if (ok) {
-                                                    loadStudents(groupId)
-                                                    refreshGroups()
-                                                }
-                                            }
-                                            if (actionState.value !is UiActionState.Error) {
-                                                showAssignMemberDialog = null
                                             }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
                     }
