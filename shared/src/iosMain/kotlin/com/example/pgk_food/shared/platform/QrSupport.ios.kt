@@ -233,12 +233,9 @@ private fun createCfNumber(value: Int): kotlinx.cinterop.CPointer<*>? {
 
 private fun createPrivateEcKeys(source: ByteArray): List<SecKeyRef> {
     val sec1Blob = extractPkcs8PrivateKeyBlob(source)
-    val scalar = extractSec1PrivateScalar(sec1Blob ?: source)
-    val rawScalar = normalizeRawPrivateScalar(source)
+    val sec1Source = sec1Blob ?: source.takeIf { isSec1EcPrivateKey(it) }
     val candidates = buildList {
-        scalar?.let { add(it) }
-        rawScalar?.let { add(it) }
-        sec1Blob?.let { add(it) }
+        sec1Source?.let { add(it) }
         add(source)
     }
     return createEcKeysFromCandidates(candidates, isPrivate = true)
@@ -268,14 +265,6 @@ private fun createEcKeysFromCandidates(
         if (key != null) keys += key
     }
     return keys
-}
-
-private fun normalizeRawPrivateScalar(source: ByteArray): ByteArray? {
-    return when {
-        source.size == 32 -> source
-        source.size > 32 -> source.copyOfRange(source.size - 32, source.size)
-        else -> null
-    }
 }
 
 private fun normalizeRawPublicPoint(source: ByteArray): ByteArray? {
@@ -338,21 +327,21 @@ private fun extractPkcs8PrivateKeyBlob(der: ByteArray): ByteArray? {
     if (children.size < 3) return null
     val privateKeyNode = children[2]
     if (privateKeyNode.tag != 0x04) return null
-    return der.copyOfRange(privateKeyNode.contentStart, privateKeyNode.contentEnd)
+    val blob = der.copyOfRange(privateKeyNode.contentStart, privateKeyNode.contentEnd)
+    return blob.takeIf { isSec1EcPrivateKey(it) }
 }
 
-private fun extractSec1PrivateScalar(der: ByteArray): ByteArray? {
-    val root = readAsn1Node(der, 0) ?: return null
+private fun isSec1EcPrivateKey(der: ByteArray): Boolean {
+    val root = readAsn1Node(der, 0) ?: return false
     val children = readAsn1Children(der, root)
-    if (children.size < 2) return null
+    if (children.size < 2) return false
+    val versionNode = children[0]
+    if (versionNode.tag != 0x02) return false
+    if (versionNode.contentEnd - versionNode.contentStart <= 0) return false
+    val version = der[versionNode.contentEnd - 1].toInt() and 0xff
+    if (version != 1) return false
     val keyNode = children[1]
-    if (keyNode.tag != 0x04) return null
-    val scalar = der.copyOfRange(keyNode.contentStart, keyNode.contentEnd)
-    return when {
-        scalar.size == 32 -> scalar
-        scalar.size > 32 -> scalar.copyOfRange(scalar.size - 32, scalar.size)
-        else -> null
-    }
+    return keyNode.tag == 0x04 && keyNode.contentEnd > keyNode.contentStart
 }
 
 private fun extractSpkiPublicKeyBytes(der: ByteArray): ByteArray? {

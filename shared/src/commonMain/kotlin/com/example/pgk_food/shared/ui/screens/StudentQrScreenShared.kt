@@ -81,6 +81,7 @@ fun StudentQrScreenShared(
     var serverTimeOffset by remember { mutableLongStateOf(0L) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var qrError by remember { mutableStateOf<String?>(null) }
+    var signatureRetryTriggered by remember { mutableStateOf(false) }
     val downloadKeysState by viewModel.downloadKeysState.collectAsState()
 
     LaunchedEffect(downloadKeysState) {
@@ -137,7 +138,14 @@ fun StudentQrScreenShared(
             )
         )
         qrError = null
+        signatureRetryTriggered = false
         timeLeft = 60
+    }
+
+    LaunchedEffect(qrError, signatureRetryTriggered) {
+        if (qrError != "ERROR_SIG" || signatureRetryTriggered) return@LaunchedEffect
+        signatureRetryTriggered = true
+        viewModel.downloadKeys()
     }
 
     LaunchedEffect(qrContent, refreshTrigger, qrError) {

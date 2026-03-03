@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +35,6 @@ import com.example.pgk_food.shared.data.remote.dto.*
 import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.data.session.SessionStore
-import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.theme.PillShape
@@ -53,13 +53,13 @@ private fun UserRole.titleRu(): String = when (this) {
     UserRole.STUDENT -> "Студент"
 }
 
-private fun StudentCategory.titleRu(): String = when (this) {
-    StudentCategory.SVO -> "СВО"
-    StudentCategory.MANY_CHILDREN -> "Многодетные"
-}
-
 @Composable
-fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepository) {
+fun RegistratorUsersScreen(
+    token: String,
+    registratorRepository: RegistratorRepository,
+    reloadKey: Int = 0,
+    onCreateUserClick: (Int?) -> Unit = {},
+) {
     var users by remember { mutableStateOf<List<UserDto>>(emptyList()) }
     var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -68,15 +68,15 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
 
-    var showCreateScreen by remember { mutableStateOf(false) }
-    var createScreenInitialGroupId by remember { mutableStateOf<Int?>(null) }
     var credentialsDialog by remember { mutableStateOf<UserCredentialsUi?>(null) }
 
     // Search & filter state
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     var showFilterSheet by remember { mutableStateOf(false) }
-    var filterGroupId by remember { mutableStateOf<Int?>(null) }
-    var filterRole by remember { mutableStateOf<UserRole?>(null) }
+    var filterGroupId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var filterRoleRaw by rememberSaveable { mutableStateOf<String?>(null) }
+    val filterRole = filterRoleRaw
+        ?.let { raw -> runCatching { UserRole.valueOf(raw) }.getOrNull() }
 
     // User detail sheet
     var selectedUser by remember { mutableStateOf<UserDto?>(null) }
@@ -100,49 +100,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
         }
     }
 
-    if (showCreateScreen) {
-        RegistratorCreateUserScreen(
-            groups = groups,
-            initialGroupId = createScreenInitialGroupId,
-            isSubmitting = isActionLoading,
-            onBack = {
-                showCreateScreen = false
-                createScreenInitialGroupId = null
-            },
-            onSubmit = { request ->
-                scope.launch {
-                    val result = registratorRepository.createUser(token, request)
-                    val ok = runUiAction(
-                        actionState = actionState,
-                        successMessage = "Пользователь создан",
-                        fallbackErrorMessage = "Ошибка создания пользователя",
-                        emitSuccessFeedback = false
-                    ) { result }
-                    if (ok) {
-                        showCreateScreen = false
-                        createScreenInitialGroupId = null
-                        loadData()
-                        result.getOrNull()?.let {
-                            credentialsDialog = UserCredentialsUi(it.login, it.passwordClearText)
-                        }
-                    }
-                }
-            }
-        )
-        credentialsDialog?.let { result ->
-            CredentialsDialog(
-                credentials = result,
-                onDismiss = { credentialsDialog = null },
-                onCopiedAndDismissed = {
-                    scope.launch { snackbarHostState.showSnackbar("Данные скопированы") }
-                    credentialsDialog = null
-                }
-            )
-        }
-        return
-    }
-
-    LaunchedEffect(Unit) { loadData() }
+    LaunchedEffect(reloadKey) { loadData() }
 
     // Filtered users
     val filteredUsers = remember(users, searchQuery, filterGroupId, filterRole) {
@@ -179,10 +137,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
-                onClick = {
-                    createScreenInitialGroupId = null
-                    showCreateScreen = true
-                },
+                onClick = { onCreateUserClick(null) },
                 shape = MaterialTheme.shapes.large,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -255,7 +210,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                 )
                 if (hasActiveFilters) {
                     IconButton(
-                        onClick = { filterGroupId = null; filterRole = null },
+                        onClick = { filterGroupId = null; filterRoleRaw = null },
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(Icons.Rounded.Close, contentDescription = "Сбросить фильтры", modifier = Modifier.size(16.dp))
@@ -308,10 +263,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
-                                IconButton(onClick = {
-                                    createScreenInitialGroupId = groupUsers.firstOrNull()?.groupId
-                                    showCreateScreen = true
-                                }) {
+                                IconButton(onClick = { onCreateUserClick(groupUsers.firstOrNull()?.groupId) }) {
                                     Icon(
                                         Icons.Rounded.Add,
                                         contentDescription = "Добавить в группу",
@@ -354,7 +306,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
             selectedGroupId = filterGroupId,
             selectedRole = filterRole,
             onGroupSelected = { filterGroupId = it },
-            onRoleSelected = { filterRole = it },
+            onRoleSelected = { filterRoleRaw = it?.name },
             onApply = { showFilterSheet = false },
             onDismiss = { showFilterSheet = false }
         )
@@ -404,9 +356,9 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                     }
                 }
             },
-            onUpdateRoles = { roles ->
+            onUpdateRoles = { roles, groupId ->
                 scope.launch {
-                    val result = registratorRepository.updateRoles(token, user.userId, roles)
+                    val result = registratorRepository.updateRoles(token, user.userId, roles, groupId)
                     val ok = runUiAction(
                         actionState = actionState,
                         successMessage = "Роли обновлены",
@@ -615,7 +567,7 @@ private fun UserDetailSheet(
     onDismiss: () -> Unit,
     onCopyCredentials: () -> Unit,
     onResetPassword: () -> Unit,
-    onUpdateRoles: (List<UserRole>) -> Unit,
+    onUpdateRoles: (List<UserRole>, Int?) -> Unit,
     onDelete: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -763,245 +715,30 @@ private fun UserDetailSheet(
     if (showRolesDialog) {
         RolesSelectionDialog(
             initialRoles = user.roles,
+            groups = groups,
+            initialGroupId = user.groupId,
             onDismiss = { showRolesDialog = false },
-            onConfirm = { roles ->
+            onConfirm = { roles, groupId ->
                 showRolesDialog = false
-                onUpdateRoles(roles)
+                onUpdateRoles(roles, groupId)
             }
         )
     }
 }
 
 @Composable
-private fun RegistratorCreateUserScreen(
-    groups: List<GroupDto>,
-    initialGroupId: Int? = null,
-    isSubmitting: Boolean = false,
-    onBack: () -> Unit,
-    onSubmit: (CreateUserRequest) -> Unit
-) {
-    val focusManager = LocalFocusManager.current
-    val surnameRequester = remember { FocusRequester() }
-    val nameRequester = remember { FocusRequester() }
-    val fatherNameRequester = remember { FocusRequester() }
-
-    var name by remember { mutableStateOf("") }
-    var surname by remember { mutableStateOf("") }
-    var fatherName by remember { mutableStateOf("") }
-    var selectedRoles by remember { mutableStateOf(setOf(UserRole.STUDENT)) }
-    var selectedGroupId by remember(initialGroupId) { mutableStateOf(initialGroupId) }
-    var expandedGroup by remember { mutableStateOf(false) }
-    var selectedStudentCategory by remember { mutableStateOf<StudentCategory?>(null) }
-    val canSubmit = !isSubmitting &&
-        name.isNotBlank() &&
-        surname.isNotBlank() &&
-        selectedRoles.isNotEmpty()
-
-    LaunchedEffect(Unit) {
-        surnameRequester.requestFocus()
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Создать пользователя") },
-                navigationIcon = {
-                    IconButton(onClick = onBack, enabled = !isSubmitting) {
-                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Назад")
-                    }
-                }
-            )
-        },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
-                .imePadding()
-                .padding(top = 12.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (isSubmitting) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-
-            OutlinedTextField(
-                value = surname,
-                onValueChange = { surname = it },
-                label = { Text("Фамилия") },
-                shape = MaterialTheme.shapes.medium,
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(surnameRequester),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Next,
-                    keyboardType = KeyboardType.Text
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { nameRequester.requestFocus() }
-                )
-            )
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Имя") },
-                shape = MaterialTheme.shapes.medium,
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(nameRequester),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Next,
-                    keyboardType = KeyboardType.Text
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { fatherNameRequester.requestFocus() }
-                )
-            )
-
-            OutlinedTextField(
-                value = fatherName,
-                onValueChange = { fatherName = it },
-                label = { Text("Отчество") },
-                shape = MaterialTheme.shapes.medium,
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(fatherNameRequester),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Done,
-                    keyboardType = KeyboardType.Text
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = { focusManager.clearFocus() }
-                )
-            )
-
-            Text("Роли", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                UserRole.entries.forEach { role ->
-                    FilterChip(
-                        selected = role in selectedRoles,
-                        onClick = {
-                            selectedRoles = if (role in selectedRoles) selectedRoles - role else selectedRoles + role
-                        },
-                        label = { Text(role.titleRu()) },
-                        shape = MaterialTheme.shapes.small
-                    )
-                }
-            }
-
-            if (UserRole.STUDENT in selectedRoles || UserRole.CURATOR in selectedRoles) {
-                Text("Группа", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                ExposedDropdownMenuBox(
-                    expanded = expandedGroup,
-                    onExpandedChange = { expandedGroup = it }
-                ) {
-                    OutlinedTextField(
-                        value = groups.find { it.id == selectedGroupId }?.name ?: "Без группы",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGroup) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        singleLine = true
-                    )
-                    ExposedDropdownMenu(expanded = expandedGroup, onDismissRequest = { expandedGroup = false }) {
-                        DropdownMenuItem(text = { Text("Без группы") }, onClick = { selectedGroupId = null; expandedGroup = false })
-                        groups.forEach { group ->
-                            DropdownMenuItem(text = { Text(group.name) }, onClick = { selectedGroupId = group.id; expandedGroup = false })
-                        }
-                    }
-                }
-            }
-
-            if (UserRole.STUDENT in selectedRoles) {
-                Text("Категория студента", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedStudentCategory == null,
-                        onClick = { selectedStudentCategory = null },
-                        label = { Text("Без категории") },
-                        shape = MaterialTheme.shapes.small
-                    )
-                    StudentCategory.entries.forEach { category ->
-                        FilterChip(
-                            selected = selectedStudentCategory == category,
-                            onClick = { selectedStudentCategory = category },
-                            label = { Text(category.titleRu()) },
-                            shape = MaterialTheme.shapes.small
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onBack,
-                    enabled = !isSubmitting,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Отмена")
-                }
-
-                Button(
-                    onClick = {
-                        onSubmit(
-                            CreateUserRequest(
-                                roles = selectedRoles.toList(),
-                                name = name,
-                                surname = surname,
-                                fatherName = fatherName.ifBlank { "-" },
-                                groupId = selectedGroupId,
-                                studentCategory = if (UserRole.STUDENT in selectedRoles) selectedStudentCategory else null
-                            )
-                        )
-                    },
-                    enabled = canSubmit,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (isSubmitting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Создание...")
-                    } else {
-                        Text("Создать")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun RolesSelectionDialog(
     initialRoles: List<UserRole>,
+    groups: List<GroupDto>,
+    initialGroupId: Int?,
     onDismiss: () -> Unit,
-    onConfirm: (List<UserRole>) -> Unit
+    onConfirm: (List<UserRole>, Int?) -> Unit
 ) {
     var selectedRoles by remember { mutableStateOf(initialRoles.toSet()) }
+    var selectedGroupId by remember(initialGroupId) { mutableStateOf(initialGroupId) }
+    var groupExpanded by remember { mutableStateOf(false) }
+    val studentRoleAdded = UserRole.STUDENT in selectedRoles && UserRole.STUDENT !in initialRoles
+    val canConfirm = selectedRoles.isNotEmpty() && (!studentRoleAdded || selectedGroupId != null)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1028,12 +765,61 @@ fun RolesSelectionDialog(
                         Text(role.titleRu())
                     }
                 }
+
+                if (UserRole.STUDENT in selectedRoles) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Группа", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ExposedDropdownMenuBox(
+                        expanded = groupExpanded,
+                        onExpandedChange = { groupExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = groups.find { it.id == selectedGroupId }?.name ?: "Без группы",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupExpanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium,
+                            singleLine = true
+                        )
+                        ExposedDropdownMenu(
+                            expanded = groupExpanded,
+                            onDismissRequest = { groupExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Без группы") },
+                                onClick = {
+                                    selectedGroupId = null
+                                    groupExpanded = false
+                                }
+                            )
+                            groups.forEach { group ->
+                                DropdownMenuItem(
+                                    text = { Text(group.name) },
+                                    onClick = {
+                                        selectedGroupId = group.id
+                                        groupExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    if (studentRoleAdded && selectedGroupId == null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Для добавления роли студента выберите группу",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(selectedRoles.toList()) },
-                enabled = selectedRoles.isNotEmpty()
+                onClick = { onConfirm(selectedRoles.toList(), selectedGroupId) },
+                enabled = canConfirm
             ) {
                 Text("Сохранить")
             }

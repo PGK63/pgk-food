@@ -42,6 +42,7 @@ private fun mainScreenTitle(subScreen: String): String = when (subScreen) {
     "roster" -> "ОТМЕТКА ПИТАНИЯ"
     "stats" -> "СТАТИСТИКА"
     "users" -> "ПОЛЬЗОВАТЕЛИ"
+    "users_create" -> "СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ"
     "groups" -> "ГРУППЫ"
     "reports" -> "ОТЧЕТЫ"
     "menu" -> "МЕНЮ В СТОЛОВОЙ"
@@ -67,7 +68,7 @@ private fun screenAllowedForRole(role: UserRole?, screen: String): Boolean {
     val roleScreens = when (role) {
         UserRole.STUDENT -> setOf("coupons", "qr", "menu")
         UserRole.CHEF -> setOf("scanner", "menu_manage", "stats")
-        UserRole.REGISTRATOR -> setOf("users", "groups")
+        UserRole.REGISTRATOR -> setOf("users", "users_create", "groups")
         UserRole.CURATOR -> setOf("roster", "stats", "categories", "reports")
         UserRole.ADMIN -> setOf("reports")
         null -> emptySet()
@@ -122,8 +123,13 @@ fun MainScreenShared(
         val restoredRole = parseRoleOrNull(restored?.selectedRole)
             ?.takeIf { it in roles }
         val activeRole = restoredRole ?: roles.firstOrNull()
+        val restoredSubScreen = if (restored?.currentSubScreen == "users_create") {
+            "users"
+        } else {
+            restored?.currentSubScreen
+        }
         selectedRole = activeRole
-        currentSubScreen = resolveSubScreenForRole(activeRole, restored?.currentSubScreen)
+        currentSubScreen = resolveSubScreenForRole(activeRole, restoredSubScreen)
         selectedMealType = restored?.selectedMealType.orEmpty()
         showHints = uiSettingsManager.shouldShowHints(session.userId)
         isSnapshotRestored = true
@@ -151,11 +157,19 @@ fun MainScreenShared(
         isSnapshotRestored
     ) {
         if (!isSnapshotRestored) return@LaunchedEffect
+        val snapshotSubScreen = if (
+            (selectedRole ?: roles.firstOrNull()) == UserRole.REGISTRATOR &&
+            currentSubScreen == "users_create"
+        ) {
+            "users"
+        } else {
+            currentSubScreen
+        }
         mainLoopStateStore.save(
             session.userId,
             MainLoopSnapshot(
                 selectedRole = selectedRole?.name,
-                currentSubScreen = currentSubScreen,
+                currentSubScreen = snapshotSubScreen,
                 selectedMealType = selectedMealType,
             )
         )
@@ -185,7 +199,16 @@ fun MainScreenShared(
                 },
                 navigationIcon = {
                     if (currentSubScreen != "dashboard") {
-                        IconButton(onClick = { currentSubScreen = "dashboard" }) {
+                        IconButton(onClick = {
+                            currentSubScreen = if (
+                                (selectedRole ?: roles.firstOrNull()) == UserRole.REGISTRATOR &&
+                                currentSubScreen == "users_create"
+                            ) {
+                                "users"
+                            } else {
+                                "dashboard"
+                            }
+                        }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
                         }
                     } else {
@@ -453,11 +476,32 @@ fun RegistratorFlowShared(
     onNavigate: (String) -> Unit
 ) {
     val registratorRepository = remember { RegistratorRepository() }
+    var createUserInitialGroupId by remember(session.userId) { mutableStateOf<Int?>(null) }
+    var usersReloadKey by remember(session.userId) { mutableIntStateOf(0) }
     when (currentSubScreen) {
         "dashboard" -> RegistratorDashboardShared({ onNavigate("users") }, { onNavigate("groups") })
         "users" -> RegistratorUsersScreen(
             token = session.token,
-            registratorRepository = registratorRepository
+            registratorRepository = registratorRepository,
+            reloadKey = usersReloadKey,
+            onCreateUserClick = { groupId ->
+                createUserInitialGroupId = groupId
+                onNavigate("users_create")
+            }
+        )
+        "users_create" -> RegistratorCreateUserRoute(
+            token = session.token,
+            registratorRepository = registratorRepository,
+            initialGroupId = createUserInitialGroupId,
+            onBack = {
+                createUserInitialGroupId = null
+                onNavigate("users")
+            },
+            onUserCreated = {
+                createUserInitialGroupId = null
+                usersReloadKey += 1
+                onNavigate("users")
+            }
         )
 
         "groups" -> RegistratorGroupsScreen(

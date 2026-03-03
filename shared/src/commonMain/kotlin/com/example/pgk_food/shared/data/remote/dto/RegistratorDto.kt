@@ -36,7 +36,8 @@ data class CreateUserResponse(
 
 @Serializable
 data class UpdateRolesRequest(
-    val roles: List<UserRole>
+    val roles: List<UserRole>,
+    val groupId: Int? = null,
 )
 
 @Serializable
