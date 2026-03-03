@@ -133,7 +133,8 @@ class ChefRepository {
 
     private suspend fun validateQrLocal(payload: QrPayload, qrContent: String): QrValidationResponse {
         val key = SharedDatabase.instance.studentKeyDao().getKey(payload.userId)
-            ?: return invalidLocalResponse(
+            ?: return invalidLocalResponseAndRecord(
+                qrContent = qrContent,
                 payload = payload,
                 studentName = null,
                 groupName = null,
@@ -153,7 +154,8 @@ class ChefRepository {
             publicKeyBase64 = key.publicKey,
         )
         if (!isSigValid) {
-            return invalidLocalResponse(
+            return invalidLocalResponseAndRecord(
+                qrContent = qrContent,
                 payload = payload,
                 studentName = studentName,
                 groupName = groupName,
@@ -163,7 +165,8 @@ class ChefRepository {
         }
 
         if (!isQrTimestampValid(payload.timestamp)) {
-            return invalidLocalResponse(
+            return invalidLocalResponseAndRecord(
+                qrContent = qrContent,
                 payload = payload,
                 studentName = studentName,
                 groupName = groupName,
@@ -180,7 +183,8 @@ class ChefRepository {
             else -> false
         }
         if (!isAllowed) {
-            return invalidLocalResponse(
+            return invalidLocalResponseAndRecord(
+                qrContent = qrContent,
                 payload = payload,
                 studentName = studentName,
                 groupName = groupName,
@@ -189,14 +193,28 @@ class ChefRepository {
             )
         }
 
+        val transactionDao = SharedDatabase.instance.transactionDao()
+        val transactionHash = buildTransactionHash(payload)
+        if (transactionDao.existsByTransactionHash(transactionHash) > 0) {
+            return invalidLocalResponseAndRecord(
+                qrContent = qrContent,
+                payload = payload,
+                studentName = studentName,
+                groupName = groupName,
+                errorMessage = "Этот QR-код уже был отсканирован",
+                errorCode = "DUPLICATE_SCAN",
+            )
+        }
+
         val dayStart = (com.example.pgk_food.shared.platform.currentTimeMillis() / 86_400_000L) * 86_400_000L
-        val duplicates = SharedDatabase.instance.transactionDao().findByStudentAndMealToday(
+        val duplicates = transactionDao.findByStudentAndMealTodayAnyStatus(
             studentId = payload.userId,
             mealType = payload.mealType,
             dayStart = dayStart,
         )
         if (duplicates.isNotEmpty()) {
-            return invalidLocalResponse(
+            return invalidLocalResponseAndRecord(
+                qrContent = qrContent,
                 payload = payload,
                 studentName = studentName,
                 groupName = groupName,
@@ -209,6 +227,7 @@ class ChefRepository {
             payload = payload,
             studentName = studentName,
             groupName = groupName,
+            transactionHash = transactionHash,
         )
 
         val response = QrValidationResponse(
@@ -240,15 +259,32 @@ class ChefRepository {
         )
     }
 
-    private suspend fun saveOfflineTransaction(payload: QrPayload, studentName: String, groupName: String?) {
-        runCatching {
-            val transactionHash = generateOfflineTransactionHash(
-                userId = payload.userId,
-                timestamp = payload.timestamp,
-                mealType = payload.mealType,
-                nonce = payload.nonce,
-            ).ifBlank { deterministicFallbackTransactionHash(payload) }
+    private suspend fun invalidLocalResponseAndRecord(
+        qrContent: String,
+        payload: QrPayload,
+        studentName: String?,
+        groupName: String?,
+        errorMessage: String,
+        errorCode: String,
+    ): QrValidationResponse {
+        val response = invalidLocalResponse(
+            payload = payload,
+            studentName = studentName,
+            groupName = groupName,
+            errorMessage = errorMessage,
+            errorCode = errorCode,
+        )
+        recordScanResult(qrContent = qrContent, response = response)
+        return response
+    }
 
+    private suspend fun saveOfflineTransaction(
+        payload: QrPayload,
+        studentName: String,
+        groupName: String?,
+        transactionHash: String,
+    ) {
+        runCatching {
             SharedDatabase.instance.transactionDao().saveTransaction(
                 OfflineTransactionEntity(
                     studentId = payload.userId,
@@ -265,15 +301,31 @@ class ChefRepository {
     }
 
     private suspend fun recordScanResult(qrContent: String, response: QrValidationResponse) {
+        val normalizedQrContent = qrContent.trim().ifEmpty { qrContent }
+        val now = com.example.pgk_food.shared.platform.currentTimeMillis()
         val record = SharedScannedQrRecord(
-            qrContent = qrContent,
+            qrContent = normalizedQrContent,
             studentName = response.studentName ?: "Неизвестно",
             mealType = response.mealType ?: "Неизвестно",
-            timestamp = com.example.pgk_food.shared.platform.currentTimeMillis(),
+            timestamp = now,
             status = if (response.isValid) "success" else "error",
         )
         runCatching {
-            SharedDatabase.instance.scannedQrDao().insert(record.toEntity())
+            val scannedQrDao = SharedDatabase.instance.scannedQrDao()
+            val latest = scannedQrDao.getLatestByQrContent(normalizedQrContent)
+            if (latest != null && now >= latest.timestamp && now - latest.timestamp <= HISTORY_DEDUPE_WINDOW_MS) {
+                scannedQrDao.update(
+                    latest.copy(
+                        qrContent = record.qrContent,
+                        studentName = record.studentName,
+                        mealType = record.mealType,
+                        timestamp = record.timestamp,
+                        status = record.status,
+                    )
+                )
+            } else {
+                scannedQrDao.insert(record.toEntity())
+            }
         }
     }
 
@@ -432,6 +484,7 @@ class ChefRepository {
     }
 
     private companion object {
+        const val HISTORY_DEDUPE_WINDOW_MS = 30_000L
         val SYNC_ERROR_STUDENT_REGEX = Regex("""Student ([^: ]+):""")
     }
 }
@@ -474,4 +527,13 @@ private fun epochSecondsToLocalIso(epochSeconds: Long): String {
 
 private fun deterministicFallbackTransactionHash(payload: QrPayload): String {
     return "${payload.userId}:${payload.timestamp}:${payload.mealType}:${payload.nonce}"
+}
+
+private fun buildTransactionHash(payload: QrPayload): String {
+    return generateOfflineTransactionHash(
+        userId = payload.userId,
+        timestamp = payload.timestamp,
+        mealType = payload.mealType,
+        nonce = payload.nonce,
+    ).ifBlank { deterministicFallbackTransactionHash(payload) }
 }

@@ -3,6 +3,7 @@ package com.example.pgk_food.shared.ui.viewmodels
 import com.example.pgk_food.shared.data.remote.dto.QrValidationResponse
 import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.ChefRepository
+import com.example.pgk_food.shared.platform.currentTimeMillis
 import com.example.pgk_food.shared.util.NetworkMonitor
 import com.example.pgk_food.shared.util.UxAnalytics
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,16 @@ class ChefViewModel(
     private val chefRepository: ChefRepository,
     private val networkMonitor: NetworkMonitor,
 ) : KmpViewModelScopeOwner() {
+    private data class RecentScanCache(
+        val qrContentNormalized: String,
+        val response: QrValidationResponse,
+        val tsMillis: Long,
+    )
+
+    private companion object {
+        const val RECENT_SCAN_WINDOW_MS = 30_000L
+    }
+
     private val token get() = authRepository.getToken().orEmpty()
 
     private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
@@ -45,6 +56,7 @@ class ChefViewModel(
 
     private val _isOffline = MutableStateFlow(false)
     val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
+    private var recentScanCache: RecentScanCache? = null
 
     init {
         updateUnsyncedCount()
@@ -69,8 +81,26 @@ class ChefViewModel(
     }
 
     fun scanQr(qrData: String) {
+        if (_scanState.value is ScanState.Loading) return
+
+        val normalizedQrData = qrData.trim()
+        val now = currentTimeMillis()
+        val cached = recentScanCache
+        if (
+            normalizedQrData.isNotEmpty() &&
+            cached != null &&
+            cached.qrContentNormalized == normalizedQrData &&
+            now >= cached.tsMillis &&
+            now - cached.tsMillis <= RECENT_SCAN_WINDOW_MS
+        ) {
+            notifySuccess("Повторный скан: показан предыдущий результат")
+            _scanState.value = ScanState.Success(cached.response)
+            return
+        }
+
         val offlineScan = _isOffline.value
         viewModelScope.launch {
+            if (_scanState.value is ScanState.Loading) return@launch
             _scanState.value = ScanState.Loading
             UxAnalytics.log(event = "action_started", role = "CHEF", screen = "SCAN_QR")
             chefRepository.validateQr(token, qrData, offlineScan)
@@ -78,6 +108,13 @@ class ChefViewModel(
                     UxAnalytics.log(event = "action_success", role = "CHEF", screen = "SCAN_QR")
                     notifySuccess("Сканирование завершено")
                     _scanState.value = ScanState.Success(it)
+                    if (normalizedQrData.isNotEmpty()) {
+                        recentScanCache = RecentScanCache(
+                            qrContentNormalized = normalizedQrData,
+                            response = it,
+                            tsMillis = currentTimeMillis(),
+                        )
+                    }
                     updateUnsyncedCount()
                 }
                 .onFailure {

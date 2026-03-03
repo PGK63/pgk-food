@@ -320,16 +320,26 @@ fun StudentQrScreenShared(
         val contentBottomInset = if (isCompactHeight) 88.dp else 104.dp
         val density = LocalDensity.current
         val qrSizePx = with(density) { qrSize.roundToPx().coerceAtLeast(320) }
-
-        Column(
-            modifier = Modifier
+        val contentModifier = if (isCompactHeight) {
+            Modifier
                 .align(Alignment.Center)
                 .fillMaxSize()
                 .widthIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(top = verticalPadding, bottom = contentBottomInset),
+                .padding(top = verticalPadding, bottom = contentBottomInset)
+        } else {
+            Modifier
+                .align(Alignment.Center)
+                .fillMaxSize()
+                .widthIn(max = 560.dp)
+                .padding(top = verticalPadding, bottom = contentBottomInset)
+        }
+        val contentArrangement = if (isCompactHeight) Arrangement.Top else Arrangement.Center
+
+        Column(
+            modifier = contentModifier,
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = contentArrangement
         ) {
             // --- Offline badge ---
             AnimatedVisibility(
@@ -460,7 +470,30 @@ fun StudentQrScreenShared(
                                             text = "Подключение...",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center,
                                         )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        TextButton(
+                                            onClick = {
+                                                awaitingKeyRefreshForGeneration = false
+                                                viewModel.resetDownloadKeysState()
+                                                showOfflineSuggestion = false
+                                                isOfflineMode = true
+                                                bootstrapTrigger++
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.CloudOff,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Перейти в оффлайн сейчас",
+                                                style = MaterialTheme.typography.labelSmall,
+                                            )
+                                        }
                                     }
                                 }
                             }

@@ -3,6 +3,7 @@ package com.example.pgk_food.shared.data.local.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import com.example.pgk_food.shared.data.local.entity.ScannedQrEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -16,6 +17,12 @@ interface ScannedQrDao {
 
     @Query("SELECT * FROM scanned_qrs WHERE timestamp >= :sinceTimestamp ORDER BY timestamp DESC")
     fun getScannedQrsSince(sinceTimestamp: Long): Flow<List<ScannedQrEntity>>
+
+    @Query("SELECT * FROM scanned_qrs WHERE qrContent = :qrContent ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestByQrContent(qrContent: String): ScannedQrEntity?
+
+    @Update
+    suspend fun update(scannedQr: ScannedQrEntity)
 
     @Query("DELETE FROM scanned_qrs")
     suspend fun clearHistory()

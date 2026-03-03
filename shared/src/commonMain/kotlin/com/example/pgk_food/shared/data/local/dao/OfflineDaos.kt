@@ -43,6 +43,16 @@ interface TransactionDao {
 
     @Query("SELECT * FROM offline_transactions WHERE studentId = :studentId AND mealType = :mealType AND scannedAt > :dayStart AND synced = 0")
     suspend fun findByStudentAndMealToday(studentId: String, mealType: String, dayStart: Long): List<OfflineTransactionEntity>
+
+    @Query("SELECT * FROM offline_transactions WHERE studentId = :studentId AND mealType = :mealType AND scannedAt > :dayStart")
+    suspend fun findByStudentAndMealTodayAnyStatus(
+        studentId: String,
+        mealType: String,
+        dayStart: Long,
+    ): List<OfflineTransactionEntity>
+
+    @Query("SELECT COUNT(*) FROM offline_transactions WHERE transactionHash = :transactionHash")
+    suspend fun existsByTransactionHash(transactionHash: String): Int
 }
 
 @Dao

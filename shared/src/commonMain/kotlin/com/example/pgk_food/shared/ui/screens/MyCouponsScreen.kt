@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.QrCode
@@ -92,6 +93,7 @@ fun MyCouponsScreen(
     var mealsToday by remember { mutableStateOf<MealsTodayResponse?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isOfflineMode by remember { mutableStateOf(false) }
+    var loadRequestVersion by remember { mutableStateOf(0) }
     val downloadState by viewModel.downloadKeysState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -101,11 +103,31 @@ fun MyCouponsScreen(
         return api?.userMessage?.ifBlank { default } ?: message ?: default
     }
 
-    suspend fun loadMeals() {
+    suspend fun loadMeals(forceOffline: Boolean = false) {
+        val requestVersion = loadRequestVersion + 1
+        loadRequestVersion = requestVersion
         isLoading = true
+
+        if (forceOffline) {
+            val cachedMeals = studentRepository.getMealsTodayCached()
+            if (requestVersion != loadRequestVersion) return
+            isOfflineMode = true
+            mealsToday = cachedMeals ?: MealsTodayResponse(
+                date = "Сегодня",
+                isBreakfastAllowed = true,
+                isLunchAllowed = true,
+            )
+            isLoading = false
+            if (cachedMeals == null) {
+                snackbarHostState.showSnackbar("Кэш талонов не найден, показаны локальные значения")
+            }
+            return
+        }
+
         var pendingError: String? = null
         studentRepository.getMealsToday(token)
             .onSuccess {
+                if (requestVersion != loadRequestVersion) return@onSuccess
                 mealsToday = it
                 isOfflineMode = it.reason?.let { reason ->
                     reason.contains("offline", ignoreCase = true) ||
@@ -113,6 +135,7 @@ fun MyCouponsScreen(
                 } == true
             }
             .onFailure {
+                if (requestVersion != loadRequestVersion) return@onFailure
                 isOfflineMode = true
                 mealsToday = MealsTodayResponse(
                     date = "Сегодня",
@@ -121,7 +144,9 @@ fun MyCouponsScreen(
                 )
                 pendingError = it.userMessageOr("Не удалось загрузить талоны")
             }
+        if (requestVersion != loadRequestVersion) return
         pendingError?.let { snackbarHostState.showSnackbar(it) }
+        if (requestVersion != loadRequestVersion) return
         isLoading = false
     }
 
@@ -148,7 +173,31 @@ fun MyCouponsScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Загружаем талоны...",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    TextButton(
+                        onClick = { scope.launch { loadMeals(forceOffline = true) } },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.CloudOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Перейти в оффлайн сейчас", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         } else {
             LazyColumn(
