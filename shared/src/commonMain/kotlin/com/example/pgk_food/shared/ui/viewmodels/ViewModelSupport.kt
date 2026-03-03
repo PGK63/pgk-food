@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.ui.viewmodels
 
 import com.example.pgk_food.shared.core.network.ApiCallException
+import com.example.pgk_food.shared.core.network.toDetailedUserMessage
 import com.example.pgk_food.shared.core.feedback.FeedbackController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +21,7 @@ internal fun Throwable.toErrorInfo(defaultMessage: String): ErrorInfo {
     val apiError = (this as? ApiCallException)?.apiError
     if (apiError != null) {
         return ErrorInfo(
-            message = apiError.userMessage.ifBlank { message ?: defaultMessage },
+            message = apiError.toDetailedUserMessage(message ?: defaultMessage),
             code = apiError.code,
             retryable = apiError.retryable,
         )

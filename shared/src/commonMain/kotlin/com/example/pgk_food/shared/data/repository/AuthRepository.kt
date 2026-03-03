@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.core.network.safeResultApiCall
+import com.example.pgk_food.shared.data.remote.dto.AuthMeResponse
 import com.example.pgk_food.shared.data.remote.dto.AuthResponse
 import com.example.pgk_food.shared.data.remote.dto.AuthKeysDto
 import com.example.pgk_food.shared.data.remote.dto.LoginRequest
@@ -64,6 +65,33 @@ class AuthRepository {
                 )
             }
             response
+        }
+    }
+
+    suspend fun getMyProfile(token: String): Result<AuthMeResponse> {
+        return safeResultApiCall {
+            SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/auth/me")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }.body()
+        }
+    }
+
+    suspend fun refreshCurrentSession(token: String): Result<UserSession> {
+        return getMyProfile(token).mapCatching { profile ->
+            val session = UserSession(
+                userId = profile.userId,
+                token = SessionStore.session.value?.token ?: token,
+                roles = profile.roles,
+                name = profile.name,
+                surname = profile.surname,
+                fatherName = profile.fatherName,
+                groupId = profile.groupId,
+                studentCategory = profile.studentCategory,
+                publicKey = profile.publicKey,
+                privateKey = profile.privateKey
+            )
+            SessionStore.save(session)
+            session
         }
     }
 }

@@ -56,13 +56,13 @@ class RegistratorRepository {
         }.body()
     }
 
-    suspend fun updateRoles(token: String, userId: String, roles: List<UserRole>): Result<Unit> = safeResultApiCall {
+    suspend fun updateRoles(token: String, userId: String, roles: List<UserRole>): Result<UserDto> = safeResultApiCall {
         SharedNetworkModule.client.patch(SharedNetworkModule.getUrl("/api/v1/registrator/users/$userId/roles")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("userId", userId)
             contentType(ContentType.Application.Json)
             setBody(UpdateRolesRequest(roles))
-        }
+        }.body()
     }
 
     suspend fun updateCategory(token: String, userId: String, category: StudentCategory): Result<Unit> = safeResultApiCall {

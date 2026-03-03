@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,6 +55,7 @@ import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.AdminRepository
+import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
@@ -226,7 +228,10 @@ fun AdminReportsScreen(
         )
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -360,8 +365,11 @@ fun AdminReportsScreen(
                         Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(row.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("${row.groupName} • ${row.category}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Дата: ${row.date} • Назначил: ${row.assignedByRole}", style = MaterialTheme.typography.bodySmall)
+                                Text("${row.groupName} • ${row.category.titleRu()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "Дата: ${row.date} • Назначил: ${assignedByRoleTitleRu(row.assignedByRole)}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     MealStatusBadge("Завтрак", row.breakfastUsed)
                                     MealStatusBadge("Обед", row.lunchUsed)
@@ -390,7 +398,7 @@ private fun FraudReportItem(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(report.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("Группа: ${report.groupName}", style = MaterialTheme.typography.bodySmall)
-            Text("Причина: ${report.reason}", style = MaterialTheme.typography.bodyMedium)
+            Text("Причина: ${fraudReasonTitleRu(report.reason)}", style = MaterialTheme.typography.bodyMedium)
             if (!report.resolved) {
                 Button(onClick = onResolve, enabled = !isResolving) {
                     Text(if (isResolving) "..." else "Решить")
@@ -413,4 +421,19 @@ private fun MealStatusBadge(label: String, used: Boolean) {
             fontWeight = FontWeight.Medium
         )
     }
+}
+
+private fun assignedByRoleTitleRu(role: String): String = when (role.uppercase()) {
+    "ADMIN" -> "Администратор"
+    "CURATOR" -> "Куратор"
+    "REGISTRATOR" -> "Регистратор"
+    else -> role
+}
+
+private fun fraudReasonTitleRu(reason: String): String = when (reason.uppercase()) {
+    "ALREADY_ATE" -> "Повторная попытка питания"
+    "INVALID_SIGNATURE" -> "Неверная подпись QR"
+    "EXPIRED_QR" -> "Просроченный QR-код"
+    "NOT_ALLOWED" -> "Питание не разрешено"
+    else -> reason
 }

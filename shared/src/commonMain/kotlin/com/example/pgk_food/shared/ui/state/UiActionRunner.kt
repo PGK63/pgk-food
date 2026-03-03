@@ -5,6 +5,7 @@ import com.example.pgk_food.shared.core.feedback.FeedbackController
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.core.network.ApiError
 import com.example.pgk_food.shared.core.network.ApiResult
+import com.example.pgk_food.shared.core.network.toDetailedUserMessage
 import kotlinx.coroutines.CancellationException
 
 val UiActionState.isLoading: Boolean
@@ -89,7 +90,7 @@ private fun Throwable?.toUiActionError(fallback: String): UiActionState.Error {
     val apiError = (this as? ApiCallException)?.apiError
     if (apiError != null) {
         return UiActionState.Error(
-            userMessage = apiError.userMessage.ifBlank { fallback },
+            userMessage = apiError.toDetailedUserMessage(fallback),
             code = apiError.code,
             retryable = apiError.retryable,
         )
@@ -104,7 +105,7 @@ private fun Throwable?.toUiActionError(fallback: String): UiActionState.Error {
 
 private fun ApiError.toUiActionError(fallback: String): UiActionState.Error {
     return UiActionState.Error(
-        userMessage = userMessage.ifBlank { fallback },
+        userMessage = toDetailedUserMessage(fallback),
         code = code,
         retryable = retryable,
     )

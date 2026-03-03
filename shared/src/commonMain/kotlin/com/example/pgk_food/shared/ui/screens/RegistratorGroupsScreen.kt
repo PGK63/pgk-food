@@ -84,31 +84,44 @@ fun RegistratorGroupsScreen(
         else groups.filter { it.name.contains(searchQuery, ignoreCase = true) }
     }
 
-    fun refreshGroups() {
-        scope.launch {
-            isLoading = true
-            val result = registratorRepository.getGroups(token)
-            groups = result.getOrDefault(emptyList())
-            if (result.isFailure) {
-                snackbarHostState.showSnackbar("Не удалось обновить список групп")
-            }
-            isLoading = false
+    suspend fun refreshGroups(showLoader: Boolean = true) {
+        if (showLoader) isLoading = true
+        val result = registratorRepository.getGroups(token)
+        groups = result.getOrDefault(emptyList())
+        val existingGroupIds = groups.map { it.id }.toSet()
+        groupStudents = groupStudents.filterKeys { it in existingGroupIds }
+        if (expandedGroupId != null && expandedGroupId !in existingGroupIds) {
+            expandedGroupId = null
+        }
+        if (result.isFailure) {
+            snackbarHostState.showSnackbar("Не удалось обновить список групп")
+        }
+        if (showLoader) isLoading = false
+    }
+
+    suspend fun loadStudents(groupId: Int, force: Boolean = false) {
+        if (!force && groupStudents.containsKey(groupId)) return
+        val result = registratorRepository.getUsers(token, groupId)
+        val students = result.getOrDefault(emptyList())
+        groupStudents = groupStudents + (groupId to students)
+        if (result.isFailure) {
+            snackbarHostState.showSnackbar("Не удалось загрузить студентов группы")
         }
     }
 
-    fun loadStudents(groupId: Int) {
-        scope.launch {
-            val result = registratorRepository.getUsers(token, groupId)
-            val students = result.getOrDefault(emptyList())
-            groupStudents = groupStudents + (groupId to students)
+    suspend fun loadAllUsers(force: Boolean = false) {
+        if (!force && allUsers.isNotEmpty()) return
+        val result = registratorRepository.getUsers(token)
+        allUsers = result.getOrDefault(emptyList())
+        if (result.isFailure) {
+            snackbarHostState.showSnackbar("Не удалось загрузить список пользователей")
         }
     }
 
-    fun loadAllUsers() {
-        scope.launch {
-            val result = registratorRepository.getUsers(token)
-            allUsers = result.getOrDefault(emptyList())
-        }
+    suspend fun refreshUiAfterMutation(vararg groupIds: Int) {
+        refreshGroups(showLoader = false)
+        loadAllUsers(force = true)
+        groupIds.toSet().forEach { loadStudents(groupId = it, force = true) }
     }
 
     suspend fun transferGroup(group: GroupDto, targetName: String) {
@@ -205,25 +218,23 @@ fun RegistratorGroupsScreen(
             snackbarHostState.showSnackbar("Группа успешно переведена/переименована")
         }
 
-        refreshGroups()
-        loadAllUsers()
-        loadStudents(group.id)
-        loadStudents(newGroup.id)
+        refreshUiAfterMutation(group.id, newGroup.id)
         actionState.value = UiActionState.Idle
     }
 
     LaunchedEffect(Unit) {
         refreshGroups()
-        loadAllUsers()
+        loadAllUsers(force = true)
     }
     LaunchedEffect(showAssignMemberDialog) {
-        if (showAssignMemberDialog != null && allUsers.isEmpty()) {
-            loadAllUsers()
+        if (showAssignMemberDialog != null) {
+            loadAllUsers(force = true)
         }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddGroupDialog = true },
@@ -318,7 +329,7 @@ fun RegistratorGroupsScreen(
                                         expandedGroupId = null
                                     } else {
                                         expandedGroupId = group.id
-                                        loadStudents(group.id)
+                                        scope.launch { loadStudents(group.id, force = true) }
                                     }
                                 },
                             shape = MaterialTheme.shapes.large,
@@ -387,7 +398,7 @@ fun RegistratorGroupsScreen(
                                                         if (hasError) Result.failure<Unit>(IllegalStateException("Не всех кураторов удалось снять"))
                                                         else Result.success(Unit)
                                                     }
-                                                    if (ok) refreshGroups()
+                                                    if (ok) refreshUiAfterMutation(group.id)
                                                 }
                                             }) {
                                                 Icon(
@@ -439,8 +450,7 @@ fun RegistratorGroupsScreen(
                                                             registratorRepository.removeStudentFromGroup(token, student.userId)
                                                         }
                                                         if (ok) {
-                                                            loadStudents(group.id)
-                                                            refreshGroups()
+                                                            refreshUiAfterMutation(group.id)
                                                         }
                                                     }
                                                 }) {
@@ -502,7 +512,7 @@ fun RegistratorGroupsScreen(
                         if (ok) {
                             newGroupName = ""
                             showAddGroupDialog = false
-                            refreshGroups()
+                            refreshUiAfterMutation()
                         }
                     }
                 }, enabled = !isActionLoading && newGroupName.isNotBlank()) {
@@ -667,7 +677,8 @@ fun RegistratorGroupsScreen(
                                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = isStudentGroupFilterExpanded)
                                 },
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium
+                                shape = MaterialTheme.shapes.medium,
+                                singleLine = true
                             )
                             ExposedDropdownMenu(
                                 expanded = isStudentGroupFilterExpanded,
@@ -729,7 +740,7 @@ fun RegistratorGroupsScreen(
                                                     else Result.success(Unit)
                                                 }
                                                 if (ok) {
-                                                    refreshGroups()
+                                                    refreshUiAfterMutation(groupId)
                                                     showAssignMemberDialog = null
                                                 }
                                             }
@@ -762,7 +773,7 @@ fun RegistratorGroupsScreen(
                                                     ) {
                                                         registratorRepository.assignCurator(token, groupId, user.userId)
                                                     }
-                                                    if (ok) refreshGroups()
+                                                    if (ok) refreshUiAfterMutation(groupId)
                                                 } else {
                                                     val ok = runUiAction(
                                                         actionState = actionState,
@@ -771,10 +782,7 @@ fun RegistratorGroupsScreen(
                                                     ) {
                                                         registratorRepository.addStudentToGroup(token, groupId, user.userId)
                                                     }
-                                                    if (ok) {
-                                                        loadStudents(groupId)
-                                                        refreshGroups()
-                                                    }
+                                                    if (ok) refreshUiAfterMutation(groupId)
                                                 }
                                                 if (actionState.value !is UiActionState.Error) {
                                                     showAssignMemberDialog = null
@@ -825,7 +833,7 @@ fun RegistratorGroupsScreen(
                         }
                         if (ok) {
                             showDeleteGroupDialog = null
-                            refreshGroups()
+                            refreshUiAfterMutation()
                         }
                     }
                 }, enabled = !isActionLoading) { Text(if (isActionLoading) "Удаление..." else "Удалить") }

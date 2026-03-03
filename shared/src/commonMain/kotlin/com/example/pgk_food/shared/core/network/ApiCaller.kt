@@ -83,6 +83,17 @@ suspend fun <T> buildFailureFromResponseException(
 ): ApiResult.Failure<T> {
     val response = e.response
     val status = response.status
+    val requestMethod = runCatching { response.call.request.method.value }.getOrNull()
+    val requestPath = runCatching {
+        val url = response.call.request.url
+        buildString {
+            append(url.encodedPath)
+            if (url.encodedQuery.isNotBlank()) {
+                append('?')
+                append(url.encodedQuery)
+            }
+        }
+    }.getOrNull()
     val bodyText = runCatching { response.bodyAsText() }.getOrNull().orEmpty()
     val envelope = runCatching { errorJson.decodeFromString(BackendErrorEnvelope.serializer(), bodyText) }.getOrNull()
 
@@ -105,6 +116,8 @@ suspend fun <T> buildFailureFromResponseException(
             retryable = envelope?.retryable ?: status.isRetryableHttpStatus(),
             httpStatus = status.value,
             requestId = envelope?.requestId ?: response.headers["X-Request-Id"],
+            requestMethod = requestMethod,
+            requestPath = requestPath,
         )
     )
 }

@@ -195,7 +195,8 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                         onValueChange = { newName = it },
                         label = { Text("Название") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
@@ -203,7 +204,8 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                         onValueChange = { newDescription = it },
                         label = { Text("Описание") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     Text("Дата подачи", style = MaterialTheme.typography.labelLarge)

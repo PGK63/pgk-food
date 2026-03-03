@@ -21,7 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.data.remote.dto.*
+import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
+import com.example.pgk_food.shared.data.session.SessionStore
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
@@ -51,6 +53,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     var users by remember { mutableStateOf<List<UserDto>>(emptyList()) }
     var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
@@ -75,6 +78,9 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
             isLoading = true
             val usersResult = registratorRepository.getUsers(token)
             users = usersResult.getOrDefault(emptyList())
+            selectedUser = selectedUser?.let { selected ->
+                users.firstOrNull { it.userId == selected.userId }
+            }
             val groupsResult = registratorRepository.getGroups(token)
             groups = groupsResult.getOrDefault(emptyList())
             if (usersResult.isFailure || groupsResult.isFailure) {
@@ -118,6 +124,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -265,6 +272,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                         items(groupUsers, key = { it.userId }) { user ->
                             UserRow(
                                 user = user,
+                                groupName = groups.find { it.id == user.groupId }?.name,
                                 onClick = { selectedUser = user },
                                 onSettingsClick = { selectedUser = user },
                                 onDeleteClick = {
@@ -330,14 +338,21 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
             },
             onUpdateRoles = { roles ->
                 scope.launch {
+                    val result = registratorRepository.updateRoles(token, user.userId, roles)
                     val ok = runUiAction(
                         actionState = actionState,
                         successMessage = "Роли обновлены",
                         fallbackErrorMessage = "Ошибка обновления ролей",
-                    ) {
-                        registratorRepository.updateRoles(token, user.userId, roles)
-                    }
+                    ) { result }
                     if (ok) {
+                        val activeUserId = SessionStore.session.value?.userId
+                        val updatedUserId = result.getOrNull()?.userId
+                        if (activeUserId != null && activeUserId == updatedUserId) {
+                            val refreshResult = authRepository.refreshCurrentSession(token)
+                            if (refreshResult.isFailure) {
+                                snackbarHostState.showSnackbar("Роли сохранены, но не удалось обновить текущую сессию")
+                            }
+                        }
                         loadData()
                         selectedUser = null
                     }
@@ -408,6 +423,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
 @Composable
 private fun UserRow(
     user: UserDto,
+    groupName: String?,
     onClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onDeleteClick: () -> Unit
@@ -434,7 +450,7 @@ private fun UserRow(
                 )
                 Text(
                     text = user.roles.joinToString(", ") { it.titleRu() } +
-                        (if (user.groupId != null) " • @${user.login}" else " • @${user.login}"),
+                        " • ${groupName ?: "Без группы"} • @${user.login}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -742,9 +758,27 @@ fun CreateUserDialog(
         title = { Text("Создать пользователя") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = surname, onValueChange = { surname = it }, label = { Text("Фамилия") }, shape = MaterialTheme.shapes.medium)
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Имя") }, shape = MaterialTheme.shapes.medium)
-                OutlinedTextField(value = fatherName, onValueChange = { fatherName = it }, label = { Text("Отчество") }, shape = MaterialTheme.shapes.medium)
+                OutlinedTextField(
+                    value = surname,
+                    onValueChange = { surname = it },
+                    label = { Text("Фамилия") },
+                    shape = MaterialTheme.shapes.medium,
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Имя") },
+                    shape = MaterialTheme.shapes.medium,
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = fatherName,
+                    onValueChange = { fatherName = it },
+                    label = { Text("Отчество") },
+                    shape = MaterialTheme.shapes.medium,
+                    singleLine = true
+                )
 
                 Text("Роли", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 FlowRow(
@@ -776,7 +810,8 @@ fun CreateUserDialog(
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGroup) },
                             modifier = Modifier.menuAnchor().fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium
+                            shape = MaterialTheme.shapes.medium,
+                            singleLine = true
                         )
                         ExposedDropdownMenu(expanded = expandedGroup, onDismissRequest = { expandedGroup = false }) {
                             DropdownMenuItem(text = { Text("Без группы") }, onClick = { selectedGroupId = null; expandedGroup = false })
@@ -799,7 +834,8 @@ fun CreateUserDialog(
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
                             modifier = Modifier.menuAnchor().fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium
+                            shape = MaterialTheme.shapes.medium,
+                            singleLine = true
                         )
                         ExposedDropdownMenu(expanded = expandedCategory, onDismissRequest = { expandedCategory = false }) {
                             StudentCategory.entries.forEach { category ->

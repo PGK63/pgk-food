@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -224,7 +225,10 @@ fun ChefMenuManageScreenV2(
 
     val sortedItems = remember(menuItems) { sortMenuItemsForUi(menuItems) }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -486,13 +490,15 @@ private fun CreateMenuItemDialogV2(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Название") },
-                    enabled = !isSubmitting
+                    enabled = !isSubmitting,
+                    singleLine = true
                 )
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Описание") },
-                    enabled = !isSubmitting
+                    enabled = !isSubmitting,
+                    singleLine = true
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(onClick = { datePickerVisible = true }, enabled = !isSubmitting) { Text("Дата: ${formatRuDate(date)}") }
@@ -504,6 +510,7 @@ private fun CreateMenuItemDialogV2(
                         enabled = !isSubmitting,
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = mealTypeExpanded) },
+                        singleLine = true,
                     )
                     DropdownMenu(expanded = mealTypeExpanded, onDismissRequest = { mealTypeExpanded = false }) {
                         MenuMealTypeUi.entries.filterNot { it == MenuMealTypeUi.UNKNOWN }.forEach { type ->

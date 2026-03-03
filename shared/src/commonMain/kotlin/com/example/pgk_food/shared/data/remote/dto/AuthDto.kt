@@ -29,3 +29,16 @@ data class AuthKeysDto(
     val publicKey: String,
     val privateKey: String,
 )
+
+@Serializable
+data class AuthMeResponse(
+    val userId: String,
+    val roles: List<UserRole>,
+    val name: String,
+    val surname: String,
+    val fatherName: String?,
+    val groupId: Int?,
+    val studentCategory: StudentCategory?,
+    val publicKey: String,
+    val privateKey: String,
+)

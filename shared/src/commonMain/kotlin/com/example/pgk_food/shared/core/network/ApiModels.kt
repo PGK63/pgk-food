@@ -20,6 +20,8 @@ data class ApiError(
     val retryable: Boolean = false,
     val httpStatus: Int? = null,
     val requestId: String? = null,
+    val requestMethod: String? = null,
+    val requestPath: String? = null,
 )
 
 sealed interface ApiResult<out T> {
@@ -66,4 +68,24 @@ sealed interface ApiResult<out T> {
 
 fun HttpStatusCode.isRetryableHttpStatus(): Boolean {
     return value == 408 || value == 429 || value in 500..599
+}
+
+fun ApiError.toDetailedUserMessage(fallback: String? = null): String {
+    val base = userMessage.ifBlank { fallback ?: "Не удалось выполнить запрос" }
+    val details = mutableListOf<String>()
+    details += "код: $code"
+    httpStatus?.let { details += "HTTP: $it" }
+    requestId?.takeIf { it.isNotBlank() }?.let { details += "requestId: $it" }
+    val methodPath = listOfNotNull(
+        requestMethod?.takeIf { it.isNotBlank() }?.uppercase(),
+        requestPath?.takeIf { it.isNotBlank() },
+    ).joinToString(" ")
+    if (methodPath.isNotBlank()) {
+        details += methodPath
+    }
+    return if (details.isEmpty()) {
+        base
+    } else {
+        "$base [${details.joinToString(" | ")}]"
+    }
 }

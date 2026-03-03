@@ -2,6 +2,7 @@ package com.example.pgk_food.shared
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -75,20 +76,27 @@ fun PgkSharedApp() {
 
     LaunchedEffect(session?.token) {
         val activeSession = session ?: return@LaunchedEffect
-        refreshNotificationsSilently(activeSession, notificationRepository)
-        dailySyncOrchestrator.runForSession(activeSession)
+        authRepository.refreshCurrentSession(activeSession.token)
+        val currentSession = SessionStore.session.value ?: activeSession
+        refreshNotificationsSilently(currentSession, notificationRepository)
+        dailySyncOrchestrator.runForSession(currentSession)
     }
 
     LaunchedEffect(Unit) {
         appForegroundEvents().collect {
             val activeSession = SessionStore.session.value ?: return@collect
-            refreshNotificationsSilently(activeSession, notificationRepository)
-            dailySyncOrchestrator.runForSession(activeSession)
+            authRepository.refreshCurrentSession(activeSession.token)
+            val currentSession = SessionStore.session.value ?: activeSession
+            refreshNotificationsSilently(currentSession, notificationRepository)
+            dailySyncOrchestrator.runForSession(currentSession)
         }
     }
 
     MaterialTheme {
-        Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
+        Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        ) { padding ->
             Surface(
                 modifier = Modifier
                     .fillMaxSize()

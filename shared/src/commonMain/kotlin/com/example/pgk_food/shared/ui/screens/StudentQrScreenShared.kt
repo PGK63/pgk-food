@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -168,7 +168,7 @@ fun StudentQrScreenShared(
         PlatformQrBrightnessEffect(enabled = true)
 
         val isCompactHeight = maxHeight < 760.dp
-        val verticalPadding = if (isCompactHeight) 12.dp else 24.dp
+        val verticalPadding = if (isCompactHeight) 8.dp else 12.dp
         val cardPadding = if (isCompactHeight) 20.dp else 32.dp
         val maxQrByWidth = maxWidth - if (isCompactHeight) 72.dp else 96.dp
         val maxQrByHeight = maxHeight - if (isCompactHeight) 440.dp else 500.dp
@@ -181,6 +181,8 @@ fun StudentQrScreenShared(
         }
         val sectionSpacer = if (isCompactHeight) 20.dp else 32.dp
         val infoWidthFraction = if (isCompactHeight) 1f else 0.9f
+        val density = LocalDensity.current
+        val qrSizePx = with(density) { qrSize.roundToPx().coerceAtLeast(320) }
 
         Column(
             modifier = Modifier
@@ -188,10 +190,9 @@ fun StudentQrScreenShared(
                 .fillMaxWidth()
                 .widthIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
-                .heightIn(min = maxHeight)
                 .padding(vertical = verticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (isCompactHeight) Arrangement.Top else Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
             GlassSurface(
                 modifier = Modifier
@@ -248,7 +249,7 @@ fun StudentQrScreenShared(
                                 PlatformQrCodeImage(
                                     content = qrContent,
                                     modifier = Modifier.fillMaxSize(),
-                                    sizePx = 768
+                                    sizePx = qrSizePx
                                 )
                             }
 

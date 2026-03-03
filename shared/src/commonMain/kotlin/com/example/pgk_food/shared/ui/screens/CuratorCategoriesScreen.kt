@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -90,8 +91,11 @@ fun CuratorCategoriesScreen(
         scope.launch {
             val result = curatorRepository.getCuratorGroups(token, curatorId)
             groups = result.getOrDefault(emptyList())
-            if (selectedGroupId != null && groups.none { it.id == selectedGroupId }) {
-                selectedGroupId = null
+            selectedGroupId = when {
+                groups.isEmpty() -> null
+                selectedGroupId == null -> groups.first().id
+                groups.none { it.id == selectedGroupId } -> groups.first().id
+                else -> selectedGroupId
             }
             if (result.isFailure) {
                 snackbarHostState.showSnackbar(result.exceptionOrNull()?.userMessageOr("Не удалось загрузить группы") ?: "Не удалось загрузить группы")
@@ -115,12 +119,8 @@ fun CuratorCategoriesScreen(
     LaunchedEffect(selectedGroupId) { loadStudents() }
 
     val selectedGroupLabel = remember(groups, selectedGroupId) {
-        if (selectedGroupId == null) {
-            "Все группы"
-        } else {
-            groups.firstOrNull { it.id == selectedGroupId }?.let { "${it.name} (#${it.id})" }
-                ?: "Все группы"
-        }
+        groups.firstOrNull { it.id == selectedGroupId }?.let { "${it.name} (#${it.id})" }
+            ?: "Выберите группу"
     }
 
     if (showGroupPicker) {
@@ -133,7 +133,7 @@ fun CuratorCategoriesScreen(
                 groupSearchQuery = ""
             },
             onSelectAll = {
-                selectedGroupId = null
+                selectedGroupId = groups.firstOrNull()?.id
                 showGroupPicker = false
                 groupSearchQuery = ""
             },
@@ -145,7 +145,10 @@ fun CuratorCategoriesScreen(
         )
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -162,7 +165,7 @@ fun CuratorCategoriesScreen(
                         groupSearchQuery = it
                         showGroupPicker = true
                     },
-                    label = { Text("Группа (опционально)") },
+                    label = { Text("Группа") },
                     placeholder = { Text(selectedGroupLabel) },
                     trailingIcon = {
                         IconButton(onClick = { showGroupPicker = true }) {
@@ -176,7 +179,7 @@ fun CuratorCategoriesScreen(
 
             Button(
                 onClick = { showCreateDialog = true },
-                enabled = selectedGroupId != null,
+                enabled = selectedGroupId != null && groups.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Rounded.Add, contentDescription = null)
@@ -191,7 +194,8 @@ fun CuratorCategoriesScreen(
             } else if (students.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Text(
-                        if (selectedGroupId == null) "У вас пока нет студентов"
+                        if (groups.isEmpty()) "У вас нет доступных групп"
+                        else if (selectedGroupId == null) "Сначала выберите группу"
                         else "В выбранной группе нет студентов",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -267,6 +271,7 @@ fun CuratorCategoriesScreen(
                             password = it.passwordClearText
                         )
                         showCreateDialog = false
+                        loadGroups()
                         loadStudents()
                     }.onFailure {
                         snackbarHostState.showSnackbar(it.userMessageOr("Ошибка создания студента"))
@@ -325,7 +330,8 @@ private fun CreateCuratorStudentDialog(
                         readOnly = true,
                         label = { Text("Категория") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryMenu) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        singleLine = true
                     )
                     DropdownMenu(expanded = showCategoryMenu, onDismissRequest = { showCategoryMenu = false }) {
                         StudentCategory.entries.forEach { item ->
