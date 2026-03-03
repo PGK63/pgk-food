@@ -12,6 +12,7 @@ import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -71,14 +72,31 @@ class StudentRepository {
         }.body()
     }
 
-    suspend fun getCurrentTime(): Long {
+    suspend fun getCurrentTime(timeoutMs: Long = 3000): Long {
         return try {
-            val response: TimeResponse = SharedNetworkModule.client.get(
-                SharedNetworkModule.getUrl("/api/v1/time/current")
-            ).body()
-            response.timestamp * 1000
+            withTimeoutOrNull(timeoutMs) {
+                val response: TimeResponse = SharedNetworkModule.client.get(
+                    SharedNetworkModule.getUrl("/api/v1/time/current")
+                ).body()
+                response.timestamp * 1000
+            } ?: currentTimeMillis()
         } catch (_: Throwable) {
             currentTimeMillis()
         }
+    }
+
+    suspend fun getMealsTodayCached(): MealsTodayResponse? {
+        return runCatching {
+            val cached = SharedDatabase.instance.offlineCouponDao().getDailyCoupons()
+                ?: return null
+            MealsTodayResponse(
+                date = cached.date,
+                isBreakfastAllowed = cached.isBreakfastAllowed,
+                isLunchAllowed = cached.isLunchAllowed,
+                reason = "Оффлайн режим",
+                isBreakfastConsumed = null,
+                isLunchConsumed = null,
+            )
+        }.getOrNull()
     }
 }

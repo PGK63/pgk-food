@@ -175,19 +175,28 @@ actual fun isQrTimestampValid(timestamp: Long, toleranceSeconds: Long): Boolean 
 @Composable
 actual fun PlatformQrCodeImage(content: String, modifier: Modifier, sizePx: Int) {
     val image = remember(content, sizePx) { generateQrUiImage(content, sizePx) }
-    UIKitView(
-        factory = {
-            UIImageView().apply {
-                clipsToBounds = true
-                contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
-                this.image = image
-            }
-        },
-        update = { imageView: NSObject ->
-            (imageView as UIImageView).image = image
-        },
-        modifier = modifier,
-    )
+    if (image != null) {
+        UIKitView(
+            factory = {
+                UIImageView().apply {
+                    clipsToBounds = true
+                    contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
+                    this.image = image
+                }
+            },
+            update = { imageView: NSObject ->
+                (imageView as UIImageView).image = image
+            },
+            modifier = modifier,
+        )
+    } else {
+        androidx.compose.material3.Text(
+            text = "QR ошибка рендеринга",
+            color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
 }
 
 private fun generateQrUiImage(content: String, sizePx: Int): UIImage? {
@@ -208,6 +217,7 @@ private fun renderQrPngBytes(content: String, targetSizePx: Int): ByteArray? {
         add((baseCellSize - 1).coerceAtLeast(2))
         add((baseCellSize / 2).coerceAtLeast(2))
         add(2)
+        add(1)
     }.distinct()
 
     cellSizes.forEach { cellSize ->
@@ -219,7 +229,11 @@ private fun renderQrPngBytes(content: String, targetSizePx: Int): ByteArray? {
         }.getOrNull()
         if (bytes != null && bytes.isNotEmpty()) return bytes
     }
-    return null
+
+    // Last resort: default rendering
+    return runCatching {
+        QRCode.ofSquares().build(content).renderToBytes()
+    }.getOrNull()
 }
 
 private fun ByteArray.toCfData() = usePinned {

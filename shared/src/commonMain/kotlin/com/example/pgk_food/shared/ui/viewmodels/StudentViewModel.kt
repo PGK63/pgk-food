@@ -5,10 +5,12 @@ import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.MealsTodayResponse
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.util.UxAnalytics
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 sealed class MealsState {
     data object Idle : MealsState()
@@ -35,6 +37,10 @@ class StudentViewModel(
     private val authRepository: AuthRepository,
     private val studentRepository: StudentRepository,
 ) : KmpViewModelScopeOwner() {
+    private companion object {
+        const val DOWNLOAD_KEYS_TIMEOUT_MS = 5000L
+    }
+
     private val token get() = authRepository.getToken().orEmpty()
 
     private val _mealsState = MutableStateFlow<MealsState>(MealsState.Idle)
@@ -89,7 +95,15 @@ class StudentViewModel(
         viewModelScope.launch {
             _downloadKeysState.value = DownloadKeysState.Loading
             UxAnalytics.log(event = "action_started", role = "STUDENT", screen = "DOWNLOAD_KEYS")
-            authRepository.getMyKeys(token)
+            val keysResult = try {
+                withTimeout(DOWNLOAD_KEYS_TIMEOUT_MS) {
+                    authRepository.getMyKeys(token)
+                }
+            } catch (_: TimeoutCancellationException) {
+                Result.failure(IllegalStateException("Превышено время ожидания загрузки ключей"))
+            }
+
+            keysResult
                 .onSuccess {
                     UxAnalytics.log(event = "action_success", role = "STUDENT", screen = "DOWNLOAD_KEYS")
                     notifySuccess("Офлайн-ключи загружены")

@@ -1,10 +1,13 @@
 package com.example.pgk_food.shared.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -25,12 +28,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,8 +77,12 @@ import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.viewmodels.DownloadKeysState
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+
+private const val BOOTSTRAP_TIMEOUT_MS = 5000L
+private const val QR_REFRESH_INTERVAL_SEC = 60
 
 @Composable
 fun StudentQrScreenShared(
@@ -79,7 +91,7 @@ fun StudentQrScreenShared(
     viewModel: StudentViewModel,
 ) {
     val studentRepository = remember { StudentRepository() }
-    var timeLeft by remember { mutableIntStateOf(60) }
+    var timeLeft by remember { mutableIntStateOf(0) }
     var qrContent by remember { mutableStateOf("") }
     var serverTimeOffset by remember { mutableLongStateOf(0L) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
@@ -92,6 +104,12 @@ fun StudentQrScreenShared(
     var usingCachedKeys by remember(mealType) { mutableStateOf(false) }
     val downloadKeysState by viewModel.downloadKeysState.collectAsState()
 
+    // --- Offline mode state ---
+    var isOfflineMode by remember(mealType) { mutableStateOf(false) }
+    var showOfflineSuggestion by remember(mealType) { mutableStateOf(false) }
+    var isBootstrapping by remember(mealType) { mutableStateOf(true) }
+
+    // --- Bootstrap with timeout → offline mode suggestion ---
     LaunchedEffect(mealType, bootstrapTrigger) {
         generationEnabled = false
         awaitingKeyRefreshForGeneration = false
@@ -101,10 +119,57 @@ fun StudentQrScreenShared(
         qrError = null
         qrSignatureDebugInfo = "SIG_BOOTSTRAP"
         timeLeft = 0
-        val serverTime = studentRepository.getCurrentTime()
-        serverTimeOffset = serverTime - currentTimeMillis()
-        val mealStatus = studentRepository.getMealsToday(session.token)
-            .getOrNull()
+        showOfflineSuggestion = false
+        isBootstrapping = true
+
+        if (isOfflineMode) {
+            // Offline mode: use local time, cached coupons, cached keys
+            serverTimeOffset = 0L
+            val cachedMeals = studentRepository.getMealsTodayCached()
+            val mealStatus = cachedMeals?.statusForMealType(mealType) ?: MealCouponStatus.UNKNOWN
+
+            when (mealStatus) {
+                MealCouponStatus.USED -> {
+                    qrError = "ERROR_COUPON_USED"
+                    qrSignatureDebugInfo = "SIG_COUPON_USED"
+                    isBootstrapping = false
+                    return@LaunchedEffect
+                }
+                MealCouponStatus.UNAVAILABLE -> {
+                    qrError = "ERROR_COUPON_UNAVAILABLE"
+                    qrSignatureDebugInfo = "SIG_COUPON_UNAVAILABLE"
+                    isBootstrapping = false
+                    return@LaunchedEffect
+                }
+                MealCouponStatus.AVAILABLE, MealCouponStatus.UNKNOWN -> Unit
+            }
+
+            // In offline mode — skip key download, use cached keys directly
+            generationEnabled = true
+            usingCachedKeys = true
+            isBootstrapping = false
+            refreshTrigger++
+            return@LaunchedEffect
+        }
+
+        // Online mode: try server with timeout
+        val bootstrapResult = withTimeoutOrNull(BOOTSTRAP_TIMEOUT_MS) {
+            val serverTime = studentRepository.getCurrentTime()
+            serverTimeOffset = serverTime - currentTimeMillis()
+            val mealResult = studentRepository.getMealsToday(session.token)
+            Pair(serverTimeOffset, mealResult)
+        }
+
+        if (bootstrapResult == null) {
+            // Timeout! Show offline suggestion
+            serverTimeOffset = 0L
+            showOfflineSuggestion = true
+            isBootstrapping = false
+            return@LaunchedEffect
+        }
+
+        val (_, mealResult) = bootstrapResult
+        val mealStatus = mealResult.getOrNull()
             ?.statusForMealType(mealType)
             ?: MealCouponStatus.UNKNOWN
 
@@ -112,20 +177,19 @@ fun StudentQrScreenShared(
             MealCouponStatus.USED -> {
                 qrError = "ERROR_COUPON_USED"
                 qrSignatureDebugInfo = "SIG_COUPON_USED"
+                isBootstrapping = false
                 return@LaunchedEffect
             }
-
             MealCouponStatus.UNAVAILABLE -> {
                 qrError = "ERROR_COUPON_UNAVAILABLE"
                 qrSignatureDebugInfo = "SIG_COUPON_UNAVAILABLE"
+                isBootstrapping = false
                 return@LaunchedEffect
             }
-
-            MealCouponStatus.AVAILABLE,
-            MealCouponStatus.UNKNOWN,
-            -> Unit
+            MealCouponStatus.AVAILABLE, MealCouponStatus.UNKNOWN -> Unit
         }
 
+        isBootstrapping = false
         awaitingKeyRefreshForGeneration = true
         viewModel.resetDownloadKeysState()
         viewModel.downloadKeys()
@@ -202,7 +266,7 @@ fun StudentQrScreenShared(
         qrError = null
         qrSignatureDebugInfo = "SIG_OK"
         signatureRetryTriggered = false
-        timeLeft = 60
+        timeLeft = QR_REFRESH_INTERVAL_SEC
     }
 
     LaunchedEffect(qrError, signatureRetryTriggered) {
@@ -253,20 +317,52 @@ fun StudentQrScreenShared(
         }
         val sectionSpacer = if (isCompactHeight) 20.dp else 32.dp
         val infoWidthFraction = if (isCompactHeight) 1f else 0.9f
-        val contentAlignment = if (isCompactHeight) Alignment.TopCenter else Alignment.Center
+        val contentBottomInset = if (isCompactHeight) 88.dp else 104.dp
         val density = LocalDensity.current
         val qrSizePx = with(density) { qrSize.roundToPx().coerceAtLeast(320) }
 
         Column(
             modifier = Modifier
-                .align(contentAlignment)
-                .fillMaxWidth()
+                .align(Alignment.Center)
+                .fillMaxSize()
                 .widthIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = verticalPadding),
+                .padding(top = verticalPadding, bottom = contentBottomInset),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+            verticalArrangement = Arrangement.Center
         ) {
+            // --- Offline badge ---
+            AnimatedVisibility(
+                visible = isOfflineMode,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = PillShape,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.WifiOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Оффлайн-режим",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
             GlassSurface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -310,6 +406,22 @@ fun StudentQrScreenShared(
                         contentAlignment = Alignment.Center
                     ) {
                         when {
+                            // Show offline suggestion when bootstrap timed out
+                            showOfflineSuggestion -> {
+                                OfflineSuggestionContent(
+                                    onEnableOffline = {
+                                        showOfflineSuggestion = false
+                                        isOfflineMode = true
+                                        bootstrapTrigger++
+                                    },
+                                    onRetry = {
+                                        showOfflineSuggestion = false
+                                        isOfflineMode = false
+                                        bootstrapTrigger++
+                                    },
+                                )
+                            }
+
                             qrError != null -> {
                                 QrErrorContentShared(
                                     qrError = qrError!!,
@@ -337,32 +449,48 @@ fun StudentQrScreenShared(
                                 )
                             }
 
-                            else -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            else -> {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    if (!isOfflineMode) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "Подключение...",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(sectionSpacer))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(PillShape)
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            Icons.Rounded.Timer,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Обновление через $timeLeft сек",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            fontWeight = FontWeight.Bold
-                        )
+                    if (qrContent.isNotEmpty() && qrError == null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(PillShape)
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                Icons.Rounded.Timer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Обновление через $timeLeft сек",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     if (downloadKeysState is DownloadKeysState.Loading) {
@@ -370,17 +498,18 @@ fun StudentQrScreenShared(
                         Text("Загрузка ключей...", style = MaterialTheme.typography.labelMedium)
                     }
 
-                    if (usingCachedKeys) {
+                    if (usingCachedKeys && qrContent.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Ключи не обновились, используется сохраненная версия.",
+                            text = if (isOfflineMode) "Используются сохранённые ключи"
+                            else "Ключи не обновились, используется сохранённая версия.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
                     }
 
-                    if (downloadKeysState is DownloadKeysState.Error) {
+                    if (downloadKeysState is DownloadKeysState.Error && !isOfflineMode) {
                         Spacer(modifier = Modifier.height(12.dp))
                         val state = downloadKeysState as DownloadKeysState.Error
                         Text(
@@ -390,7 +519,7 @@ fun StudentQrScreenShared(
                         )
                     }
 
-                    if (timeLeft == 0) {
+                    if (timeLeft == 0 && qrContent.isEmpty() && qrError == null && !showOfflineSuggestion && !isBootstrapping) {
                         Spacer(modifier = Modifier.height(16.dp))
                         TextButton(
                             onClick = {
@@ -408,35 +537,140 @@ fun StudentQrScreenShared(
                             Text("Обновить сейчас")
                         }
                     }
+
+                    // Manual offline toggle when QR is visible and online
+                    if (!isOfflineMode && qrContent.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = {
+                                isOfflineMode = true
+                                bootstrapTrigger++
+                            },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        ) {
+                            Icon(
+                                Icons.Rounded.CloudOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Перейти в оффлайн",
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+
+                    // Switch back to online from offline
+                    if (isOfflineMode && qrContent.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = {
+                                isOfflineMode = false
+                                bootstrapTrigger++
+                            },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        ) {
+                            Icon(
+                                Icons.Rounded.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Вернуться в онлайн",
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(sectionSpacer))
-
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                shape = PillShape,
-                modifier = Modifier.fillMaxWidth(infoWidthFraction)
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            shape = PillShape,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(infoWidthFraction)
+                .padding(bottom = verticalPadding)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Rounded.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Покажите этот QR-код повару",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Icon(
+                    Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Покажите этот QR-код повару",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun OfflineSuggestionContent(
+    onEnableOffline: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(8.dp)
+    ) {
+        Icon(
+            Icons.Rounded.WifiOff,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(32.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Сервер не отвечает",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Включить оффлайн-режим?",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onEnableOffline,
+            shape = PillShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+            ),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        ) {
+            Icon(
+                Icons.Rounded.WifiOff,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Оффлайн", style = MaterialTheme.typography.labelMedium)
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        OutlinedButton(
+            onClick = onRetry,
+            shape = PillShape,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        ) {
+            Text("Повторить", style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -455,7 +689,7 @@ private fun QrErrorContentShared(
         "ERROR_KEY" -> "Ключи отсутствуют.\nСкачайте ключи для продолжения."
         "ERROR_COUPON_USED" -> "Талон уже использован.\nОбновите список талонов."
         "ERROR_COUPON_UNAVAILABLE" -> "Талон недоступен на сегодня."
-        else -> "Не удалось подписать QR (код: $signatureCode).\nОбновите ключи iOS."
+        else -> "Не удалось подписать QR (код: $signatureCode).\nОбновите ключи."
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
@@ -469,7 +703,7 @@ private fun QrErrorContentShared(
         if (qrError == "ERROR_SIG" && retryAttempted) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "Повтор уже выполнен после обновления ключей iOS.",
+                text = "Повтор уже выполнен после обновления ключей.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
