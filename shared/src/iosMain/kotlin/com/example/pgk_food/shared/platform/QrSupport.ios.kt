@@ -49,31 +49,67 @@ import platform.darwin.NSObject
 import qrcode.QRCode
 import kotlin.math.abs
 
+private var lastQrSignatureDebugInfo: String = "SIG_NOT_RUN"
+
 actual fun generateQrSignature(
     userId: String,
     timestamp: Long,
     mealType: String,
     nonce: String,
     privateKeyBase64: String,
+    publicKeyBase64: String?,
 ): String {
     return runCatching {
+        setSignatureDebugInfo("SIG_START", "ts=$timestamp nonce=${nonce.length} key=${privateKeyBase64.length}")
         val keyBytes = decodeBase64KeyMaterial(privateKeyBase64)
-        if (keyBytes.isEmpty()) return ""
+        if (keyBytes.isEmpty()) {
+            setSignatureDebugInfo("SIG_PRIVATE_B64_FAIL")
+            return ""
+        }
+        logQrSignature("decoded private key bytes=${keyBytes.size}")
+
+        val publicKeyBytes = publicKeyBase64
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::decodeBase64KeyMaterial)
+            ?.takeIf { it.isNotEmpty() }
+        if (!publicKeyBase64.isNullOrBlank() && publicKeyBytes == null) {
+            logQrSignature("public key decode failed; fallback will continue without assisted import")
+        }
 
         val payload = "$userId:$timestamp:$mealType:$nonce"
-        val messageData = payload.encodeToByteArray().toCfData() ?: return ""
-        createPrivateEcKeys(keyBytes).forEach { privateKey ->
+        val messageData = payload.encodeToByteArray().toCfData() ?: run {
+            setSignatureDebugInfo("SIG_CF_PAYLOAD_FAIL")
+            return ""
+        }
+        createPrivateEcKeys(
+            source = keyBytes,
+            publicKeySource = publicKeyBytes,
+        ).forEach { privateKey ->
             val signatureData = SecKeyCreateSignature(
                 privateKey,
                 kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
                 messageData,
                 null,
             ) ?: return@forEach
-            return Base64.Default.encode(signatureData.toByteArray())
+            val signature = Base64.Default.encode(signatureData.toByteArray())
+            setSignatureDebugInfo("SIG_OK", "len=${signature.length}")
+            logQrSignature("signature generated len=${signature.length}")
+            return signature
         }
+        setSignatureDebugInfo("SIG_IOS_IMPORT_FAIL")
+        logQrSignature("failed to import private key for signing")
         ""
-    }.getOrElse { "" }
+    }.getOrElse { throwable ->
+        setSignatureDebugInfo(
+            "SIG_EXCEPTION",
+            "${throwable::class.simpleName ?: "Throwable"}:${throwable.message ?: "no-message"}"
+        )
+        logQrSignature("exception: ${throwable::class.simpleName}: ${throwable.message}")
+        ""
+    }
 }
+
+actual fun getLastQrSignatureDebugInfo(): String = lastQrSignatureDebugInfo
 
 actual fun generateQrNonce(): String = NSUUID().UUIDString()
 
@@ -271,16 +307,27 @@ private fun createCfNumber(value: Int): kotlinx.cinterop.CPointer<*>? {
     }
 }
 
-private fun createPrivateEcKeys(source: ByteArray): List<SecKeyRef> {
+private fun createPrivateEcKeys(
+    source: ByteArray,
+    publicKeySource: ByteArray?,
+): List<SecKeyRef> {
     val sec1Blob = extractPkcs8PrivateKeyBlob(source)
     val sec1Source = sec1Blob ?: source.takeIf { isSec1EcPrivateKey(it) }
-    val scalarSec1Source = extractEcPrivateScalar(source)?.let(::buildSec1EcPrivateKeyFromScalar)
+    val scalar = extractEcPrivateScalar(source)
+    val scalarSec1Source = scalar?.let(::buildSec1EcPrivateKeyFromScalar)
+    val publicPoint = publicKeySource?.let(::extractEcPublicPoint)
+    val assistedCandidate = if (publicPoint != null && scalar != null) {
+        publicPoint + scalar
+    } else {
+        null
+    }
     val candidates = buildList {
         sec1Source?.let { add(it) }
         scalarSec1Source?.let { add(it) }
+        assistedCandidate?.let { add(it) }
         add(source)
     }
-    return createEcKeysFromCandidates(candidates, isPrivate = true)
+    return createEcKeysFromCandidates(candidates, isPrivate = true, tracePrefix = "private")
 }
 
 private fun createPublicEcKeys(source: ByteArray): List<SecKeyRef> {
@@ -291,12 +338,13 @@ private fun createPublicEcKeys(source: ByteArray): List<SecKeyRef> {
         rawPublic?.let { add(it) }
         add(source)
     }
-    return createEcKeysFromCandidates(candidates, isPrivate = false)
+    return createEcKeysFromCandidates(candidates, isPrivate = false, tracePrefix = "public")
 }
 
 private fun createEcKeysFromCandidates(
     candidates: List<ByteArray>,
     isPrivate: Boolean,
+    tracePrefix: String,
 ): List<SecKeyRef> {
     val keys = mutableListOf<SecKeyRef>()
     val uniqueCandidates = uniqueKeyCandidates(candidates)
@@ -308,8 +356,8 @@ private fun createEcKeysFromCandidates(
         AttrVariant(includeClass = false, includeSize = false),
     )
 
-    uniqueCandidates.forEach { keyBytes ->
-        val keyData = keyBytes.toCfData() ?: return@forEach
+    uniqueCandidates.forEachIndexed { candidateIndex, keyBytes ->
+        val keyData = keyBytes.toCfData() ?: return@forEachIndexed
         keyTypes.forEach { keyType ->
             attrVariants.forEach { variant ->
                 val attrs = createEcAttributes(
@@ -319,9 +367,18 @@ private fun createEcKeysFromCandidates(
                     includeSize = variant.includeSize,
                 ) ?: return@forEach
                 val key = SecKeyCreateWithData(keyData, attrs, null)
-                if (key != null) keys += key
+                if (key != null) {
+                    keys += key
+                    logQrSignature(
+                        "$tracePrefix import ok candidate=$candidateIndex size=${keyBytes.size} " +
+                            "type=${keyTypeName(keyType)} class=${variant.includeClass} sizeAttr=${variant.includeSize}"
+                    )
+                }
             }
         }
+    }
+    if (keys.isEmpty()) {
+        logQrSignature("$tracePrefix import failed candidates=${uniqueCandidates.size}")
     }
     return keys
 }
@@ -347,6 +404,10 @@ private fun normalizeRawPublicPoint(source: ByteArray): ByteArray? {
         source.size == 64 -> byteArrayOf(0x04) + source
         else -> null
     }
+}
+
+private fun extractEcPublicPoint(source: ByteArray): ByteArray? {
+    return normalizeRawPublicPoint(source) ?: extractSpkiPublicKeyBytes(source)
 }
 
 private data class Asn1Node(
@@ -470,6 +531,23 @@ private fun derLength(length: Int): ByteArray {
     }
     val lengthBytes = bytes.asReversed().toByteArray()
     return byteArrayOf((0x80 or lengthBytes.size).toByte()) + lengthBytes
+}
+
+private fun keyTypeName(keyType: CValuesRef<*>?): String {
+    return when (keyType) {
+        kSecAttrKeyTypeECSECPrimeRandom -> "ECSEC"
+        kSecAttrKeyTypeEC -> "EC"
+        else -> "UNKNOWN"
+    }
+}
+
+private fun setSignatureDebugInfo(code: String, detail: String = "") {
+    lastQrSignatureDebugInfo = if (detail.isBlank()) code else "$code|$detail"
+    logQrSignature(lastQrSignatureDebugInfo)
+}
+
+private fun logQrSignature(message: String) {
+    println("[QR_SIG_IOS] $message")
 }
 
 private fun extractSpkiPublicKeyBytes(der: ByteArray): ByteArray? {

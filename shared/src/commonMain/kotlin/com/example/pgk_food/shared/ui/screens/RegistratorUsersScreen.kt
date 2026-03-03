@@ -39,6 +39,7 @@ import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.SectionShape
+import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
@@ -51,6 +52,11 @@ private fun UserRole.titleRu(): String = when (this) {
     UserRole.CHEF -> "Повар"
     UserRole.CURATOR -> "Куратор"
     UserRole.STUDENT -> "Студент"
+}
+
+private fun StudentCategory.titleRu(): String = when (this) {
+    StudentCategory.SVO -> "СВО"
+    StudentCategory.MANY_CHILDREN -> "Многодетные"
 }
 
 @Composable
@@ -356,9 +362,15 @@ fun RegistratorUsersScreen(
                     }
                 }
             },
-            onUpdateRoles = { roles, groupId ->
+            onUpdateRoles = { roles, groupId, studentCategory ->
                 scope.launch {
-                    val result = registratorRepository.updateRoles(token, user.userId, roles, groupId)
+                    val result = registratorRepository.updateRoles(
+                        token = token,
+                        userId = user.userId,
+                        roles = roles,
+                        groupId = groupId,
+                        studentCategory = studentCategory,
+                    )
                     val ok = runUiAction(
                         actionState = actionState,
                         successMessage = "Роли обновлены",
@@ -567,7 +579,7 @@ private fun UserDetailSheet(
     onDismiss: () -> Unit,
     onCopyCredentials: () -> Unit,
     onResetPassword: () -> Unit,
-    onUpdateRoles: (List<UserRole>, Int?) -> Unit,
+    onUpdateRoles: (List<UserRole>, Int?, StudentCategory?) -> Unit,
     onDelete: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -717,10 +729,11 @@ private fun UserDetailSheet(
             initialRoles = user.roles,
             groups = groups,
             initialGroupId = user.groupId,
+            initialStudentCategory = user.studentCategory,
             onDismiss = { showRolesDialog = false },
-            onConfirm = { roles, groupId ->
+            onConfirm = { roles, groupId, studentCategory ->
                 showRolesDialog = false
-                onUpdateRoles(roles, groupId)
+                onUpdateRoles(roles, groupId, studentCategory)
             }
         )
     }
@@ -731,14 +744,18 @@ fun RolesSelectionDialog(
     initialRoles: List<UserRole>,
     groups: List<GroupDto>,
     initialGroupId: Int?,
+    initialStudentCategory: StudentCategory?,
     onDismiss: () -> Unit,
-    onConfirm: (List<UserRole>, Int?) -> Unit
+    onConfirm: (List<UserRole>, Int?, StudentCategory?) -> Unit
 ) {
     var selectedRoles by remember { mutableStateOf(initialRoles.toSet()) }
     var selectedGroupId by remember(initialGroupId) { mutableStateOf(initialGroupId) }
+    var selectedStudentCategory by remember(initialStudentCategory) { mutableStateOf(initialStudentCategory) }
     var groupExpanded by remember { mutableStateOf(false) }
     val studentRoleAdded = UserRole.STUDENT in selectedRoles && UserRole.STUDENT !in initialRoles
-    val canConfirm = selectedRoles.isNotEmpty() && (!studentRoleAdded || selectedGroupId != null)
+    val studentRoleSelected = UserRole.STUDENT in selectedRoles
+    val canConfirm = selectedRoles.isNotEmpty() &&
+        (!studentRoleAdded || (selectedGroupId != null && selectedStudentCategory != null))
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -813,12 +830,50 @@ fun RolesSelectionDialog(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Категория", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StudentCategory.entries.forEach { category ->
+                            FilterChip(
+                                selected = selectedStudentCategory == category,
+                                onClick = {
+                                    selectedStudentCategory = if (selectedStudentCategory == category) {
+                                        null
+                                    } else {
+                                        category
+                                    }
+                                },
+                                label = { Text(category.titleRu()) },
+                                shape = MaterialTheme.shapes.small
+                            )
+                        }
+                    }
+                    if (studentRoleAdded && selectedStudentCategory == null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Для добавления роли студента выберите категорию",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(selectedRoles.toList(), selectedGroupId) },
+                onClick = {
+                    onConfirm(
+                        selectedRoles.toList(),
+                        selectedGroupId,
+                        if (studentRoleSelected) selectedStudentCategory else null,
+                    )
+                },
                 enabled = canConfirm
             ) {
                 Text("Сохранить")

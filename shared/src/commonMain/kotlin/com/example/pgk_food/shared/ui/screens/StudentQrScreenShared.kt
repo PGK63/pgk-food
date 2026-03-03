@@ -60,6 +60,7 @@ import com.example.pgk_food.shared.platform.PlatformQrBrightnessEffect
 import com.example.pgk_food.shared.platform.currentTimeMillis
 import com.example.pgk_food.shared.platform.generateQrNonce
 import com.example.pgk_food.shared.platform.generateQrSignature
+import com.example.pgk_food.shared.platform.getLastQrSignatureDebugInfo
 import com.example.pgk_food.shared.ui.theme.GlassSurface
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
@@ -82,6 +83,7 @@ fun StudentQrScreenShared(
     var serverTimeOffset by remember { mutableLongStateOf(0L) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var qrError by remember { mutableStateOf<String?>(null) }
+    var qrSignatureDebugInfo by remember { mutableStateOf("SIG_NOT_RUN") }
     var signatureRetryTriggered by remember { mutableStateOf(false) }
     val downloadKeysState by viewModel.downloadKeysState.collectAsState()
 
@@ -105,6 +107,7 @@ fun StudentQrScreenShared(
         val privateKey = activeSession.privateKey
         if (privateKey.isNullOrBlank()) {
             qrError = "ERROR_KEY"
+            qrSignatureDebugInfo = "SIG_PRIVATE_KEY_EMPTY"
             qrContent = ""
             timeLeft = 0
             return@LaunchedEffect
@@ -121,10 +124,12 @@ fun StudentQrScreenShared(
             mealType = mealType,
             nonce = nonce,
             privateKeyBase64 = privateKey,
+            publicKeyBase64 = activeSession.publicKey,
         )
 
         if (signature.isBlank()) {
             qrError = "ERROR_SIG"
+            qrSignatureDebugInfo = getLastQrSignatureDebugInfo().ifBlank { "SIG_UNKNOWN" }
             qrContent = ""
             timeLeft = 0
             return@LaunchedEffect
@@ -140,6 +145,7 @@ fun StudentQrScreenShared(
             )
         )
         qrError = null
+        qrSignatureDebugInfo = "SIG_OK"
         signatureRetryTriggered = false
         timeLeft = 60
     }
@@ -250,6 +256,8 @@ fun StudentQrScreenShared(
                             qrError != null -> {
                                 QrErrorContentShared(
                                     qrError = qrError!!,
+                                    retryAttempted = signatureRetryTriggered,
+                                    signatureDebugInfo = qrSignatureDebugInfo,
                                     onDownloadKeys = { viewModel.downloadKeys() },
                                     onRefresh = { refreshTrigger++ },
                                 )
@@ -354,9 +362,13 @@ fun StudentQrScreenShared(
 @Composable
 private fun QrErrorContentShared(
     qrError: String,
+    retryAttempted: Boolean,
+    signatureDebugInfo: String,
     onDownloadKeys: () -> Unit,
     onRefresh: () -> Unit,
 ) {
+    val signatureCode = signatureDebugInfo.substringBefore('|').ifBlank { "SIG_UNKNOWN" }
+    val signatureTail = signatureDebugInfo.substringAfter('|', "").takeIf { it.isNotBlank() }?.take(72)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)
         Spacer(modifier = Modifier.height(8.dp))
@@ -364,12 +376,30 @@ private fun QrErrorContentShared(
             text = if (qrError == "ERROR_KEY") {
                 "Ключи отсутствуют.\nСкачайте ключи для продолжения."
             } else {
-                "Ошибка подписи.\nПопробуйте обновить."
+                "Не удалось подписать QR (код: $signatureCode).\nОбновите ключи iOS."
             },
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.labelMedium,
             textAlign = TextAlign.Center
         )
+        if (qrError != "ERROR_KEY" && retryAttempted) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Повтор уже выполнен после обновления ключей iOS.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+        if (qrError != "ERROR_KEY" && signatureTail != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = signatureTail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
 
         if (qrError == "ERROR_KEY") {

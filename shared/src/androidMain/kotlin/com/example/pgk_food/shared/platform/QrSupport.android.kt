@@ -23,6 +23,7 @@ actual fun generateQrSignature(
     mealType: String,
     nonce: String,
     privateKeyBase64: String,
+    publicKeyBase64: String?,
 ): String {
     return try {
         val data = "$userId:$timestamp:$mealType:$nonce"
@@ -39,6 +40,8 @@ actual fun generateQrSignature(
         ""
     }
 }
+
+actual fun getLastQrSignatureDebugInfo(): String = "SIG_ANDROID_NOOP"
 
 actual fun generateQrNonce(): String = UUID.randomUUID().toString()
 
