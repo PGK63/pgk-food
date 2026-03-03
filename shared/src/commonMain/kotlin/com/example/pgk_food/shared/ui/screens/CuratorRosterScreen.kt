@@ -61,6 +61,7 @@ import com.example.pgk_food.shared.data.remote.dto.SaveRosterRequest
 import com.example.pgk_food.shared.data.remote.dto.StudentRosterDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.core.network.ApiCallException
+import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
@@ -73,6 +74,14 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
+
+private fun normalizeManyChildrenEntry(entry: StudentRosterDto): StudentRosterDto {
+    if (entry.studentCategory != StudentCategory.MANY_CHILDREN) return entry
+    val normalizedDays = entry.days.map { day ->
+        if (day.isBreakfast && day.isLunch) day.copy(isLunch = false) else day
+    }
+    return if (normalizedDays == entry.days) entry else entry.copy(days = normalizedDays)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,7 +148,7 @@ fun CuratorRosterScreen(
                 date = selectedDate.toString(),
                 groupId = selectedGroupId,
             )
-            entries = result.getOrDefault(emptyList())
+            entries = result.getOrDefault(emptyList()).map(::normalizeManyChildrenEntry)
             if (result.isFailure) {
                 snackbarHostState.showSnackbar(
                     result.exceptionOrNull()?.userMessageOr("Не удалось загрузить табель") ?: "Не удалось загрузить табель"
@@ -498,12 +507,18 @@ private fun RosterCard(
     selectedDateStr: String,
     onUpdate: (StudentRosterDto) -> Unit
 ) {
-    val dayEntry = entry.days.firstOrNull { it.date == selectedDateStr } ?: RosterDayDto(
+    val isManyChildren = entry.studentCategory == StudentCategory.MANY_CHILDREN
+    val rawDayEntry = entry.days.firstOrNull { it.date == selectedDateStr } ?: RosterDayDto(
         date = selectedDateStr,
         isBreakfast = false,
         isLunch = false,
         reason = null,
     )
+    val dayEntry = if (isManyChildren && rawDayEntry.isBreakfast && rawDayEntry.isLunch) {
+        rawDayEntry.copy(isLunch = false)
+    } else {
+        rawDayEntry
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -517,6 +532,14 @@ private fun RosterCard(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold
             )
+            if (isManyChildren) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Многодетные: только один прием пищи в день",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -525,12 +548,20 @@ private fun RosterCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 MealToggleChip("Завтрак", dayEntry.isBreakfast) {
-                    val updatedDay = dayEntry.copy(isBreakfast = it)
+                    val updatedDay = if (isManyChildren && it) {
+                        dayEntry.copy(isBreakfast = true, isLunch = false)
+                    } else {
+                        dayEntry.copy(isBreakfast = it)
+                    }
                     val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
                     onUpdate(entry.copy(days = updatedDays))
                 }
                 MealToggleChip("Обед", dayEntry.isLunch) {
-                    val updatedDay = dayEntry.copy(isLunch = it)
+                    val updatedDay = if (isManyChildren && it) {
+                        dayEntry.copy(isBreakfast = false, isLunch = true)
+                    } else {
+                        dayEntry.copy(isLunch = it)
+                    }
                     val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
                     onUpdate(entry.copy(days = updatedDays))
                 }

@@ -1,11 +1,13 @@
 package com.example.pgk_food.shared.data.remote.dto
 
+import com.example.pgk_food.shared.model.StudentCategory
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class StudentRosterDto(
     val studentId: String,
     val fullName: String,
+    val studentCategory: StudentCategory? = null,
     val days: List<RosterDayDto>
 )
 
