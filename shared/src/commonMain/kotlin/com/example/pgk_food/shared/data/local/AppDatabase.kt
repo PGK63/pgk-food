@@ -30,7 +30,7 @@ import com.example.pgk_food.shared.data.local.entity.OfflineCouponEntity
         PermissionCacheEntity::class,
         OfflineCouponEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

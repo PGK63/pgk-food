@@ -36,6 +36,7 @@ class AuthRepository {
                     surname = response.surname,
                     fatherName = response.fatherName,
                     groupId = response.groupId,
+                    studentCategory = response.studentCategory,
                     publicKey = response.publicKey,
                     privateKey = response.privateKey
                 )

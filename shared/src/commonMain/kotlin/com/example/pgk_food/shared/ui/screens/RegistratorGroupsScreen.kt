@@ -110,7 +110,7 @@ fun RegistratorGroupsScreen(
 
         var transferError: String? = null
         val movedStudents = mutableListOf<String>()
-        var curatorReassigned = false
+        val reassignedCuratorIds = mutableListOf<String>()
 
         registratorRepository.createGroup(token, newGroupNameValue).onFailure {
             transferError = "Не удалось создать новую группу: ${it.userMessageOr("неизвестная ошибка")}"
@@ -145,11 +145,14 @@ fun RegistratorGroupsScreen(
                 }
         }
 
-        if (transferError == null && group.curatorId != null) {
-            registratorRepository.assignCurator(token, newGroup.id, group.curatorId).onSuccess {
-                curatorReassigned = true
-            }.onFailure {
-                transferError = "Не удалось переназначить куратора: ${it.userMessageOr("неизвестная ошибка")}"
+        if (transferError == null && group.curators.isNotEmpty()) {
+            group.curators.forEach { curator ->
+                if (transferError != null) return@forEach
+                registratorRepository.assignCurator(token, newGroup.id, curator.id).onSuccess {
+                    reassignedCuratorIds += curator.id
+                }.onFailure {
+                    transferError = "Не удалось переназначить куратора ${curator.surname} ${curator.name}: ${it.userMessageOr("неизвестная ошибка")}"
+                }
             }
         }
 
@@ -168,9 +171,11 @@ fun RegistratorGroupsScreen(
                 }
             }
 
-            if (curatorReassigned && group.curatorId != null) {
-                registratorRepository.assignCurator(token, group.id, group.curatorId).onFailure {
-                    rollbackErrors += "Не удалось вернуть куратора"
+            if (reassignedCuratorIds.isNotEmpty()) {
+                reassignedCuratorIds.forEach { curatorId ->
+                    registratorRepository.assignCurator(token, group.id, curatorId).onFailure {
+                        rollbackErrors += "Не удалось вернуть куратора $curatorId"
+                    }
                 }
             }
 
@@ -315,9 +320,11 @@ fun RegistratorGroupsScreen(
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis
                                         )
-                                        if (group.curatorName != null) {
+                                        if (group.curators.isNotEmpty()) {
                                             Text(
-                                                text = "Куратор: ${group.curatorSurname} ${group.curatorName} ${group.curatorFatherName ?: ""}",
+                                                text = "Кураторы: " + group.curators.joinToString("; ") {
+                                                    "${it.surname} ${it.name} ${it.fatherName}"
+                                                },
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis
@@ -343,15 +350,25 @@ fun RegistratorGroupsScreen(
                                         IconButton(onClick = { showTransferGroupDialog = group }) {
                                             Icon(Icons.Rounded.Edit, contentDescription = "Перевести/переименовать", modifier = Modifier.size(22.dp))
                                         }
-                                        if (group.curatorId != null) {
+                                        if (group.curators.isNotEmpty()) {
                                             IconButton(onClick = { 
                                                 scope.launch {
                                                     val ok = runUiAction(
                                                         actionState = actionState,
-                                                        successMessage = "Куратор снят",
+                                                        successMessage = "Кураторы сняты",
                                                         fallbackErrorMessage = "Ошибка снятия куратора",
                                                     ) {
-                                                        registratorRepository.removeCurator(token, group.id)
+                                                        var hasError = false
+                                                        group.curators.forEach { curator ->
+                                                            val removeResult = registratorRepository.removeCurator(
+                                                                token = token,
+                                                                groupId = group.id,
+                                                                curatorId = curator.id
+                                                            )
+                                                            if (removeResult.isFailure) hasError = true
+                                                        }
+                                                        if (hasError) Result.failure<Unit>(IllegalStateException("Не всех кураторов удалось снять"))
+                                                        else Result.success(Unit)
                                                     }
                                                     if (ok) refreshGroups()
                                                 }
@@ -554,16 +571,28 @@ fun RegistratorGroupsScreen(
                             if (role == "CURATOR") {
                                 item {
                                     ListItem(
-                                        headlineContent = { Text("Снять текущего куратора", color = MaterialTheme.colorScheme.error) },
+                                        headlineContent = { Text("Снять всех кураторов", color = MaterialTheme.colorScheme.error) },
                                         leadingContent = { Icon(Icons.Rounded.PersonOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                         modifier = Modifier.clickable {
                                             scope.launch {
+                                                val group = groups.firstOrNull { it.id == groupId }
                                                 val ok = runUiAction(
                                                     actionState = actionState,
-                                                    successMessage = "Куратор снят",
+                                                    successMessage = "Кураторы сняты",
                                                     fallbackErrorMessage = "Ошибка снятия куратора",
                                                 ) {
-                                                    registratorRepository.removeCurator(token, groupId)
+                                                    val curators = group?.curators.orEmpty()
+                                                    var hasError = false
+                                                    curators.forEach { curator ->
+                                                        val removeResult = registratorRepository.removeCurator(
+                                                            token = token,
+                                                            groupId = groupId,
+                                                            curatorId = curator.id
+                                                        )
+                                                        if (removeResult.isFailure) hasError = true
+                                                    }
+                                                    if (hasError) Result.failure<Unit>(IllegalStateException("Не всех кураторов удалось снять"))
+                                                    else Result.success(Unit)
                                                 }
                                                 if (ok) {
                                                     refreshGroups()

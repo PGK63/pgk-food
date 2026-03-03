@@ -6,8 +6,10 @@ import com.example.pgk_food.shared.data.remote.dto.CreateUserRequest
 import com.example.pgk_food.shared.data.remote.dto.CreateUserResponse
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.ResetPasswordResponse
+import com.example.pgk_food.shared.data.remote.dto.UpdateCategoryRequest
 import com.example.pgk_food.shared.data.remote.dto.UpdateRolesRequest
 import com.example.pgk_food.shared.data.remote.dto.UserDto
+import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.network.SharedNetworkModule
 import io.ktor.client.call.body
@@ -19,7 +21,6 @@ import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
-import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
@@ -64,6 +65,14 @@ class RegistratorRepository {
         }
     }
 
+    suspend fun updateCategory(token: String, userId: String, category: StudentCategory): Result<Unit> = safeResultApiCall {
+        SharedNetworkModule.client.patch(SharedNetworkModule.getUrl("/api/v1/users/$userId/category")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(UpdateCategoryRequest(category))
+        }
+    }
+
     suspend fun importStudents(token: String, fileBytes: ByteArray, fileName: String): Result<Unit> = safeResultApiCall {
         SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/registrator/import/students")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -98,13 +107,13 @@ class RegistratorRepository {
     }
 
     suspend fun assignCurator(token: String, groupId: Int, curatorId: String): Result<Unit> = safeResultApiCall {
-        SharedNetworkModule.client.put(SharedNetworkModule.getUrl("/api/v1/groups/$groupId/curator/$curatorId")) {
+        SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/groups/$groupId/curators/$curatorId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }
 
-    suspend fun removeCurator(token: String, groupId: Int): Result<Unit> = safeResultApiCall {
-        SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/groups/$groupId/curator")) {
+    suspend fun removeCurator(token: String, groupId: Int, curatorId: String): Result<Unit> = safeResultApiCall {
+        SharedNetworkModule.client.delete(SharedNetworkModule.getUrl("/api/v1/groups/$groupId/curators/$curatorId")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
     }

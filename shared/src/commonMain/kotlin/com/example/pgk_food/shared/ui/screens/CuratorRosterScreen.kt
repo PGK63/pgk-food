@@ -79,7 +79,8 @@ import kotlinx.datetime.toLocalDateTime
 fun CuratorRosterScreen(
     token: String,
     curatorId: String,
-    curatorRepository: CuratorRepository
+    curatorRepository: CuratorRepository,
+    onNavigateToCategories: () -> Unit,
 ) {
     val today = remember { todayLocalDate() }
 
@@ -242,6 +243,7 @@ fun CuratorRosterScreen(
                                 emitSuccessFeedback = false
                             ) {
                                 var hasError = false
+                                var missingCategoryError: Throwable? = null
                                 for (entry in entries) {
                                     val currentDayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
                                     if (currentDayDto != null) {
@@ -250,18 +252,35 @@ fun CuratorRosterScreen(
                                             permissions = listOf(currentDayDto.copy(date = copyDate.toString()))
                                         )
                                         val result = curatorRepository.updateRoster(token, request)
-                                        if (result.isFailure) hasError = true
+                                        if (result.isFailure) {
+                                            val ex = result.exceptionOrNull()
+                                            val code = (ex as? ApiCallException)?.apiError?.code
+                                            if (code == "STUDENT_CATEGORY_REQUIRED") {
+                                                missingCategoryError = ex
+                                                break
+                                            }
+                                            hasError = true
+                                        }
                                     }
                                 }
-                                if (hasError) Result.failure<Unit>(IllegalStateException("Копирование завершилось с ошибками"))
-                                else Result.success(Unit)
+                                when {
+                                    missingCategoryError != null -> Result.failure<Unit>(missingCategoryError!!)
+                                    hasError -> Result.failure<Unit>(IllegalStateException("Копирование завершилось с ошибками"))
+                                    else -> Result.success(Unit)
+                                }
                             }
                             isCopying = false
                             showCopyDialog = false
                             if (success) {
                                 snackbarHostState.showSnackbar("Успешно скопировано на ${formatRuDate(copyDate)}")
                             } else {
-                                snackbarHostState.showSnackbar("Копирование завершилось с ошибками")
+                                val error = actionState.value as? UiActionState.Error
+                                if (error?.code == "STUDENT_CATEGORY_REQUIRED") {
+                                    snackbarHostState.showSnackbar(error.userMessage)
+                                    onNavigateToCategories()
+                                } else {
+                                    snackbarHostState.showSnackbar("Копирование завершилось с ошибками")
+                                }
                             }
                         }
                     },
@@ -421,6 +440,7 @@ fun CuratorRosterScreen(
                                 emitSuccessFeedback = false
                             ) {
                                 var hasError = false
+                                var missingCategoryError: Throwable? = null
                                 for (entry in entries) {
                                     val dayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
                                     if (dayDto != null) {
@@ -429,16 +449,33 @@ fun CuratorRosterScreen(
                                             permissions = listOf(dayDto),
                                         )
                                         val result = curatorRepository.updateRoster(token, request)
-                                        if (result.isFailure) hasError = true
+                                        if (result.isFailure) {
+                                            val ex = result.exceptionOrNull()
+                                            val code = (ex as? ApiCallException)?.apiError?.code
+                                            if (code == "STUDENT_CATEGORY_REQUIRED") {
+                                                missingCategoryError = ex
+                                                break
+                                            }
+                                            hasError = true
+                                        }
                                     }
                                 }
-                                if (hasError) Result.failure<Unit>(IllegalStateException("Ошибка сохранения некоторых записей"))
-                                else Result.success(Unit)
+                                when {
+                                    missingCategoryError != null -> Result.failure<Unit>(missingCategoryError!!)
+                                    hasError -> Result.failure<Unit>(IllegalStateException("Ошибка сохранения некоторых записей"))
+                                    else -> Result.success(Unit)
+                                }
                             }
                             if (success) {
                                 snackbarHostState.showSnackbar("Сохранено")
                             } else {
-                                snackbarHostState.showSnackbar("Ошибка сохранения некоторых записей")
+                                val error = actionState.value as? UiActionState.Error
+                                if (error?.code == "STUDENT_CATEGORY_REQUIRED") {
+                                    snackbarHostState.showSnackbar(error.userMessage)
+                                    onNavigateToCategories()
+                                } else {
+                                    snackbarHostState.showSnackbar("Ошибка сохранения некоторых записей")
+                                }
                             }
                         }
                     },
@@ -465,9 +502,6 @@ private fun RosterCard(
         date = selectedDateStr,
         isBreakfast = false,
         isLunch = false,
-        isDinner = false,
-        isSnack = false,
-        isSpecial = false,
         reason = null,
     )
 
@@ -497,21 +531,6 @@ private fun RosterCard(
                 }
                 MealToggleChip("Обед", dayEntry.isLunch) {
                     val updatedDay = dayEntry.copy(isLunch = it)
-                    val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
-                    onUpdate(entry.copy(days = updatedDays))
-                }
-                MealToggleChip("Ужин", dayEntry.isDinner) {
-                    val updatedDay = dayEntry.copy(isDinner = it)
-                    val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
-                    onUpdate(entry.copy(days = updatedDays))
-                }
-                MealToggleChip("Полдник", dayEntry.isSnack) {
-                    val updatedDay = dayEntry.copy(isSnack = it)
-                    val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
-                    onUpdate(entry.copy(days = updatedDays))
-                }
-                MealToggleChip("Спец. питание", dayEntry.isSpecial) {
-                    val updatedDay = dayEntry.copy(isSpecial = it)
                     val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
                     onUpdate(entry.copy(days = updatedDays))
                 }

@@ -20,9 +20,6 @@ data class RosterDayDto(
     val date: String,
     val isBreakfast: Boolean,
     val isLunch: Boolean,
-    val isDinner: Boolean,
-    val isSnack: Boolean,
-    val isSpecial: Boolean,
     val reason: String?
 )
 
@@ -44,8 +41,5 @@ data class StudentMealStatus(
     val studentId: String,
     val fullName: String,
     val hadBreakfast: Boolean,
-    val hadLunch: Boolean,
-    val hadDinner: Boolean,
-    val hadSnack: Boolean,
-    val hadSpecial: Boolean
+    val hadLunch: Boolean
 )

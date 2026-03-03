@@ -94,10 +94,7 @@ fun MyCouponsScreen(
                 mealsToday = MealsTodayResponse(
                     date = "Сегодня",
                     isBreakfastAllowed = true,
-                    isLunchAllowed = true,
-                    isDinnerAllowed = true,
-                    isSnackAllowed = false,
-                    isSpecialAllowed = false
+                    isLunchAllowed = true
                 )
                 pendingError = it.userMessageOr("Не удалось загрузить талоны")
             }
@@ -223,9 +220,6 @@ fun MyCouponsScreen(
                     val availableMeals = mutableListOf<Pair<String, String>>()
                     if (meals.isBreakfastAllowed) availableMeals.add("Завтрак" to "BREAKFAST")
                     if (meals.isLunchAllowed) availableMeals.add("Обед" to "LUNCH")
-                    if (meals.isDinnerAllowed) availableMeals.add("Ужин" to "DINNER")
-                    if (meals.isSnackAllowed) availableMeals.add("Полдник" to "SNACK")
-                    if (meals.isSpecialAllowed) availableMeals.add("Спецпитание" to "SPECIAL")
 
                     if (availableMeals.isEmpty()) {
                         item {

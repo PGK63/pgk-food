@@ -22,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.data.remote.dto.*
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
+import com.example.pgk_food.shared.model.StudentCategory
+import com.example.pgk_food.shared.ui.components.CredentialsDialog
+import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.SectionShape
 import com.example.pgk_food.shared.model.UserRole
@@ -29,6 +32,19 @@ import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import kotlinx.coroutines.launch
+
+private fun UserRole.titleRu(): String = when (this) {
+    UserRole.ADMIN -> "Администратор"
+    UserRole.REGISTRATOR -> "Регистратор"
+    UserRole.CHEF -> "Повар"
+    UserRole.CURATOR -> "Куратор"
+    UserRole.STUDENT -> "Студент"
+}
+
+private fun StudentCategory.titleRu(): String = when (this) {
+    StudentCategory.SVO -> "СВО"
+    StudentCategory.MANY_CHILDREN -> "Многодетные"
+}
 
 @Composable
 fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepository) {
@@ -41,7 +57,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var createDialogInitialGroupId by remember { mutableStateOf<Int?>(null) }
-    var credentialsDialog by remember { mutableStateOf<UserCredentials?>(null) }
+    var credentialsDialog by remember { mutableStateOf<UserCredentialsUi?>(null) }
 
     // Search & filter state
     var searchQuery by remember { mutableStateOf("") }
@@ -166,7 +182,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                 FilterChip(
                     selected = filterRole != null,
                     onClick = { showFilterSheet = true },
-                    label = { Text(filterRole?.name ?: "Роль") },
+                    label = { Text(filterRole?.titleRu() ?: "Роль") },
                     leadingIcon = {
                         if (filterRole != null) {
                             Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -302,7 +318,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                     ) { result }
                     if (ok) {
                         result.getOrNull()?.let {
-                            credentialsDialog = UserCredentials(it.login, it.passwordClearText)
+                            credentialsDialog = UserCredentialsUi(it.login, it.passwordClearText)
                             selectedUser = null
                         }
                     }
@@ -364,7 +380,7 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
                         createDialogInitialGroupId = null
                         loadData()
                         result.getOrNull()?.let {
-                            credentialsDialog = UserCredentials(it.login, it.passwordClearText)
+                            credentialsDialog = UserCredentialsUi(it.login, it.passwordClearText)
                         }
                     }
                 }
@@ -373,45 +389,12 @@ fun RegistratorUsersScreen(token: String, registratorRepository: RegistratorRepo
     }
 
     credentialsDialog?.let { result ->
-        AlertDialog(
-            onDismissRequest = { credentialsDialog = null },
-            shape = MaterialTheme.shapes.extraLarge,
-            title = { Text("Доступы созданы") },
-            text = {
-                Column {
-                    Text("Скопируйте логин и пароль для передачи пользователю:")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Text(
-                                text = "Логин: ${result.login}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Пароль: ${result.password}",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    clipboardManager.setText(AnnotatedString("Логин: ${result.login}\nПароль: ${result.password}"))
-                    scope.launch { snackbarHostState.showSnackbar("Данные скопированы") }
-                    credentialsDialog = null
-                }) {
-                    Text("Копировать и закрыть")
-                }
+        CredentialsDialog(
+            credentials = result,
+            onDismiss = { credentialsDialog = null },
+            onCopiedAndDismissed = {
+                scope.launch { snackbarHostState.showSnackbar("Данные скопированы") }
+                credentialsDialog = null
             }
         )
     }
@@ -446,7 +429,7 @@ private fun UserRow(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = user.roles.joinToString(", ") { it.name } +
+                    text = user.roles.joinToString(", ") { it.titleRu() } +
                         (if (user.groupId != null) " • @${user.login}" else " • @${user.login}"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -545,7 +528,7 @@ private fun FilterBottomSheet(
                     FilterChip(
                         selected = selectedRole == role,
                         onClick = { onRoleSelected(if (selectedRole == role) null else role) },
-                        label = { Text(role.name) },
+                        label = { Text(role.titleRu()) },
                         shape = MaterialTheme.shapes.small
                     )
                 }
@@ -648,7 +631,7 @@ private fun UserDetailSheet(
                             shape = MaterialTheme.shapes.small
                         ) {
                             Text(
-                                role.name,
+                                role.titleRu(),
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -732,11 +715,6 @@ private fun UserDetailSheet(
     }
 }
 
-private data class UserCredentials(
-    val login: String,
-    val password: String
-)
-
 @Composable
 fun CreateUserDialog(
     groups: List<GroupDto>,
@@ -751,6 +729,8 @@ fun CreateUserDialog(
     var selectedRoles by remember { mutableStateOf(setOf(UserRole.STUDENT)) }
     var selectedGroupId by remember(initialGroupId) { mutableStateOf(initialGroupId) }
     var expandedGroup by remember { mutableStateOf(false) }
+    var selectedStudentCategory by remember { mutableStateOf(StudentCategory.MANY_CHILDREN) }
+    var expandedCategory by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -774,7 +754,7 @@ fun CreateUserDialog(
                             onClick = {
                                 selectedRoles = if (role in selectedRoles) selectedRoles - role else selectedRoles + role
                             },
-                            label = { Text(role.name) },
+                            label = { Text(role.titleRu()) },
                             shape = MaterialTheme.shapes.small
                         )
                     }
@@ -802,11 +782,50 @@ fun CreateUserDialog(
                         }
                     }
                 }
+
+                if (UserRole.STUDENT in selectedRoles) {
+                    Text("Категория студента", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    ExposedDropdownMenuBox(
+                        expanded = expandedCategory,
+                        onExpandedChange = { expandedCategory = it }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedStudentCategory.titleRu(),
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = MaterialTheme.shapes.medium
+                        )
+                        ExposedDropdownMenu(expanded = expandedCategory, onDismissRequest = { expandedCategory = false }) {
+                            StudentCategory.entries.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category.titleRu()) },
+                                    onClick = {
+                                        selectedStudentCategory = category
+                                        expandedCategory = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(CreateUserRequest(selectedRoles.toList(), name, surname, fatherName.ifBlank { null }, selectedGroupId)) },
+                onClick = {
+                    onConfirm(
+                        CreateUserRequest(
+                            roles = selectedRoles.toList(),
+                            name = name,
+                            surname = surname,
+                            fatherName = fatherName.ifBlank { "-" },
+                            groupId = selectedGroupId,
+                            studentCategory = if (UserRole.STUDENT in selectedRoles) selectedStudentCategory else null
+                        )
+                    )
+                },
                 enabled = !isSubmitting && name.isNotBlank() && surname.isNotBlank() && selectedRoles.isNotEmpty()
             ) {
                 if (isSubmitting) {
@@ -855,7 +874,7 @@ fun RolesSelectionDialog(
                                 selectedRoles = if (checked) selectedRoles + role else selectedRoles - role
                             }
                         )
-                        Text(role.name)
+                        Text(role.titleRu())
                     }
                 }
             }

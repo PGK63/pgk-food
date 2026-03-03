@@ -1,6 +1,6 @@
 package com.example.pgk_food.shared.ui.viewmodels
 
-import com.example.pgk_food.shared.data.remote.dto.DailyReportDto
+import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.data.repository.AdminRepository
 import com.example.pgk_food.shared.data.repository.AuthRepository
@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 sealed class AdminStatsState {
     data object Idle : AdminStatsState()
     data object Loading : AdminStatsState()
-    data class Success(val stats: DailyReportDto) : AdminStatsState()
+    data class Success(val stats: List<ConsumptionReportRowDto>) : AdminStatsState()
     data class Error(val message: String, val code: String, val retryable: Boolean) : AdminStatsState()
 }
 
@@ -38,7 +38,7 @@ class AdminViewModel(
     fun loadStats(date: String) {
         viewModelScope.launch {
             _statsState.value = AdminStatsState.Loading
-            adminRepository.getDailyReport(token, date)
+            adminRepository.getConsumptionReport(token, date, date)
                 .onSuccess { _statsState.value = AdminStatsState.Success(it) }
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка загрузки отчета")

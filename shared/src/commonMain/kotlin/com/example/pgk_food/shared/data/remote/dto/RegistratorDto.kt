@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.data.remote.dto
 
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.model.StudentCategory
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -11,7 +12,8 @@ data class UserDto(
     val surname: String,
     val fatherName: String?,
     val roles: List<UserRole>,
-    val groupId: Int?
+    val groupId: Int?,
+    val studentCategory: StudentCategory?
 )
 
 @Serializable
@@ -20,7 +22,8 @@ data class CreateUserRequest(
     val name: String,
     val surname: String,
     val fatherName: String?,
-    val groupId: Int?
+    val groupId: Int?,
+    val studentCategory: StudentCategory?
 )
 
 @Serializable
@@ -37,6 +40,11 @@ data class UpdateRolesRequest(
 )
 
 @Serializable
+data class UpdateCategoryRequest(
+    val studentCategory: StudentCategory
+)
+
+@Serializable
 data class CreateGroupRequest(
     val name: String
 )
@@ -45,15 +53,38 @@ data class CreateGroupRequest(
 data class GroupDto(
     val id: Int,
     val name: String,
-    val curatorId: String?,
-    val curatorName: String?,
-    val curatorSurname: String?,
-    val curatorFatherName: String?,
+    val curators: List<CuratorSummaryDto>,
     val studentCount: Int
+)
+
+@Serializable
+data class CuratorSummaryDto(
+    val id: String,
+    val name: String,
+    val surname: String,
+    val fatherName: String
 )
 
 @Serializable
 data class ResetPasswordResponse(
     val login: String,
     val passwordClearText: String
+)
+
+@Serializable
+data class CuratorCreateStudentRequest(
+    val name: String,
+    val surname: String,
+    val fatherName: String,
+    val groupId: Int,
+    val studentCategory: StudentCategory
+)
+
+@Serializable
+data class CuratorStudentRow(
+    val userId: String,
+    val fullName: String,
+    val groupId: Int,
+    val groupName: String,
+    val studentCategory: StudentCategory?
 )

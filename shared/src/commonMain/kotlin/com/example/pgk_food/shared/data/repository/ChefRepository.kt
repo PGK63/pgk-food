@@ -78,9 +78,6 @@ class ChefRepository {
                 date = dateStr,
                 breakfast = it.breakfast,
                 lunch = it.lunch,
-                dinner = it.dinner,
-                snack = it.snack,
-                special = it.special,
             )
         }
         SharedDatabase.instance.permissionCacheDao().clearAll()
@@ -180,9 +177,6 @@ class ChefRepository {
         val isAllowed = when (payload.mealType.uppercase()) {
             "BREAKFAST" -> permission?.breakfast ?: false
             "LUNCH" -> permission?.lunch ?: false
-            "DINNER" -> permission?.dinner ?: false
-            "SNACK" -> permission?.snack ?: false
-            "SPECIAL" -> permission?.special ?: false
             else -> false
         }
         if (!isAllowed) {

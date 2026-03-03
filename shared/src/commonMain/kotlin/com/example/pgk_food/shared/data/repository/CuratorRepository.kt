@@ -1,16 +1,21 @@
 package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.core.network.safeResultApiCall
+import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
+import com.example.pgk_food.shared.data.remote.dto.CuratorCreateStudentRequest
+import com.example.pgk_food.shared.data.remote.dto.CuratorStudentRow
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.remote.dto.SaveRosterRequest
 import com.example.pgk_food.shared.data.remote.dto.StudentMealStatus
 import com.example.pgk_food.shared.data.remote.dto.StudentRosterDto
+import com.example.pgk_food.shared.data.remote.dto.UpdateCategoryRequest
 import com.example.pgk_food.shared.network.SharedNetworkModule
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -22,7 +27,7 @@ class CuratorRepository {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/groups")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.body<List<GroupDto>>()
-            .filter { it.curatorId == curatorId }
+            .filter { group -> group.curators.any { it.id == curatorId } }
             .sortedBy { it.id }
     }
 
@@ -55,4 +60,45 @@ class CuratorRepository {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.body()
     }
+
+    suspend fun getConsumptionReport(
+        token: String,
+        startDate: String,
+        endDate: String,
+        groupId: Int? = null,
+        assignedByRole: String = "ALL"
+    ): Result<List<ConsumptionReportRowDto>> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            parameter("startDate", startDate)
+            parameter("endDate", endDate)
+            if (groupId != null) parameter("groupId", groupId)
+            parameter("assignedByRole", assignedByRole)
+        }.body()
+    }
+
+    suspend fun createStudent(token: String, request: CuratorCreateStudentRequest): Result<com.example.pgk_food.shared.data.remote.dto.CreateUserResponse> =
+        safeResultApiCall {
+            SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/curator/students")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+        }
+
+    suspend fun listMyStudents(token: String, groupId: Int? = null): Result<List<CuratorStudentRow>> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/curator/students")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            if (groupId != null) parameter("groupId", groupId)
+        }.body()
+    }
+
+    suspend fun updateStudentCategory(token: String, studentId: String, category: com.example.pgk_food.shared.model.StudentCategory): Result<Unit> =
+        safeResultApiCall {
+            SharedNetworkModule.client.patch(SharedNetworkModule.getUrl("/api/v1/curator/students/$studentId/category")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(UpdateCategoryRequest(category))
+            }
+        }
 }

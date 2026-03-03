@@ -27,6 +27,7 @@ import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.repository.*
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.runtime.MainLoopSnapshot
 import com.example.pgk_food.shared.runtime.MainLoopStateStore
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
@@ -50,6 +51,7 @@ private fun mainScreenTitle(subScreen: String): String = when (subScreen) {
     "scanner" -> "СКАНЕР QR"
     "menu_manage" -> "УПРАВЛЕНИЕ МЕНЮ"
     "settings" -> "НАСТРОЙКИ"
+    "categories" -> "КАТЕГОРИИ"
     else -> "ПГК ПИТАНИЕ"
 }
 
@@ -67,7 +69,7 @@ private fun screenAllowedForRole(role: UserRole?, screen: String): Boolean {
         UserRole.STUDENT -> setOf("coupons", "qr", "menu")
         UserRole.CHEF -> setOf("scanner", "menu_manage", "stats")
         UserRole.REGISTRATOR -> setOf("users", "groups")
-        UserRole.CURATOR -> setOf("roster", "stats")
+        UserRole.CURATOR -> setOf("roster", "stats", "categories", "reports")
         UserRole.ADMIN -> setOf("reports")
         null -> emptySet()
     }
@@ -384,6 +386,7 @@ fun StudentFlowShared(
         "dashboard" -> StudentDashboardShared(
             session.token,
             studentRepository,
+            session.studentCategory?.titleRu(),
             { onNavigate("coupons") },
             { onNavigate("menu") })
 
@@ -401,6 +404,7 @@ fun StudentFlowShared(
         else -> StudentDashboardShared(
             session.token,
             studentRepository,
+            session.studentCategory?.titleRu(),
             { onNavigate("coupons") },
             { onNavigate("menu") })
     }
@@ -481,15 +485,30 @@ fun CuratorFlowShared(
             session.token,
             curatorRepository,
             { onNavigate("roster") },
-            { onNavigate("stats") })
+            { onNavigate("stats") },
+            { onNavigate("categories") },
+            { onNavigate("reports") })
 
         "roster" -> CuratorRosterScreen(
+            token = session.token,
+            curatorId = session.userId,
+            curatorRepository = curatorRepository,
+            onNavigateToCategories = { onNavigate("categories") }
+        )
+
+        "stats" -> CuratorStatsScreen(
             token = session.token,
             curatorId = session.userId,
             curatorRepository = curatorRepository
         )
 
-        "stats" -> CuratorStatsScreen(
+        "categories" -> CuratorCategoriesScreen(
+            token = session.token,
+            curatorId = session.userId,
+            curatorRepository = curatorRepository
+        )
+
+        "reports" -> CuratorReportsScreen(
             token = session.token,
             curatorId = session.userId,
             curatorRepository = curatorRepository
@@ -499,7 +518,9 @@ fun CuratorFlowShared(
             session.token,
             curatorRepository,
             { onNavigate("roster") },
-            { onNavigate("stats") })
+            { onNavigate("stats") },
+            { onNavigate("categories") },
+            { onNavigate("reports") })
     }
 }
 
@@ -517,6 +538,7 @@ fun AdminFlowShared(session: UserSession, currentSubScreen: String, onNavigate: 
 fun StudentDashboardShared(
     token: String,
     studentRepository: StudentRepository,
+    studentCategoryLabel: String?,
     onCouponsClick: () -> Unit,
     onMenuClick: () -> Unit
 ) {
@@ -533,6 +555,26 @@ fun StudentDashboardShared(
                 contentAlignment = Alignment.Center
             ) { CircularProgressIndicator() }
         } else if (mealsResponse != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Категория", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        studentCategoryLabel ?: "Не указана",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             Card(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 shape = RoundedCornerShape(24.dp),
@@ -557,9 +599,6 @@ fun StudentDashboardShared(
                     Spacer(Modifier.height(16.dp))
                     MealRightItemShared("Завтрак", mealsResponse!!.isBreakfastAllowed)
                     MealRightItemShared("Обед", mealsResponse!!.isLunchAllowed)
-                    MealRightItemShared("Ужин", mealsResponse!!.isDinnerAllowed)
-                    MealRightItemShared("Полдник", mealsResponse!!.isSnackAllowed)
-                    MealRightItemShared("Спец. питание", mealsResponse!!.isSpecialAllowed)
                 }
             }
         }
@@ -780,7 +819,9 @@ fun CuratorDashboardShared(
     token: String,
     curatorRepository: CuratorRepository,
     onRosterClick: () -> Unit,
-    onStatsClick: () -> Unit
+    onStatsClick: () -> Unit,
+    onCategoriesClick: () -> Unit,
+    onReportsClick: () -> Unit
 ) {
     var notification by remember { mutableStateOf<RosterDeadlineNotificationDto?>(null) }
     LaunchedEffect(token) {
@@ -827,6 +868,15 @@ fun CuratorDashboardShared(
             secondText = "Статистика",
             secondIcon = Icons.Default.BarChart,
             onSecondClick = onStatsClick
+        )
+        Spacer(Modifier.height(12.dp))
+        AdaptiveTwoButtonRowShared(
+            firstText = "Категории",
+            firstIcon = Icons.Default.Badge,
+            onFirstClick = onCategoriesClick,
+            secondText = "Отчеты",
+            secondIcon = Icons.Default.Assessment,
+            onSecondClick = onReportsClick
         )
     }
 }

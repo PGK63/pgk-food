@@ -48,7 +48,4 @@ data class PermissionCacheEntity(
     val date: String,
     val breakfast: Boolean,
     val lunch: Boolean,
-    val dinner: Boolean,
-    val snack: Boolean,
-    val special: Boolean,
 )

@@ -10,8 +10,5 @@ data class OfflineCouponEntity(
     val date: String,
     val isBreakfastAllowed: Boolean,
     val isLunchAllowed: Boolean,
-    val isDinnerAllowed: Boolean,
-    val isSnackAllowed: Boolean,
-    val isSpecialAllowed: Boolean,
     val timestamp: Long = currentTimeMillis(),
 )

@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.remote.dto
 
+import com.example.pgk_food.shared.model.StudentCategory
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -18,13 +19,14 @@ data class FraudReportDto(
 )
 
 @Serializable
-data class DailyReportDto(
+data class ConsumptionReportRowDto(
     val date: String,
-    val breakfastCount: Long,
-    val lunchCount: Long,
-    val dinnerCount: Long,
-    val snackCount: Long,
-    val specialCount: Long,
-    val totalCount: Long,
-    val offlineTransactions: Long
+    val groupId: Int,
+    val groupName: String,
+    val studentId: String,
+    val studentName: String,
+    val category: StudentCategory,
+    val assignedByRole: String,
+    val breakfastUsed: Boolean,
+    val lunchUsed: Boolean
 )

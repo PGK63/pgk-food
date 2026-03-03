@@ -19,9 +19,6 @@ data class MealsTodayResponse(
     val date: String,
     val isBreakfastAllowed: Boolean,
     val isLunchAllowed: Boolean,
-    val isDinnerAllowed: Boolean,
-    val isSnackAllowed: Boolean,
-    val isSpecialAllowed: Boolean,
     val reason: String? = null
 )
 
@@ -45,9 +42,6 @@ class StudentRepository {
                         date = response.date,
                         isBreakfastAllowed = response.isBreakfastAllowed,
                         isLunchAllowed = response.isLunchAllowed,
-                        isDinnerAllowed = response.isDinnerAllowed,
-                        isSnackAllowed = response.isSnackAllowed,
-                        isSpecialAllowed = response.isSpecialAllowed,
                     )
                 )
             }
@@ -61,9 +55,6 @@ class StudentRepository {
                 date = cached.date,
                 isBreakfastAllowed = cached.isBreakfastAllowed,
                 isLunchAllowed = cached.isLunchAllowed,
-                isDinnerAllowed = cached.isDinnerAllowed,
-                isSnackAllowed = cached.isSnackAllowed,
-                isSpecialAllowed = cached.isSpecialAllowed,
                 reason = "Оффлайн режим",
             )
         }

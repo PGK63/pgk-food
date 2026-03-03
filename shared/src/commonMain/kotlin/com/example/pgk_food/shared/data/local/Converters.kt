@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.data.local
 
 import androidx.room.TypeConverter
+import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -11,4 +12,11 @@ class Converters {
 
     @TypeConverter
     fun toRoles(rolesString: String): List<UserRole> = Json.decodeFromString(rolesString)
+
+    @TypeConverter
+    fun fromStudentCategory(category: StudentCategory?): String? = category?.name
+
+    @TypeConverter
+    fun toStudentCategory(value: String?): StudentCategory? =
+        value?.let { runCatching { StudentCategory.valueOf(it) }.getOrNull() }
 }

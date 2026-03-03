@@ -54,6 +54,7 @@ private fun UserSession.toEntity() = UserSessionEntity(
     surname = surname,
     fatherName = fatherName,
     groupId = groupId,
+    studentCategory = studentCategory,
     publicKey = publicKey,
     privateKey = privateKey
 )
@@ -66,6 +67,7 @@ private fun UserSessionEntity.toDomain() = UserSession(
     surname = surname,
     fatherName = fatherName,
     groupId = groupId,
+    studentCategory = studentCategory,
     publicKey = publicKey,
     privateKey = privateKey
 )

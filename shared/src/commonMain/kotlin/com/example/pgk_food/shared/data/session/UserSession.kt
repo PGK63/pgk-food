@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.data.session
 
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.model.StudentCategory
 
 data class UserSession(
     val userId: String,
@@ -10,6 +11,7 @@ data class UserSession(
     val surname: String,
     val fatherName: String?,
     val groupId: Int?,
+    val studentCategory: StudentCategory?,
     val publicKey: String?,
     val privateKey: String?
 )

@@ -259,9 +259,6 @@ private fun MealStatusCard(student: StudentMealStatus) {
             ) {
                 MealStatusBadge("Завтрак", student.hadBreakfast)
                 MealStatusBadge("Обед", student.hadLunch)
-                MealStatusBadge("Ужин", student.hadDinner)
-                MealStatusBadge("Полдник", student.hadSnack)
-                MealStatusBadge("Спец. питание", student.hadSpecial)
             }
         }
     }

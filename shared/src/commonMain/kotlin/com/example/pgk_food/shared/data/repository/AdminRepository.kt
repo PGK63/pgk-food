@@ -1,7 +1,7 @@
 package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.core.network.safeResultApiCall
-import com.example.pgk_food.shared.data.remote.dto.DailyReportDto
+import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.network.SharedNetworkModule
 import io.ktor.client.call.body
@@ -26,33 +26,51 @@ class AdminRepository {
         }
     }
 
-    suspend fun getDailyReport(token: String, date: String): Result<DailyReportDto> = safeResultApiCall {
-        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/daily")) {
-            header(HttpHeaders.Authorization, "Bearer $token")
-            parameter("date", date)
-        }.body()
-    }
-
-    suspend fun getWeeklyReport(token: String, startDate: String): Result<List<DailyReportDto>> = safeResultApiCall {
-        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/weekly")) {
-            header(HttpHeaders.Authorization, "Bearer $token")
-            parameter("startDate", startDate)
-        }.body()
-    }
-
-    suspend fun exportReportsCsv(token: String, startDate: String, endDate: String): Result<ByteArray> = safeResultApiCall {
-        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/export/csv")) {
+    suspend fun getConsumptionReport(
+        token: String,
+        startDate: String,
+        endDate: String,
+        groupId: Int? = null,
+        assignedByRole: String = "ALL"
+    ): Result<List<ConsumptionReportRowDto>> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("startDate", startDate)
             parameter("endDate", endDate)
+            if (groupId != null) parameter("groupId", groupId)
+            parameter("assignedByRole", assignedByRole)
         }.body()
     }
 
-    suspend fun exportReportsPdf(token: String, startDate: String, endDate: String): Result<ByteArray> = safeResultApiCall {
-        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/export/pdf")) {
+    suspend fun exportConsumptionCsv(
+        token: String,
+        startDate: String,
+        endDate: String,
+        groupId: Int? = null,
+        assignedByRole: String = "ALL"
+    ): Result<ByteArray> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/export/csv")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("startDate", startDate)
             parameter("endDate", endDate)
+            if (groupId != null) parameter("groupId", groupId)
+            parameter("assignedByRole", assignedByRole)
+        }.body()
+    }
+
+    suspend fun exportConsumptionPdf(
+        token: String,
+        startDate: String,
+        endDate: String,
+        groupId: Int? = null,
+        assignedByRole: String = "ALL"
+    ): Result<ByteArray> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/export/pdf")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            parameter("startDate", startDate)
+            parameter("endDate", endDate)
+            if (groupId != null) parameter("groupId", groupId)
+            parameter("assignedByRole", assignedByRole)
         }.body()
     }
 }

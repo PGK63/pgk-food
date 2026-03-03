@@ -376,8 +376,5 @@ private fun QrErrorContentShared(
 private fun displayMealType(mealType: String): String = when (mealType.uppercase()) {
     "BREAKFAST" -> "ЗАВТРАК"
     "LUNCH" -> "ОБЕД"
-    "DINNER" -> "УЖИН"
-    "SNACK" -> "ПОЛДНИК"
-    "SPECIAL" -> "СПЕЦПИТАНИЕ"
     else -> mealType.uppercase()
 }
