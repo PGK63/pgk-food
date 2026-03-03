@@ -17,5 +17,6 @@ fun CuratorReportsScreen(
         token = token,
         adminRepository = adminRepository,
         showFraudTab = false,
+        loadGroups = { curatorRepository.getCuratorGroups(token, curatorId) }
     )
 }

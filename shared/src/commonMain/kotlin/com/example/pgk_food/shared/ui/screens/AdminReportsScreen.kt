@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,12 +9,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -21,8 +26,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -50,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
+import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.AdminRepository
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
@@ -69,13 +78,19 @@ fun AdminReportsScreen(
     token: String,
     adminRepository: AdminRepository,
     showFraudTab: Boolean = true,
+    loadGroups: suspend () -> Result<List<GroupDto>>,
 ) {
     val today = remember { todayLocalDate() }
 
     var startDate by remember { mutableStateOf(minusDays(today, 7)) }
     var endDate by remember { mutableStateOf(today) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    var groupIdText by remember { mutableStateOf("") }
+
+    var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
+    var selectedGroupId by remember { mutableStateOf<Int?>(null) }
+    var showGroupPicker by remember { mutableStateOf(false) }
+    var groupSearchQuery by remember { mutableStateOf("") }
+    var isGroupsLoading by remember { mutableStateOf(false) }
 
     var isLoading by remember { mutableStateOf(false) }
     var rows by remember { mutableStateOf<List<ConsumptionReportRowDto>>(emptyList()) }
@@ -95,7 +110,32 @@ fun AdminReportsScreen(
         return api?.userMessage?.ifBlank { default } ?: message ?: default
     }
 
-    fun parseGroupId(): Int? = groupIdText.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
+    val selectedGroupLabel = remember(groups, selectedGroupId) {
+        if (selectedGroupId == null) {
+            "Все группы"
+        } else {
+            groups.firstOrNull { it.id == selectedGroupId }?.let { "${it.name} (#${it.id})" }
+                ?: "Все группы"
+        }
+    }
+
+    fun loadGroupOptions() {
+        scope.launch {
+            isGroupsLoading = true
+            loadGroups()
+                .onSuccess { loaded ->
+                    groups = loaded.sortedWith(compareBy({ it.name.lowercase() }, { it.id }))
+                    if (selectedGroupId != null && groups.none { it.id == selectedGroupId }) {
+                        selectedGroupId = null
+                    }
+                }
+                .onFailure {
+                    selectedGroupId = null
+                    snackbarHostState.showSnackbar(it.userMessageOr("Не удалось загрузить список групп"))
+                }
+            isGroupsLoading = false
+        }
+    }
 
     fun load() {
         scope.launch {
@@ -113,7 +153,7 @@ fun AdminReportsScreen(
                     token = token,
                     startDate = startDate.toString(),
                     endDate = endDate.toString(),
-                    groupId = parseGroupId(),
+                    groupId = selectedGroupId,
                     assignedByRole = "ALL",
                 ).onSuccess { rows = it }
                     .onFailure { snackbarHostState.showSnackbar(it.userMessageOr("Ошибка загрузки отчета")) }
@@ -122,7 +162,12 @@ fun AdminReportsScreen(
         }
     }
 
-    LaunchedEffect(selectedTab) { load() }
+    LaunchedEffect(Unit) {
+        loadGroupOptions()
+    }
+    LaunchedEffect(selectedTab) {
+        load()
+    }
 
     if (showStartPicker) {
         val pickerState = rememberDatePickerState(
@@ -164,6 +209,25 @@ fun AdminReportsScreen(
         }
     }
 
+    if (showGroupPicker) {
+        GroupPickerDialog(
+            groups = groups,
+            searchQuery = groupSearchQuery,
+            onSearchQueryChange = { groupSearchQuery = it },
+            onDismiss = { showGroupPicker = false },
+            onSelectAll = {
+                selectedGroupId = null
+                showGroupPicker = false
+                groupSearchQuery = ""
+            },
+            onSelectGroup = {
+                selectedGroupId = it.id
+                showGroupPicker = false
+                groupSearchQuery = ""
+            }
+        )
+    }
+
     Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
@@ -198,12 +262,24 @@ fun AdminReportsScreen(
 
                         if (!showFraudTab || selectedTab == 0) {
                             OutlinedTextField(
-                                value = groupIdText,
-                                onValueChange = { groupIdText = it.filter { ch -> ch.isDigit() } },
-                                label = { Text("ID группы (опционально)") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
+                                value = selectedGroupLabel,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Группа (опционально)") },
+                                trailingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !isGroupsLoading) { showGroupPicker = true },
+                                singleLine = true,
+                                enabled = !isGroupsLoading
                             )
+                            if (isGroupsLoading) {
+                                Text(
+                                    "Загрузка списка групп...",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
                         Button(onClick = { load() }, enabled = !isLoading && !isActionLoading, modifier = Modifier.fillMaxWidth()) {
@@ -258,7 +334,7 @@ fun AdminReportsScreen(
                                         token = token,
                                         startDate = startDate.toString(),
                                         endDate = endDate.toString(),
-                                        groupId = parseGroupId(),
+                                        groupId = selectedGroupId,
                                         assignedByRole = "ALL",
                                     ).onSuccess { bytes ->
                                         clipboard.setText(AnnotatedString(bytes.decodeToString()))
@@ -291,6 +367,100 @@ fun AdminReportsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun GroupPickerDialog(
+    groups: List<GroupDto>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSelectAll: () -> Unit,
+    onSelectGroup: (GroupDto) -> Unit,
+) {
+    val queryTokens = remember(searchQuery) {
+        searchQuery.trim()
+            .lowercase()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+    }
+    val filteredGroups = remember(groups, queryTokens) {
+        groups
+            .filter { group ->
+                if (queryTokens.isEmpty()) return@filter true
+                val searchable = "${group.name} ${group.id}".lowercase()
+                queryTokens.all { token -> searchable.contains(token) }
+            }
+            .sortedWith(compareBy({ it.name.lowercase() }, { it.id }))
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.extraLarge,
+        title = { Text("Выбор группы") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    placeholder = { Text("Поиск группы") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(onClick = { onSearchQueryChange("") }) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Очистить")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Найдено: ${filteredGroups.size}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Box(modifier = Modifier.heightIn(max = 420.dp)) {
+                    LazyColumn {
+                        item {
+                            ListItem(
+                                headlineContent = { Text("Все группы") },
+                                supportingContent = { Text("Без фильтра по группе") },
+                                modifier = Modifier.clickable { onSelectAll() }
+                            )
+                            HorizontalDivider()
+                        }
+                        if (filteredGroups.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "Ничего не найдено",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 12.dp)
+                                )
+                            }
+                        } else {
+                            items(filteredGroups, key = { it.id }) { group ->
+                                ListItem(
+                                    headlineContent = { Text(group.name) },
+                                    supportingContent = { Text("ID: ${group.id}") },
+                                    modifier = Modifier.clickable { onSelectGroup(group) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Закрыть") }
+        }
+    )
 }
 
 @Composable

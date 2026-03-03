@@ -527,9 +527,14 @@ fun CuratorFlowShared(
 @Composable
 fun AdminFlowShared(session: UserSession, currentSubScreen: String, onNavigate: (String) -> Unit) {
     val adminRepository = remember { AdminRepository() }
+    val registratorRepository = remember { RegistratorRepository() }
     when (currentSubScreen) {
         "dashboard" -> AdminDashboardShared { onNavigate("reports") }
-        "reports" -> AdminReportsScreen(token = session.token, adminRepository = adminRepository)
+        "reports" -> AdminReportsScreen(
+            token = session.token,
+            adminRepository = adminRepository,
+            loadGroups = { registratorRepository.getGroups(session.token) }
+        )
         else -> AdminDashboardShared { onNavigate("reports") }
     }
 }
