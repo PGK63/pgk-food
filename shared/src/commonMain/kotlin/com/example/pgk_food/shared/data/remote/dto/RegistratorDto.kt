@@ -72,15 +72,6 @@ data class ResetPasswordResponse(
 )
 
 @Serializable
-data class CuratorCreateStudentRequest(
-    val name: String,
-    val surname: String,
-    val fatherName: String,
-    val groupId: Int,
-    val studentCategory: StudentCategory
-)
-
-@Serializable
 data class CuratorStudentRow(
     val userId: String,
     val fullName: String,

@@ -2,7 +2,6 @@ package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
-import com.example.pgk_food.shared.data.remote.dto.CuratorCreateStudentRequest
 import com.example.pgk_food.shared.data.remote.dto.CuratorStudentRow
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
@@ -76,15 +75,6 @@ class CuratorRepository {
             parameter("assignedByRole", assignedByRole)
         }.body()
     }
-
-    suspend fun createStudent(token: String, request: CuratorCreateStudentRequest): Result<com.example.pgk_food.shared.data.remote.dto.CreateUserResponse> =
-        safeResultApiCall {
-            SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/curator/students")) {
-                header(HttpHeaders.Authorization, "Bearer $token")
-                contentType(ContentType.Application.Json)
-                setBody(request)
-            }.body()
-        }
 
     suspend fun listMyStudents(token: String, groupId: Int? = null): Result<List<CuratorStudentRow>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/curator/students")) {

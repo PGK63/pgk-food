@@ -58,19 +58,18 @@ actual fun generateQrSignature(
         val keyBytes = decodeBase64KeyMaterial(privateKeyBase64)
         if (keyBytes.isEmpty()) return ""
 
-        val privateKey = createPrivateEcKey(keyBytes) ?: return ""
-
         val payload = "$userId:$timestamp:$mealType:$nonce"
         val messageData = payload.encodeToByteArray().toCfData() ?: return ""
-
-        val signatureData = SecKeyCreateSignature(
-            privateKey,
-            kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
-            messageData,
-            null,
-        ) ?: return ""
-
-        Base64.Default.encode(signatureData.toByteArray())
+        createPrivateEcKeys(keyBytes).forEach { privateKey ->
+            val signatureData = SecKeyCreateSignature(
+                privateKey,
+                kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
+                messageData,
+                null,
+            ) ?: return@forEach
+            return Base64.Default.encode(signatureData.toByteArray())
+        }
+        ""
     }.getOrElse { "" }
 }
 
@@ -90,19 +89,19 @@ actual fun verifyQrSignature(
         val signatureBytes = decodeBase64KeyMaterial(signatureBase64)
         if (signatureBytes.isEmpty()) return false
 
-        val publicKey = createPublicEcKey(keyBytes) ?: return false
-
         val payload = "$userId:$timestamp:$mealType:$nonce"
         val messageData = payload.encodeToByteArray().toCfData() ?: return false
         val signatureData = signatureBytes.toCfData() ?: return false
 
-        SecKeyVerifySignature(
-            publicKey,
-            kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
-            messageData,
-            signatureData,
-            null,
-        )
+        createPublicEcKeys(keyBytes).any { publicKey ->
+            SecKeyVerifySignature(
+                publicKey,
+                kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
+                messageData,
+                signatureData,
+                null,
+            )
+        }
     }.getOrElse { false }
 }
 
@@ -154,14 +153,33 @@ actual fun PlatformQrCodeImage(content: String, modifier: Modifier, sizePx: Int)
 }
 
 private fun generateQrUiImage(content: String, sizePx: Int): UIImage? {
-    val pngBytes = runCatching {
-        QRCode.ofSquares()
-            .withSize(sizePx.coerceIn(256, 1024))
-            .build(content)
-            .renderToBytes()
-    }.getOrNull() ?: return null
+    val pngBytes = renderQrPngBytes(content = content, targetSizePx = sizePx) ?: return null
     val nsData = pngBytes.toNSData() ?: return null
     return UIImage.imageWithData(nsData)
+}
+
+private fun renderQrPngBytes(content: String, targetSizePx: Int): ByteArray? {
+    val targetSize = targetSizePx.coerceIn(256, 1024)
+    val qr = runCatching { QRCode.ofSquares().build(content) }.getOrNull() ?: return null
+    val moduleCount = qr.rawData.size.coerceAtLeast(21)
+    val baseCellSize = (targetSize / (moduleCount + 2)).coerceIn(2, 24)
+    val cellSizes = buildList {
+        add(baseCellSize)
+        add((baseCellSize - 1).coerceAtLeast(2))
+        add((baseCellSize / 2).coerceAtLeast(2))
+        add(2)
+    }.distinct()
+
+    cellSizes.forEach { cellSize ->
+        val bytes = runCatching {
+            QRCode.ofSquares()
+                .withSize(cellSize)
+                .build(content)
+                .renderToBytes()
+        }.getOrNull()
+        if (bytes != null && bytes.isNotEmpty()) return bytes
+    }
+    return null
 }
 
 private fun ByteArray.toCfData() = usePinned {
@@ -213,38 +231,59 @@ private fun createCfNumber(value: Int): kotlinx.cinterop.CPointer<*>? {
     }
 }
 
-private fun createPrivateEcKey(source: ByteArray): SecKeyRef? {
+private fun createPrivateEcKeys(source: ByteArray): List<SecKeyRef> {
     val sec1Blob = extractPkcs8PrivateKeyBlob(source)
     val scalar = extractSec1PrivateScalar(sec1Blob ?: source)
+    val rawScalar = normalizeRawPrivateScalar(source)
     val candidates = buildList {
-        add(source)
-        sec1Blob?.let { add(it) }
         scalar?.let { add(it) }
-    }
-    return createEcKeyFromCandidates(candidates, isPrivate = true)
-}
-
-private fun createPublicEcKey(source: ByteArray): SecKeyRef? {
-    val rawSpki = extractSpkiPublicKeyBytes(source)
-    val candidates = buildList {
+        rawScalar?.let { add(it) }
+        sec1Blob?.let { add(it) }
         add(source)
-        rawSpki?.let { add(it) }
     }
-    return createEcKeyFromCandidates(candidates, isPrivate = false)
+    return createEcKeysFromCandidates(candidates, isPrivate = true)
 }
 
-private fun createEcKeyFromCandidates(
+private fun createPublicEcKeys(source: ByteArray): List<SecKeyRef> {
+    val rawSpki = extractSpkiPublicKeyBytes(source)
+    val rawPublic = normalizeRawPublicPoint(source)
+    val candidates = buildList {
+        rawSpki?.let { add(it) }
+        rawPublic?.let { add(it) }
+        add(source)
+    }
+    return createEcKeysFromCandidates(candidates, isPrivate = false)
+}
+
+private fun createEcKeysFromCandidates(
     candidates: List<ByteArray>,
     isPrivate: Boolean,
-): SecKeyRef? {
+): List<SecKeyRef> {
+    val keys = mutableListOf<SecKeyRef>()
     val uniqueCandidates = candidates.filter { it.isNotEmpty() }.distinctBy { it.joinToString(",") }
     uniqueCandidates.forEach { keyBytes ->
         val attrs = createEcAttributes(isPrivate) ?: return@forEach
         val keyData = keyBytes.toCfData() ?: return@forEach
         val key = SecKeyCreateWithData(keyData, attrs, null)
-        if (key != null) return key
+        if (key != null) keys += key
     }
-    return null
+    return keys
+}
+
+private fun normalizeRawPrivateScalar(source: ByteArray): ByteArray? {
+    return when {
+        source.size == 32 -> source
+        source.size > 32 -> source.copyOfRange(source.size - 32, source.size)
+        else -> null
+    }
+}
+
+private fun normalizeRawPublicPoint(source: ByteArray): ByteArray? {
+    return when {
+        source.size == 65 && source[0] == 0x04.toByte() -> source
+        source.size == 64 -> byteArrayOf(0x04) + source
+        else -> null
+    }
 }
 
 private data class Asn1Node(

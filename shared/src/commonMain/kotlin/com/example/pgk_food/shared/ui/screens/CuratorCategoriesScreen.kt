@@ -13,18 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,14 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
-import com.example.pgk_food.shared.data.remote.dto.CuratorCreateStudentRequest
 import com.example.pgk_food.shared.data.remote.dto.CuratorStudentRow
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
-import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
-import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import kotlinx.coroutines.launch
 
 private fun StudentCategory.titleRu(): String = when (this) {
@@ -75,9 +64,6 @@ fun CuratorCategoriesScreen(
     var isLoading by remember { mutableStateOf(true) }
     var showGroupPicker by remember { mutableStateOf(false) }
     var groupSearchQuery by remember { mutableStateOf("") }
-
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var createdCredentials by remember { mutableStateOf<UserCredentialsUi?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -177,16 +163,6 @@ fun CuratorCategoriesScreen(
                 )
             }
 
-            Button(
-                onClick = { showCreateDialog = true },
-                enabled = selectedGroupId != null && groups.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null)
-                Spacer(modifier = Modifier.height(0.dp).padding(4.dp))
-                Text("Добавить студента")
-            }
-
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -244,126 +220,4 @@ fun CuratorCategoriesScreen(
             }
         }
     }
-
-    if (showCreateDialog) {
-        CreateCuratorStudentDialog(
-            groupName = groups.firstOrNull { it.id == selectedGroupId }?.name,
-            onDismiss = { showCreateDialog = false },
-            onConfirm = { req ->
-                val targetGroupId = selectedGroupId
-                if (targetGroupId == null) {
-                    scope.launch { snackbarHostState.showSnackbar("Сначала выберите группу") }
-                    return@CreateCuratorStudentDialog
-                }
-                scope.launch {
-                    curatorRepository.createStudent(
-                        token = token,
-                        request = CuratorCreateStudentRequest(
-                            name = req.name,
-                            surname = req.surname,
-                            fatherName = req.fatherName,
-                            groupId = targetGroupId,
-                            studentCategory = req.studentCategory
-                        )
-                    ).onSuccess {
-                        createdCredentials = UserCredentialsUi(
-                            login = it.login,
-                            password = it.passwordClearText
-                        )
-                        showCreateDialog = false
-                        loadGroups()
-                        loadStudents()
-                    }.onFailure {
-                        snackbarHostState.showSnackbar(it.userMessageOr("Ошибка создания студента"))
-                    }
-                }
-            }
-        )
-    }
-
-    createdCredentials?.let { created ->
-        CredentialsDialog(
-            credentials = created,
-            onDismiss = { createdCredentials = null },
-            onCopiedAndDismissed = {
-                scope.launch { snackbarHostState.showSnackbar("Данные скопированы") }
-                createdCredentials = null
-            }
-        )
-    }
-}
-
-private data class CuratorNewStudentForm(
-    val surname: String,
-    val name: String,
-    val fatherName: String,
-    val studentCategory: StudentCategory
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CreateCuratorStudentDialog(
-    groupName: String?,
-    onDismiss: () -> Unit,
-    onConfirm: (CuratorNewStudentForm) -> Unit,
-) {
-    var surname by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var fatherName by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(StudentCategory.MANY_CHILDREN) }
-    var showCategoryMenu by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Новый студент") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Группа: ${groupName ?: "-"}")
-                OutlinedTextField(value = surname, onValueChange = { surname = it }, label = { Text("Фамилия") }, singleLine = true)
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Имя") }, singleLine = true)
-                OutlinedTextField(value = fatherName, onValueChange = { fatherName = it }, label = { Text("Отчество") }, singleLine = true)
-
-                ExposedDropdownMenuBox(expanded = showCategoryMenu, onExpandedChange = { showCategoryMenu = it }) {
-                    OutlinedTextField(
-                        value = category.titleRu(),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Категория") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryMenu) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        singleLine = true
-                    )
-                    DropdownMenu(expanded = showCategoryMenu, onDismissRequest = { showCategoryMenu = false }) {
-                        StudentCategory.entries.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item.titleRu()) },
-                                onClick = {
-                                    category = item
-                                    showCategoryMenu = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onConfirm(
-                        CuratorNewStudentForm(
-                            surname = surname,
-                            name = name,
-                            fatherName = fatherName.ifBlank { "-" },
-                            studentCategory = category
-                        )
-                    )
-                },
-                enabled = surname.isNotBlank() && name.isNotBlank()
-            ) {
-                Text("Создать")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
-    )
 }
