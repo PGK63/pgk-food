@@ -25,8 +25,13 @@ data class ConsumptionReportRowDto(
     val groupName: String,
     val studentId: String,
     val studentName: String,
-    val category: StudentCategory,
-    val assignedByRole: String,
+    val category: StudentCategory?,
+    val assignedByRole: String?,
+    val assignedByName: String?,
     val breakfastUsed: Boolean,
-    val lunchUsed: Boolean
+    val breakfastTransactionId: Int?,
+    val breakfastScannedByName: String?,
+    val lunchUsed: Boolean,
+    val lunchTransactionId: Int?,
+    val lunchScannedByName: String?
 )

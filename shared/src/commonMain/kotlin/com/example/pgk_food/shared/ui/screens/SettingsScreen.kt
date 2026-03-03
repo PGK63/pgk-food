@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Sync
@@ -50,6 +51,7 @@ import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiApiAction
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.util.NotificationAutoRefreshBus
 import com.example.pgk_food.shared.util.UiSettingsManager
 import kotlinx.coroutines.launch
@@ -188,7 +190,7 @@ fun SettingsScreen(
             ) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().springEntrance(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         ),
@@ -218,7 +220,7 @@ fun SettingsScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Rounded.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Text(
-                                    text = "Ключи студента и оффлайн-данные повара обновляются автоматически 1 раз в день.",
+                                    text = "Ключи студента и оффлайн-данные повара обновляются автоматически примерно каждые 6 часов при наличии интернета.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 8.dp),
@@ -230,7 +232,7 @@ fun SettingsScreen(
 
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().springEntrance(70),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         ),
@@ -267,7 +269,10 @@ fun SettingsScreen(
 
                             if (isCurator && rosterDeadline != null) {
                                 Spacer(modifier = Modifier.height(12.dp))
-                                CuratorDeadlineCard(rosterDeadline!!)
+                                CuratorDeadlineCard(
+                                    rosterDeadline = rosterDeadline!!,
+                                    modifier = Modifier.springEntrance(120)
+                                )
                             }
                         }
                     }
@@ -289,8 +294,9 @@ fun SettingsScreen(
                         )
                     }
                 } else {
-                    items(notifications, key = { it.id }) { item ->
+                    itemsIndexed(notifications, key = { _, item -> item.id }) { index, item ->
                         NotificationRow(
+                            modifier = Modifier.springEntrance((index.coerceAtMost(8) * 40) + 140),
                             item = item,
                             isProcessing = isActionLoading,
                             onMarkRead = { markAsRead(item.id) }
@@ -312,12 +318,13 @@ fun SettingsScreen(
 
 @Composable
 private fun NotificationRow(
+    modifier: Modifier = Modifier,
     item: NotificationDto,
     isProcessing: Boolean,
     onMarkRead: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (item.isRead) MaterialTheme.colorScheme.surface
             else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
@@ -341,9 +348,12 @@ private fun NotificationRow(
 }
 
 @Composable
-private fun CuratorDeadlineCard(rosterDeadline: RosterDeadlineNotificationDto) {
+private fun CuratorDeadlineCard(
+    rosterDeadline: RosterDeadlineNotificationDto,
+    modifier: Modifier = Modifier,
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (rosterDeadline.needsReminder) {
                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)

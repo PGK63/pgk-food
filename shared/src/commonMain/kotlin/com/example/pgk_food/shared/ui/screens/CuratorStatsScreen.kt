@@ -49,6 +49,7 @@ import com.example.pgk_food.shared.data.remote.dto.StudentMealStatus
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.TagShape
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.todayLocalDate
 import kotlinx.coroutines.launch
@@ -147,6 +148,7 @@ fun CuratorStatsScreen(
             "Статистика",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Black,
+            modifier = Modifier.springEntrance(),
         )
 
         Spacer(modifier = Modifier.height(12.dp))

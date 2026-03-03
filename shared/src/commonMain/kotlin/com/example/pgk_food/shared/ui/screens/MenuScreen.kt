@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.repository.StudentRepository
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import kotlinx.coroutines.launch
 
 @Composable
@@ -82,18 +84,22 @@ fun MenuScreen(token: String, studentRepository: StudentRepository) {
                 Text(
                     text = "Меню на сегодня",
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.springEntrance()
                 )
                 Spacer(modifier = Modifier.height(24.dp))
             }
             
             if (menuItems.isEmpty()) {
                 item {
-                    EmptyMenuState()
+                    EmptyMenuState(modifier = Modifier.springEntrance(60))
                 }
             } else {
-                items(items = menuItems) { item ->
-                    MenuListItem(item)
+                itemsIndexed(items = menuItems, key = { _, item -> item.id }) { index, item ->
+                    MenuListItem(
+                        item = item,
+                        animationDelayMs = (index.coerceAtMost(9) * 40) + 80
+                    )
                 }
             }
         }
@@ -101,11 +107,15 @@ fun MenuScreen(token: String, studentRepository: StudentRepository) {
 }
 
 @Composable
-fun MenuListItem(item: MenuItemDto) {
+fun MenuListItem(
+    item: MenuItemDto,
+    animationDelayMs: Int = 0,
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 8.dp)
+            .springEntrance(animationDelayMs),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -170,9 +180,9 @@ fun MenuListItem(item: MenuItemDto) {
 }
 
 @Composable
-fun EmptyMenuState() {
+fun EmptyMenuState(modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally

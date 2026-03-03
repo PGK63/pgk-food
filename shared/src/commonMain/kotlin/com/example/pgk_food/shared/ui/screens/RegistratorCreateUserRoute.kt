@@ -38,6 +38,7 @@ import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import kotlinx.coroutines.launch
 
 private fun UserRole.titleRu(): String = when (this) {
@@ -184,7 +185,8 @@ private fun RegistratorCreateUserForm(
         Text(
             text = "Создать пользователя",
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.springEntrance()
         )
 
         if (isSubmitting) {
@@ -199,7 +201,8 @@ private fun RegistratorCreateUserForm(
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .focusRequester(surnameRequester),
+                .focusRequester(surnameRequester)
+                .springEntrance(40),
             keyboardOptions = KeyboardOptions(
                 capitalization = KeyboardCapitalization.Words,
                 imeAction = ImeAction.Next,
@@ -218,7 +221,8 @@ private fun RegistratorCreateUserForm(
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .focusRequester(nameRequester),
+                .focusRequester(nameRequester)
+                .springEntrance(70),
             keyboardOptions = KeyboardOptions(
                 capitalization = KeyboardCapitalization.Words,
                 imeAction = ImeAction.Next,
@@ -237,7 +241,8 @@ private fun RegistratorCreateUserForm(
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .focusRequester(fatherNameRequester),
+                .focusRequester(fatherNameRequester)
+                .springEntrance(100),
             keyboardOptions = KeyboardOptions(
                 capitalization = KeyboardCapitalization.Words,
                 imeAction = ImeAction.Done,
@@ -248,9 +253,14 @@ private fun RegistratorCreateUserForm(
             )
         )
 
-        Text("Роли", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text(
+            "Роли",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.springEntrance(130)
+        )
         FlowRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().springEntrance(150),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -267,7 +277,12 @@ private fun RegistratorCreateUserForm(
         }
 
         if (UserRole.STUDENT in selectedRoles || UserRole.CURATOR in selectedRoles) {
-            Text("Группа", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "Группа",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.springEntrance(180)
+            )
             ExposedDropdownMenuBox(
                 expanded = expandedGroup,
                 onExpandedChange = { expandedGroup = it }
@@ -277,7 +292,7 @@ private fun RegistratorCreateUserForm(
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGroup) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    modifier = Modifier.menuAnchor().fillMaxWidth().springEntrance(200),
                     shape = MaterialTheme.shapes.medium,
                     singleLine = true
                 )
@@ -297,9 +312,14 @@ private fun RegistratorCreateUserForm(
         }
 
         if (UserRole.STUDENT in selectedRoles) {
-            Text("Категория студента", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "Категория студента",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.springEntrance(220)
+            )
             FlowRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().springEntrance(240),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -321,7 +341,7 @@ private fun RegistratorCreateUserForm(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().springEntrance(280),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedButton(

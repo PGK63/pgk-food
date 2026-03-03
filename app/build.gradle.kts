@@ -49,6 +49,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Ktor
     implementation(libs.ktor.client.core)

@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.AssistChip
@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.repository.StudentRepository
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.util.MenuMealTypeCodec
 import com.example.pgk_food.shared.util.sortMenuItemsForUi
 import kotlinx.coroutines.launch
@@ -93,17 +94,22 @@ fun MenuScreenV2(token: String, studentRepository: StudentRepository) {
     ) {
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Меню столовой", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "Меню столовой",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.springEntrance(),
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
 
         if (sortedItems.isEmpty()) {
             item { Text("Меню пока пустое", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
-            items(sortedItems, key = { it.id }) { item ->
+            itemsIndexed(sortedItems, key = { _, item -> item.id }) { index, item ->
                 val decoded = MenuMealTypeCodec.decode(item.description)
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().springEntrance(index * 60),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {

@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.feedback.FeedbackController
 import com.example.pgk_food.shared.core.session.SessionEvent
 import com.example.pgk_food.shared.core.session.SessionManager
@@ -29,6 +31,8 @@ import com.example.pgk_food.shared.ui.screens.LoginScreen
 import com.example.pgk_food.shared.ui.screens.MainScreenShared
 import com.example.pgk_food.shared.ui.screens.SplashScreen
 import com.example.pgk_food.shared.util.NotificationAutoRefreshBus
+
+private val AndroidBottomUiInset = 10.dp
 
 private suspend fun refreshNotificationsSilently(
     session: UserSession,
@@ -101,6 +105,13 @@ fun PgkSharedApp() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .let { base ->
+                        if (platformName() == "Android") {
+                            base.navigationBarsPadding().padding(bottom = AndroidBottomUiInset)
+                        } else {
+                            base
+                        }
+                    }
             ) {
                 when {
                     !isRestored -> SplashScreen()

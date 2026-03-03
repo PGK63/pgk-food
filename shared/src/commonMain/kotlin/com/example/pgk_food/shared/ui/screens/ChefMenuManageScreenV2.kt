@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -66,6 +67,7 @@ import com.example.pgk_food.shared.platform.rememberCsvImportLauncher
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.plusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
@@ -232,14 +234,22 @@ fun ChefMenuManageScreenV2(
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Управление меню", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Управление меню",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.springEntrance()
+                )
                 Spacer(modifier = Modifier.height(12.dp))
                 if (isActionLoading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().springEntrance(60),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Дата меню", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -281,11 +291,20 @@ fun ChefMenuManageScreenV2(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (sortedItems.isEmpty()) {
-                            item { Text("На выбранную дату меню пустое", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            item {
+                                Text(
+                                    "На выбранную дату меню пустое",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.springEntrance(120)
+                                )
+                            }
                         } else {
-                            items(sortedItems, key = { it.id }) { item ->
+                            itemsIndexed(sortedItems, key = { _, item -> item.id }) { index, item ->
                                 val decoded = MenuMealTypeCodec.decode(item.description)
-                                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                                Card(
+                                    modifier = Modifier.springEntrance((index.coerceAtMost(9) * 35) + 130),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth().padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically,

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
@@ -44,6 +45,7 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import kotlinx.coroutines.launch
 
 private fun StudentCategory.titleRu(): String = when (this) {
@@ -142,7 +144,12 @@ fun CuratorCategoriesScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Категории студентов", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+            Text(
+                "Категории студентов",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.springEntrance()
+            )
 
             if (groups.isNotEmpty()) {
                 OutlinedTextField(
@@ -158,7 +165,7 @@ fun CuratorCategoriesScreen(
                             Icon(Icons.Rounded.Search, contentDescription = null)
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().springEntrance(60),
                     singleLine = true
                 )
             }
@@ -178,8 +185,13 @@ fun CuratorCategoriesScreen(
                 }
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(students, key = { it.userId }) { student ->
-                        Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+                    itemsIndexed(students, key = { _, student -> student.userId }) { index, student ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .springEntrance((index.coerceAtMost(9) * 40) + 110),
+                            shape = MaterialTheme.shapes.large
+                        ) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(student.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text(student.groupName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

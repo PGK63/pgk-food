@@ -46,8 +46,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
@@ -56,10 +54,13 @@ import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.AdminRepository
 import com.example.pgk_food.shared.model.titleRu
+import com.example.pgk_food.shared.platform.FileSaveRequest
+import com.example.pgk_food.shared.platform.rememberFileSaveLauncher
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.minusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
@@ -100,7 +101,16 @@ fun AdminReportsScreen(
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+    val saveFile = rememberFileSaveLauncher { success, message ->
+        scope.launch {
+            val snack = when {
+                success -> "Файл сохранен"
+                message.isNullOrBlank() -> "Не удалось сохранить файл"
+                else -> message
+            }
+            snackbarHostState.showSnackbar(snack)
+        }
+    }
 
     fun Throwable.userMessageOr(default: String): String {
         val api = (this as? ApiCallException)?.apiError
@@ -237,7 +247,12 @@ fun AdminReportsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Text("Отчеты", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+                Text(
+                    "Отчеты",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.springEntrance(),
+                )
             }
 
             if (showFraudTab) {
@@ -338,26 +353,67 @@ fun AdminReportsScreen(
                     item { Text("Нет данных за выбранный период", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
                     item {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    adminRepository.exportConsumptionCsv(
-                                        token = token,
-                                        startDate = startDate.toString(),
-                                        endDate = endDate.toString(),
-                                        groupId = selectedGroupId,
-                                        assignedByRole = "ALL",
-                                    ).onSuccess { bytes ->
-                                        clipboard.setText(AnnotatedString(bytes.decodeToString()))
-                                        snackbarHostState.showSnackbar("CSV скопирован в буфер")
-                                    }.onFailure { snackbarHostState.showSnackbar(it.userMessageOr("Ошибка экспорта CSV")) }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Rounded.FileDownload, contentDescription = null)
-                            Spacer(modifier = Modifier.height(0.dp).padding(4.dp))
-                            Text("Экспорт CSV")
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        adminRepository.exportConsumptionCsv(
+                                            token = token,
+                                            startDate = startDate.toString(),
+                                            endDate = endDate.toString(),
+                                            groupId = selectedGroupId,
+                                            assignedByRole = "ALL",
+                                        ).onSuccess { bytes ->
+                                            saveFile(
+                                                FileSaveRequest(
+                                                    fileName = "consumption_${startDate}_${endDate}.csv",
+                                                    mimeType = "text/csv",
+                                                    bytes = bytes
+                                                )
+                                            )
+                                        }.onFailure {
+                                            snackbarHostState.showSnackbar(it.userMessageOr("Ошибка экспорта CSV"))
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Rounded.FileDownload, contentDescription = null)
+                                Spacer(modifier = Modifier.height(0.dp).padding(4.dp))
+                                Text("Экспорт CSV")
+                            }
+
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        adminRepository.exportConsumptionPdf(
+                                            token = token,
+                                            startDate = startDate.toString(),
+                                            endDate = endDate.toString(),
+                                            groupId = selectedGroupId,
+                                            assignedByRole = "ALL",
+                                        ).onSuccess { bytes ->
+                                            saveFile(
+                                                FileSaveRequest(
+                                                    fileName = "consumption_${startDate}_${endDate}.pdf",
+                                                    mimeType = "application/pdf",
+                                                    bytes = bytes
+                                                )
+                                            )
+                                        }.onFailure {
+                                            snackbarHostState.showSnackbar(it.userMessageOr("Ошибка экспорта PDF"))
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Rounded.FileDownload, contentDescription = null)
+                                Spacer(modifier = Modifier.height(0.dp).padding(4.dp))
+                                Text("Экспорт PDF")
+                            }
                         }
                     }
 
@@ -365,14 +421,27 @@ fun AdminReportsScreen(
                         Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(row.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("${row.groupName} • ${row.category.titleRu()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(
-                                    "Дата: ${row.date} • Назначил: ${assignedByRoleTitleRu(row.assignedByRole)}",
+                                    "${row.groupName} • ${row.category?.titleRu() ?: "Категория не указана"}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "Дата: ${row.date} • Назначил: ${assignedByDisplay(row.assignedByRole, row.assignedByName)}",
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    MealStatusBadge("Завтрак", row.breakfastUsed)
-                                    MealStatusBadge("Обед", row.lunchUsed)
+                                    MealStatusBadge(
+                                        label = "Завтрак",
+                                        used = row.breakfastUsed,
+                                        transactionId = row.breakfastTransactionId,
+                                        scannedByName = row.breakfastScannedByName
+                                    )
+                                    MealStatusBadge(
+                                        label = "Обед",
+                                        used = row.lunchUsed,
+                                        transactionId = row.lunchTransactionId,
+                                        scannedByName = row.lunchScannedByName
+                                    )
                                 }
                             }
                         }
@@ -390,7 +459,7 @@ private fun FraudReportItem(
     onResolve: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().springEntrance(),
         colors = CardDefaults.cardColors(
             containerColor = if (report.resolved) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
         )
@@ -409,25 +478,52 @@ private fun FraudReportItem(
 }
 
 @Composable
-private fun MealStatusBadge(label: String, used: Boolean) {
+private fun MealStatusBadge(
+    label: String,
+    used: Boolean,
+    transactionId: Int?,
+    scannedByName: String?
+) {
     val color = if (used) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
     val textColor = if (used) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
     Card(colors = CardDefaults.cardColors(containerColor = color)) {
-        Text(
-            text = "$label: ${if (used) "да" else "нет"}",
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            color = textColor,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Medium
-        )
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+            Text(
+                text = "$label: ${if (used) "да" else "нет"}",
+                color = textColor,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Tx: ${transactionId ?: "-"}",
+                color = textColor,
+                style = MaterialTheme.typography.labelSmall
+            )
+            Text(
+                text = "Сканировал: ${scannedByName ?: "-"}",
+                color = textColor,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
     }
 }
 
-private fun assignedByRoleTitleRu(role: String): String = when (role.uppercase()) {
+private fun assignedByRoleTitleRu(role: String?): String = when (role?.uppercase()) {
     "ADMIN" -> "Администратор"
     "CURATOR" -> "Куратор"
     "REGISTRATOR" -> "Регистратор"
+    null -> "-"
     else -> role
+}
+
+private fun assignedByDisplay(role: String?, assignedByName: String?): String {
+    val roleLabel = assignedByRoleTitleRu(role)
+    return when {
+        role == null && assignedByName.isNullOrBlank() -> "Не назначено"
+        assignedByName.isNullOrBlank() -> roleLabel
+        role == null -> assignedByName
+        else -> "$roleLabel • $assignedByName"
+    }
 }
 
 private fun fraudReasonTitleRu(reason: String): String = when (reason.uppercase()) {

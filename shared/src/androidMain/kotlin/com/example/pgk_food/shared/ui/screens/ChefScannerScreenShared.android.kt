@@ -85,6 +85,7 @@ import androidx.core.content.ContextCompat
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.ScanState
 import com.example.pgk_food.shared.ui.viewmodels.SyncState
@@ -329,7 +330,7 @@ actual fun ChefScannerScreenShared(
                             MaterialTheme.colorScheme.errorContainer
                     ),
                     shape = HeroCardShape,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().springEntrance()
                 ) {
                     Row(modifier = Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(

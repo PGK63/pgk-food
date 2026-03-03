@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
@@ -39,6 +40,7 @@ import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.SectionShape
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.ui.state.UiActionState
@@ -174,7 +176,7 @@ fun RegistratorUsersScreen(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().springEntrance(),
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium
             )
@@ -183,7 +185,7 @@ fun RegistratorUsersScreen(
 
             // Filter chips row
             FlowRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().springEntrance(60),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -253,13 +255,15 @@ fun RegistratorUsersScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    groupedUsers.forEach { (groupName, groupUsers) ->
+                    groupedUsers.forEachIndexed { groupIndex, (groupName, groupUsers) ->
+                        val groupDelay = 120 + (groupIndex.coerceAtMost(9) * 45)
                         // Group header
                         item {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 12.dp, bottom = 4.dp),
+                                    .padding(top = 12.dp, bottom = 4.dp)
+                                    .springEntrance(groupDelay),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -279,10 +283,11 @@ fun RegistratorUsersScreen(
                             }
                         }
                         // User items
-                        items(groupUsers, key = { it.userId }) { user ->
+                        itemsIndexed(groupUsers, key = { _, user -> user.userId }) { userIndex, user ->
                             UserRow(
                                 user = user,
                                 groupName = groups.find { it.id == user.groupId }?.name,
+                                animationDelayMs = groupDelay + ((userIndex.coerceAtMost(5) + 1) * 30),
                                 onClick = { selectedUser = user },
                                 onSettingsClick = { selectedUser = user },
                                 onDeleteClick = {
@@ -425,6 +430,7 @@ fun RegistratorUsersScreen(
 private fun UserRow(
     user: UserDto,
     groupName: String?,
+    animationDelayMs: Int = 0,
     onClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onDeleteClick: () -> Unit
@@ -432,6 +438,7 @@ private fun UserRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .springEntrance(animationDelayMs)
             .clickable { onClick() },
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

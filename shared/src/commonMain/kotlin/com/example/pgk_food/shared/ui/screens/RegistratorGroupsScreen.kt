@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
@@ -29,6 +30,7 @@ import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import kotlinx.coroutines.launch
 
 private sealed interface StudentGroupFilter {
@@ -283,7 +285,8 @@ fun RegistratorGroupsScreen(
                 text = "Управление группами",
                 style = MaterialTheme.typography.headlineMedium,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.springEntrance()
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -300,7 +303,7 @@ fun RegistratorGroupsScreen(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().springEntrance(60),
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium
             )
@@ -309,7 +312,8 @@ fun RegistratorGroupsScreen(
             Text(
                 "Найдено: ${filteredGroups.size}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.springEntrance(90)
             )
             if (isActionLoading) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -319,13 +323,14 @@ fun RegistratorGroupsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 HowItWorksCard(
                     steps = listOf(
-                        "Операции с группами доступны только ролям REGISTRATOR/ADMIN.",
+                        "Операции с группами доступны только ролям Регистратор/Администратор.",
                         "При переносе группы выбирайте целевую группу по ID, а не только по названию.",
                         "Если есть дубликаты названий (например две ИСП-31), сверяйте куратора и число студентов.",
                         "Перед удалением группы убедитесь, что студенты уже перенесены."
                     ),
                     note = "Правило безопасности: при дубликатах выбор только по ID.",
-                    onHideHints = onHideHints
+                    onHideHints = onHideHints,
+                    modifier = Modifier.springEntrance(120),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -351,11 +356,12 @@ fun RegistratorGroupsScreen(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(bottom = 88.dp)
                 ) {
-                    items(filteredGroups) { group ->
+                    itemsIndexed(filteredGroups, key = { _, group -> group.id }) { index, group ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
+                                .springEntrance((index.coerceAtMost(9) * 45) + 150)
                                 .clickable {
                                     if (expandedGroupId == group.id) {
                                         expandedGroupId = null
@@ -533,7 +539,7 @@ fun RegistratorGroupsScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Действие требует роль REGISTRATOR/ADMIN. При совпадении названий ориентируйтесь по ID группы.",
+                        text = "Действие требует роль Регистратор/Администратор. При совпадении названий ориентируйтесь по ID группы.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -639,11 +645,40 @@ fun RegistratorGroupsScreen(
                 .split(Regex("\\s+"))
                 .filter { it.isNotBlank() }
         }
-        val selectableUsers = remember(allUsers, role, groupId, studentGroupFilter, queryTokens) {
+        val groupForDialog = remember(groups, groupId) { groups.firstOrNull { it.id == groupId } }
+        val assignedCuratorIds = remember(groupForDialog) {
+            groupForDialog?.curators?.map { it.id }?.toSet().orEmpty()
+        }
+        val assignedCurators = remember(groupForDialog, queryTokens) {
+            groupForDialog?.curators
+                .orEmpty()
+                .asSequence()
+                .filter { curator ->
+                    if (queryTokens.isEmpty()) return@filter true
+                    val searchable = buildString {
+                        append(curator.surname)
+                        append(' ')
+                        append(curator.name)
+                        append(' ')
+                        append(curator.fatherName)
+                    }.lowercase()
+                    queryTokens.all { token -> searchable.contains(token) }
+                }
+                .sortedWith(
+                    compareBy(
+                        { it.surname.lowercase() },
+                        { it.name.lowercase() },
+                        { it.fatherName.lowercase() },
+                    )
+                )
+                .toList()
+        }
+
+        val selectableUsers = remember(allUsers, role, groupId, studentGroupFilter, queryTokens, assignedCuratorIds) {
             allUsers
                 .asSequence()
                 .filter { user ->
-                    if (role == "CURATOR") user.roles.contains(UserRole.CURATOR)
+                    if (role == "CURATOR") user.roles.contains(UserRole.CURATOR) && user.userId !in assignedCuratorIds
                     else user.roles.contains(UserRole.STUDENT)
                 }
                 .filter { user ->
@@ -686,7 +721,7 @@ fun RegistratorGroupsScreen(
             text = {
                 Column {
                     Text(
-                        text = "Действие требует роль REGISTRATOR/ADMIN.",
+                        text = "Действие требует роль Регистратор/Администратор.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -709,7 +744,11 @@ fun RegistratorGroupsScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Найдено: ${selectableUsers.size}",
+                        text = if (role == "CURATOR") {
+                            "Найдено: ${assignedCurators.size + selectableUsers.size}"
+                        } else {
+                            "Найдено: ${selectableUsers.size}"
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -792,15 +831,105 @@ fun RegistratorGroupsScreen(
                                                 }
                                                 if (ok) {
                                                     refreshUiAfterMutation(groupId)
-                                                    showAssignMemberDialog = null
                                                 }
                                             }
                                         }
                                     )
                                     HorizontalDivider()
                                 }
-                            }
-                            if (selectableUsers.isEmpty()) {
+                                item {
+                                    Text(
+                                        text = "Уже назначены",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                }
+                                if (assignedCurators.isEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Нет назначенных кураторов",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+                                    }
+                                } else {
+                                    items(assignedCurators, key = { it.id }) { curator ->
+                                        ListItem(
+                                            headlineContent = { Text("${curator.surname} ${curator.name}") },
+                                            supportingContent = {
+                                                Text(
+                                                    text = "Уже добавлен",
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            },
+                                            trailingContent = {
+                                                IconButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            val ok = runUiAction(
+                                                                actionState = actionState,
+                                                                successMessage = "Куратор снят",
+                                                                fallbackErrorMessage = "Ошибка снятия куратора",
+                                                            ) {
+                                                                registratorRepository.removeCurator(
+                                                                    token = token,
+                                                                    groupId = groupId,
+                                                                    curatorId = curator.id
+                                                                )
+                                                            }
+                                                            if (ok) refreshUiAfterMutation(groupId)
+                                                        }
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        Icons.Rounded.PersonOff,
+                                                        contentDescription = "Снять куратора",
+                                                        tint = MaterialTheme.colorScheme.error
+                                                    )
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                                item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+                                item {
+                                    Text(
+                                        text = "Доступные к назначению",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                }
+                                if (selectableUsers.isEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Ничего не найдено",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(vertical = 12.dp)
+                                        )
+                                    }
+                                } else {
+                                    items(selectableUsers) { user ->
+                                        ListItem(
+                                            headlineContent = { Text("${user.surname} ${user.name}") },
+                                            supportingContent = { Text(user.login) },
+                                            modifier = Modifier.clickable {
+                                                scope.launch {
+                                                    val ok = runUiAction(
+                                                        actionState = actionState,
+                                                        successMessage = "Куратор назначен",
+                                                        fallbackErrorMessage = "Ошибка назначения куратора",
+                                                    ) {
+                                                        registratorRepository.assignCurator(token, groupId, user.userId)
+                                                    }
+                                                    if (ok) refreshUiAfterMutation(groupId)
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            } else if (selectableUsers.isEmpty()) {
                                 item {
                                     Text(
                                         text = "Ничего не найдено",
@@ -816,25 +945,14 @@ fun RegistratorGroupsScreen(
                                         supportingContent = { Text(user.login) },
                                         modifier = Modifier.clickable {
                                             scope.launch {
-                                                if (role == "CURATOR") {
-                                                    val ok = runUiAction(
-                                                        actionState = actionState,
-                                                        successMessage = "Куратор назначен",
-                                                        fallbackErrorMessage = "Ошибка назначения куратора",
-                                                    ) {
-                                                        registratorRepository.assignCurator(token, groupId, user.userId)
-                                                    }
-                                                    if (ok) refreshUiAfterMutation(groupId)
-                                                } else {
-                                                    val ok = runUiAction(
-                                                        actionState = actionState,
-                                                        successMessage = "Студент добавлен в группу",
-                                                        fallbackErrorMessage = "Ошибка добавления студента в группу",
-                                                    ) {
-                                                        registratorRepository.addStudentToGroup(token, groupId, user.userId)
-                                                    }
-                                                    if (ok) refreshUiAfterMutation(groupId)
+                                                val ok = runUiAction(
+                                                    actionState = actionState,
+                                                    successMessage = "Студент добавлен в группу",
+                                                    fallbackErrorMessage = "Ошибка добавления студента в группу",
+                                                ) {
+                                                    registratorRepository.addStudentToGroup(token, groupId, user.userId)
                                                 }
+                                                if (ok) refreshUiAfterMutation(groupId)
                                                 if (actionState.value !is UiActionState.Error) {
                                                     showAssignMemberDialog = null
                                                 }

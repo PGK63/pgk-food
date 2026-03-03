@@ -1,6 +1,15 @@
 package com.example.pgk_food.shared.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,18 +26,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.pgk_food.shared.platform.PlatformBackHandler
+import com.example.pgk_food.shared.platformName
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.repository.*
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.runtime.MainLoopSnapshot
 import com.example.pgk_food.shared.runtime.MainLoopStateStore
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
 import com.example.pgk_food.shared.util.NetworkMonitor
@@ -86,6 +100,35 @@ private fun parseRoleOrNull(raw: String?): UserRole? {
     return runCatching { UserRole.valueOf(raw) }.getOrNull()
 }
 
+private enum class NavDirection {
+    Forward,
+    Backward,
+}
+
+private fun navContentTransition(direction: NavDirection): ContentTransform {
+    return if (direction == NavDirection.Forward) {
+        (slideInHorizontally(
+            animationSpec = tween(260),
+            initialOffsetX = { width -> width / 3 },
+        ) + fadeIn(animationSpec = tween(220))).togetherWith(
+            slideOutHorizontally(
+                animationSpec = tween(260),
+                targetOffsetX = { width -> -width / 4 },
+            ) + fadeOut(animationSpec = tween(180))
+        )
+    } else {
+        (slideInHorizontally(
+            animationSpec = tween(260),
+            initialOffsetX = { width -> -width / 3 },
+        ) + fadeIn(animationSpec = tween(220))).togetherWith(
+            slideOutHorizontally(
+                animationSpec = tween(260),
+                targetOffsetX = { width -> width / 4 },
+            ) + fadeOut(animationSpec = tween(180))
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenShared(
@@ -107,6 +150,8 @@ fun MainScreenShared(
 
     val roles = session.roles
     var currentSubScreen by remember(session.userId) { mutableStateOf("dashboard") }
+    var backStack by remember(session.userId) { mutableStateOf(emptyList<String>()) }
+    var navDirection by remember(session.userId) { mutableStateOf(NavDirection.Forward) }
     var selectedMealType by remember(session.userId) { mutableStateOf("") }
     var selectedRole by remember(session.userId) { mutableStateOf<UserRole?>(null) }
     var showHints by remember(session.userId) {
@@ -117,6 +162,30 @@ fun MainScreenShared(
         )
     }
     var isSnapshotRestored by remember(session.userId) { mutableStateOf(false) }
+    val isIos = platformName() == "iOS"
+
+    fun navigateTo(subScreen: String) {
+        if (subScreen == currentSubScreen) return
+        navDirection = NavDirection.Forward
+        backStack = backStack + currentSubScreen
+        currentSubScreen = subScreen
+    }
+
+    fun popScreen() {
+        val last = backStack.lastOrNull()
+        if (last != null) {
+            navDirection = NavDirection.Backward
+            backStack = backStack.dropLast(1)
+            currentSubScreen = last
+            return
+        }
+        if (currentSubScreen != "dashboard") {
+            navDirection = NavDirection.Backward
+            currentSubScreen = "dashboard"
+        }
+    }
+
+    val canPop = backStack.isNotEmpty() || currentSubScreen != "dashboard"
 
     LaunchedEffect(session.userId) {
         val restored = mainLoopStateStore.restore(session.userId)
@@ -130,6 +199,7 @@ fun MainScreenShared(
         }
         selectedRole = activeRole
         currentSubScreen = resolveSubScreenForRole(activeRole, restoredSubScreen)
+        backStack = emptyList()
         selectedMealType = restored?.selectedMealType.orEmpty()
         showHints = uiSettingsManager.shouldShowHints(session.userId)
         isSnapshotRestored = true
@@ -146,6 +216,7 @@ fun MainScreenShared(
         val safeSubScreen = resolveSubScreenForRole(safeRole, currentSubScreen)
         if (safeSubScreen != currentSubScreen) {
             currentSubScreen = safeSubScreen
+            backStack = emptyList()
         }
     }
 
@@ -184,6 +255,46 @@ fun MainScreenShared(
         uiSettingsManager.hideHints(session.userId)
         showHints = uiSettingsManager.shouldShowHints(session.userId)
     }
+    val density = LocalDensity.current
+    val edgeSwipeModifier = if (isIos && canPop) {
+        Modifier.pointerInput(canPop, currentSubScreen, backStack) {
+            val edgeWidthPx = with(density) { 32.dp.toPx() }
+            val popThresholdPx = with(density) { 72.dp.toPx() }
+            var startedFromEdge = false
+            var accumulatedDrag = 0f
+            detectHorizontalDragGestures(
+                onDragStart = { offset ->
+                    startedFromEdge = offset.x <= edgeWidthPx
+                    accumulatedDrag = 0f
+                },
+                onHorizontalDrag = { change, dragAmount ->
+                    if (!startedFromEdge) return@detectHorizontalDragGestures
+                    if (dragAmount <= 0f) return@detectHorizontalDragGestures
+                    accumulatedDrag += dragAmount
+                    change.consume()
+                },
+                onDragEnd = {
+                    if (startedFromEdge && accumulatedDrag >= popThresholdPx) {
+                        popScreen()
+                    }
+                    startedFromEdge = false
+                    accumulatedDrag = 0f
+                },
+                onDragCancel = {
+                    startedFromEdge = false
+                    accumulatedDrag = 0f
+                },
+            )
+        }
+    } else {
+        Modifier
+    }
+
+    PlatformBackHandler(enabled = true) {
+        if (canPop) {
+            popScreen()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -198,27 +309,18 @@ fun MainScreenShared(
                     )
                 },
                 navigationIcon = {
-                    if (currentSubScreen != "dashboard") {
-                        IconButton(onClick = {
-                            currentSubScreen = if (
-                                (selectedRole ?: roles.firstOrNull()) == UserRole.REGISTRATOR &&
-                                currentSubScreen == "users_create"
-                            ) {
-                                "users"
-                            } else {
-                                "dashboard"
-                            }
-                        }) {
+                    if (canPop) {
+                        IconButton(onClick = { popScreen() }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
                         }
                     } else {
-                        IconButton(onClick = { currentSubScreen = "settings" }) {
+                        IconButton(onClick = { navigateTo("settings") }) {
                             Icon(Icons.Default.Settings, contentDescription = "Настройки")
                         }
                     }
                 },
                 actions = {
-                    if (currentSubScreen == "dashboard") {
+                    if (currentSubScreen == "dashboard" && !canPop) {
                         IconButton(
                             onClick = { scope.launch { onLogout() } },
                             modifier = Modifier
@@ -242,6 +344,7 @@ fun MainScreenShared(
                 .padding(padding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
+                .then(edgeSwipeModifier)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (currentSubScreen == "dashboard") {
@@ -249,6 +352,8 @@ fun MainScreenShared(
                     if (roles.size > 1) {
                         RoleSwitcherShared(roles, selectedRole ?: roles.first()) {
                             selectedRole = it
+                            backStack = emptyList()
+                            navDirection = NavDirection.Backward
                             currentSubScreen = "dashboard"
                             selectedMealType = ""
                         }
@@ -260,64 +365,71 @@ fun MainScreenShared(
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                    if (currentSubScreen == "settings") {
-                        SettingsScreen(
-                            userId = session.userId,
-                            token = session.token,
-                            roles = session.roles,
-                            uiSettingsManager = uiSettingsManager,
-                            notificationRepository = notificationRepository,
-                            onBack = { currentSubScreen = "dashboard" }
-                        )
-                    } else {
-                        when (selectedRole ?: roles.firstOrNull()) {
-                            UserRole.STUDENT -> StudentFlowShared(
-                                session = session,
-                                currentSubScreen = currentSubScreen,
-                                selectedMealType = selectedMealType,
-                                studentRepository = studentRepository,
-                                studentViewModel = studentViewModel,
-                                showHints = showHints,
-                                onHideHints = onHideHints,
-                                onNavigate = { currentSubScreen = it },
-                                onMealSelect = {
-                                    selectedMealType = it
-                                    currentSubScreen = "qr"
-                                }
+                    AnimatedContent(
+                        targetState = currentSubScreen,
+                        transitionSpec = { navContentTransition(navDirection) },
+                        label = "main-shell-content",
+                    ) { targetSubScreen ->
+                        if (targetSubScreen == "settings") {
+                            SettingsScreen(
+                                userId = session.userId,
+                                token = session.token,
+                                roles = session.roles,
+                                uiSettingsManager = uiSettingsManager,
+                                notificationRepository = notificationRepository,
+                                onBack = { popScreen() }
                             )
+                        } else {
+                            when (selectedRole ?: roles.firstOrNull()) {
+                                UserRole.STUDENT -> StudentFlowShared(
+                                    session = session,
+                                    currentSubScreen = targetSubScreen,
+                                    selectedMealType = selectedMealType,
+                                    studentRepository = studentRepository,
+                                    studentViewModel = studentViewModel,
+                                    showHints = showHints,
+                                    onHideHints = onHideHints,
+                                    onNavigate = { navigateTo(it) },
+                                    onMealSelect = {
+                                        selectedMealType = it
+                                        navigateTo("qr")
+                                    }
+                                )
 
-                            UserRole.CHEF -> ChefFlowShared(
-                                session = session,
-                                currentSubScreen = currentSubScreen,
-                                chefRepository = chefRepository,
-                                chefViewModel = chefViewModel,
-                                showHints = showHints,
-                                onHideHints = onHideHints,
-                                onNavigate = { currentSubScreen = it }
-                            )
+                                UserRole.CHEF -> ChefFlowShared(
+                                    session = session,
+                                    currentSubScreen = targetSubScreen,
+                                    chefRepository = chefRepository,
+                                    chefViewModel = chefViewModel,
+                                    showHints = showHints,
+                                    onHideHints = onHideHints,
+                                    onNavigate = { navigateTo(it) }
+                                )
 
-                            UserRole.REGISTRATOR -> RegistratorFlowShared(
-                                session = session,
-                                currentSubScreen = currentSubScreen,
-                                showHints = showHints,
-                                onHideHints = onHideHints,
-                                onNavigate = { currentSubScreen = it }
-                            )
+                                UserRole.REGISTRATOR -> RegistratorFlowShared(
+                                    session = session,
+                                    currentSubScreen = targetSubScreen,
+                                    showHints = showHints,
+                                    onHideHints = onHideHints,
+                                    onNavigate = { navigateTo(it) },
+                                    onNavigateBack = { popScreen() },
+                                )
 
-                            UserRole.CURATOR -> CuratorFlowShared(
-                                session,
-                                currentSubScreen
-                            ) { currentSubScreen = it }
+                                UserRole.CURATOR -> CuratorFlowShared(
+                                    session,
+                                    targetSubScreen
+                                ) { navigateTo(it) }
 
-                            UserRole.ADMIN -> AdminFlowShared(
-                                session,
-                                currentSubScreen
-                            ) { currentSubScreen = it }
+                                UserRole.ADMIN -> AdminFlowShared(
+                                    session,
+                                    targetSubScreen
+                                ) { navigateTo(it) }
 
-                            else -> Text(
-                                "Роль не определена",
-                                modifier = Modifier.padding(16.dp)
-                            )
+                                else -> Text(
+                                    "Роль не определена",
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -356,7 +468,7 @@ fun RoleSwitcherShared(
 @Composable
 fun UserInfoHeaderShared(session: UserSession) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(16.dp).springEntrance(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(
@@ -469,7 +581,8 @@ fun RegistratorFlowShared(
     currentSubScreen: String,
     showHints: Boolean,
     onHideHints: () -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onNavigateBack: () -> Unit,
 ) {
     val registratorRepository = remember { RegistratorRepository() }
     var createUserInitialGroupId by remember(session.userId) { mutableStateOf<Int?>(null) }
@@ -491,12 +604,12 @@ fun RegistratorFlowShared(
             initialGroupId = createUserInitialGroupId,
             onBack = {
                 createUserInitialGroupId = null
-                onNavigate("users")
+                onNavigateBack()
             },
             onUserCreated = {
                 createUserInitialGroupId = null
                 usersReloadKey += 1
-                onNavigate("users")
+                onNavigateBack()
             }
         )
 
@@ -598,7 +711,7 @@ fun StudentDashboardShared(
             ) { CircularProgressIndicator() }
         } else if (mealsResponse != null) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).springEntrance(),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -767,7 +880,7 @@ fun ChefStatsScreenShared(chefRepository: ChefRepository) {
 @Composable
 fun StatCardShared(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier,
+        modifier = modifier.springEntrance(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
     ) {
@@ -927,7 +1040,12 @@ fun DashboardLayoutShared(title: String, content: @Composable ColumnScope.() -> 
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.springEntrance()
+        )
         Spacer(Modifier.height(24.dp))
         content()
     }

@@ -1,6 +1,7 @@
 package com.example.pgk_food
 
 import android.app.Application
+import com.example.pgk_food.background.BackgroundKeysSyncScheduler
 import com.example.pgk_food.shared.data.local.initAndroidDatabaseContext
 import com.example.pgk_food.shared.platform.initAndroidPlatformContext
 
@@ -9,5 +10,6 @@ class PgkFoodApplication : Application() {
         super.onCreate()
         initAndroidDatabaseContext(this)
         initAndroidPlatformContext(this)
+        BackgroundKeysSyncScheduler.schedule(this)
     }
 }

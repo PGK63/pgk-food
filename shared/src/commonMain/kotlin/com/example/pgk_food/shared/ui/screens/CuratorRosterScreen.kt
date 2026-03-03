@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -67,6 +68,7 @@ import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.theme.PillShape
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.plusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
@@ -328,7 +330,7 @@ fun CuratorRosterScreen(
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Начните искать") },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().springEntrance(),
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium
             )
@@ -337,6 +339,7 @@ fun CuratorRosterScreen(
 
             if (groups.size > 1) {
                 ExposedDropdownMenuBox(
+                    modifier = Modifier.springEntrance(60),
                     expanded = isGroupMenuExpanded,
                     onExpandedChange = { isGroupMenuExpanded = it }
                 ) {
@@ -370,7 +373,7 @@ fun CuratorRosterScreen(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().springEntrance(90),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -428,10 +431,11 @@ fun CuratorRosterScreen(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredEntries, key = { it.studentId }) { entry ->
+                    itemsIndexed(filteredEntries, key = { _, entry -> entry.studentId }) { index, entry ->
                         RosterCard(
                             entry = entry,
                             selectedDateStr = selectedDate.toString(),
+                            animationDelayMs = (index.coerceAtMost(9) * 35) + 130,
                             onUpdate = { updatedEntry ->
                                 entries = entries.map { if (it.studentId == updatedEntry.studentId) updatedEntry else it }
                             }
@@ -507,6 +511,7 @@ fun CuratorRosterScreen(
 private fun RosterCard(
     entry: StudentRosterDto,
     selectedDateStr: String,
+    animationDelayMs: Int = 0,
     onUpdate: (StudentRosterDto) -> Unit
 ) {
     val isManyChildren = entry.studentCategory == StudentCategory.MANY_CHILDREN
@@ -523,7 +528,7 @@ private fun RosterCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().springEntrance(animationDelayMs),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -26,6 +27,7 @@ import com.example.pgk_food.shared.ui.components.ThreeInputDatePicker
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.todayDateParts
 import kotlinx.coroutines.launch
 
@@ -92,7 +94,8 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                     text = "УПРАВЛЕНИЕ МЕНЮ",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 1.5.sp
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier.springEntrance()
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -102,6 +105,7 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                 }
 
                 Card(
+                    modifier = Modifier.springEntrance(60),
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
@@ -146,8 +150,11 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
                                 EmptyMenuState()
                             }
                         } else {
-                            items(items = menuItems) { item ->
-                                MenuItemCard(item) {
+                            itemsIndexed(items = menuItems, key = { _, item -> item.id }) { index, item ->
+                                MenuItemCard(
+                                    item = item,
+                                    animationDelayMs = (index.coerceAtMost(9) * 40) + 120
+                                ) {
                                     scope.launch {
                                         val ok = runUiAction(
                                             actionState = actionState,
@@ -332,9 +339,13 @@ fun ChefMenuManageScreen(token: String, chefRepository: ChefRepository) {
 }
 
 @Composable
-fun MenuItemCard(item: MenuItemDto, onDelete: () -> Unit) {
+fun MenuItemCard(
+    item: MenuItemDto,
+    animationDelayMs: Int = 0,
+    onDelete: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().springEntrance(animationDelayMs),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

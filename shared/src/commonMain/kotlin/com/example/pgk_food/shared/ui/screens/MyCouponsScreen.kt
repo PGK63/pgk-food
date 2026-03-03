@@ -55,6 +55,7 @@ import com.example.pgk_food.shared.data.repository.MealsTodayResponse
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.theme.PillShape
+import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.viewmodels.DownloadKeysState
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
 import kotlinx.coroutines.launch
@@ -211,7 +212,8 @@ fun MyCouponsScreen(
                     Text(
                         text = "Твои талоны",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Black
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.springEntrance(),
                     )
                     Text(
                         text = "Выбери талон, чтобы показать QR-код",
@@ -317,6 +319,7 @@ fun MyCouponsScreen(
                             CouponItem(
                                 name = coupon.name,
                                 status = coupon.status,
+                                delayMs = index * 60,
                                 onClick = {
                                     when (coupon.status) {
                                         CouponStatus.AVAILABLE -> onCouponClick(coupon.type)
@@ -351,7 +354,7 @@ fun MyCouponsScreen(
 }
 
 @Composable
-private fun CouponItem(name: String, status: CouponStatus, onClick: () -> Unit) {
+private fun CouponItem(name: String, status: CouponStatus, delayMs: Int = 0, onClick: () -> Unit) {
     val clickable = status == CouponStatus.AVAILABLE || status == CouponStatus.UNKNOWN
     val containerColor = when (status) {
         CouponStatus.AVAILABLE -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
@@ -386,6 +389,7 @@ private fun CouponItem(name: String, status: CouponStatus, onClick: () -> Unit) 
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 10.dp)
+            .springEntrance(delayMs)
             .alpha(if (clickable) 1f else 0.8f)
             .clickable(enabled = clickable) { onClick() },
         shape = RoundedCornerShape(24.dp),

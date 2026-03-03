@@ -67,6 +67,11 @@ fun LoginScreen(authRepository: AuthRepository) {
     val isLoginValid = login.trim().isNotEmpty()
     val isPasswordValid = password.isNotEmpty()
     val canSubmit = !isLoading && isLoginValid && isPasswordValid
+    val platformTitle = when (platformName()) {
+        "Android" -> "Андроид"
+        "iOS" -> "Айос"
+        else -> "Неизвестно"
+    }
 
     Box(
         modifier = Modifier
@@ -110,7 +115,7 @@ fun LoginScreen(authRepository: AuthRepository) {
                     tonalElevation = 0.dp
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("PGK", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("ПГК", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
                     }
                 }
 
@@ -224,7 +229,7 @@ fun LoginScreen(authRepository: AuthRepository) {
                         }
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            "Платформа: ${platformName()}",
+                            "Платформа: $platformTitle",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -233,7 +238,7 @@ fun LoginScreen(authRepository: AuthRepository) {
             }
 
             Text(
-                text = "HM team",
+                text = "Команда ПГК",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W800),
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                 modifier = Modifier
