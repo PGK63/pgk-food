@@ -93,8 +93,13 @@ class ChefViewModel(
             now >= cached.tsMillis &&
             now - cached.tsMillis <= RECENT_SCAN_WINDOW_MS
         ) {
-            notifySuccess("Повторный скан: показан предыдущий результат")
-            _scanState.value = ScanState.Success(cached.response)
+            val duplicateResponse = cached.response.copy(
+                isValid = false,
+                errorMessage = "Уже питался сегодня",
+                errorCode = "ALREADY_EATEN",
+            )
+            notifyError("Скан отклонён: уже питался сегодня")
+            _scanState.value = ScanState.Success(duplicateResponse)
             return
         }
 

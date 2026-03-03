@@ -243,85 +243,81 @@ fun MainScreenShared(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 if (currentSubScreen == "dashboard") {
-                    item {
-                        UserInfoHeaderShared(session)
-                        if (roles.size > 1) {
-                            RoleSwitcherShared(roles, selectedRole ?: roles.first()) {
-                                selectedRole = it
-                                currentSubScreen = "dashboard"
-                                selectedMealType = ""
-                            }
+                    UserInfoHeaderShared(session)
+                    if (roles.size > 1) {
+                        RoleSwitcherShared(roles, selectedRole ?: roles.first()) {
+                            selectedRole = it
+                            currentSubScreen = "dashboard"
+                            selectedMealType = ""
                         }
                     }
                 }
 
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillParentMaxHeight()
-                    ) {
-                        if (currentSubScreen == "settings") {
-                            SettingsScreen(
-                                userId = session.userId,
-                                token = session.token,
-                                roles = session.roles,
-                                uiSettingsManager = uiSettingsManager,
-                                notificationRepository = notificationRepository,
-                                onBack = { currentSubScreen = "dashboard" }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    if (currentSubScreen == "settings") {
+                        SettingsScreen(
+                            userId = session.userId,
+                            token = session.token,
+                            roles = session.roles,
+                            uiSettingsManager = uiSettingsManager,
+                            notificationRepository = notificationRepository,
+                            onBack = { currentSubScreen = "dashboard" }
+                        )
+                    } else {
+                        when (selectedRole ?: roles.firstOrNull()) {
+                            UserRole.STUDENT -> StudentFlowShared(
+                                session = session,
+                                currentSubScreen = currentSubScreen,
+                                selectedMealType = selectedMealType,
+                                studentRepository = studentRepository,
+                                studentViewModel = studentViewModel,
+                                showHints = showHints,
+                                onHideHints = onHideHints,
+                                onNavigate = { currentSubScreen = it },
+                                onMealSelect = {
+                                    selectedMealType = it
+                                    currentSubScreen = "qr"
+                                }
                             )
-                        } else {
-                            when (selectedRole ?: roles.firstOrNull()) {
-                                UserRole.STUDENT -> StudentFlowShared(
-                                    session = session,
-                                    currentSubScreen = currentSubScreen,
-                                    selectedMealType = selectedMealType,
-                                    studentRepository = studentRepository,
-                                    studentViewModel = studentViewModel,
-                                    showHints = showHints,
-                                    onHideHints = onHideHints,
-                                    onNavigate = { currentSubScreen = it },
-                                    onMealSelect = {
-                                        selectedMealType = it
-                                        currentSubScreen = "qr"
-                                    }
-                                )
 
-                                UserRole.CHEF -> ChefFlowShared(
-                                    session = session,
-                                    currentSubScreen = currentSubScreen,
-                                    chefRepository = chefRepository,
-                                    chefViewModel = chefViewModel,
-                                    showHints = showHints,
-                                    onHideHints = onHideHints,
-                                    onNavigate = { currentSubScreen = it }
-                                )
+                            UserRole.CHEF -> ChefFlowShared(
+                                session = session,
+                                currentSubScreen = currentSubScreen,
+                                chefRepository = chefRepository,
+                                chefViewModel = chefViewModel,
+                                showHints = showHints,
+                                onHideHints = onHideHints,
+                                onNavigate = { currentSubScreen = it }
+                            )
 
-                                UserRole.REGISTRATOR -> RegistratorFlowShared(
-                                    session = session,
-                                    currentSubScreen = currentSubScreen,
-                                    showHints = showHints,
-                                    onHideHints = onHideHints,
-                                    onNavigate = { currentSubScreen = it }
-                                )
+                            UserRole.REGISTRATOR -> RegistratorFlowShared(
+                                session = session,
+                                currentSubScreen = currentSubScreen,
+                                showHints = showHints,
+                                onHideHints = onHideHints,
+                                onNavigate = { currentSubScreen = it }
+                            )
 
-                                UserRole.CURATOR -> CuratorFlowShared(
-                                    session,
-                                    currentSubScreen
-                                ) { currentSubScreen = it }
+                            UserRole.CURATOR -> CuratorFlowShared(
+                                session,
+                                currentSubScreen
+                            ) { currentSubScreen = it }
 
-                                UserRole.ADMIN -> AdminFlowShared(
-                                    session,
-                                    currentSubScreen
-                                ) { currentSubScreen = it }
+                            UserRole.ADMIN -> AdminFlowShared(
+                                session,
+                                currentSubScreen
+                            ) { currentSubScreen = it }
 
-                                else -> Text(
-                                    "Роль не определена",
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                            }
+                            else -> Text(
+                                "Роль не определена",
+                                modifier = Modifier.padding(16.dp)
+                            )
                         }
                     }
                 }
