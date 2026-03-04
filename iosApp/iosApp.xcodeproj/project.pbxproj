@@ -3,15 +3,15 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1B2C3D4E5F60718293A4B5C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F40516273849A5B6C7 /* AppDelegate.swift */; };
 		2170F32830210E18DAF4F96A /* SharedRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7E459C05048B664B21D1C9 /* SharedRootView.swift */; };
 		307C2654CD5972A25FB7FD87 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668CECA83ACC03A83C85A623 /* iOSApp.swift */; };
 		4E77AFD5C2B00E927573D493 /* Shared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0BCACD5445C37FEB9733A013 /* Shared.framework */; };
 		904B143AD85747788BDF9954 /* Shared.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 0BCACD5445C37FEB9733A013 /* Shared.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A1B2C3D4E5F60718293A4B5C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D2E3F40516273849A5B6C7 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -31,7 +31,7 @@
 /* Begin PBXFileReference section */
 		0BCACD5445C37FEB9733A013 /* Shared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Shared.framework; path = "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)/Shared.framework"; sourceTree = "<group>"; };
 		668CECA83ACC03A83C85A623 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
-		86038AE1032E284E79B32AD6 /* iosApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		86038AE1032E284E79B32AD6 /* iosApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1D2E3F40516273849A5B6C7 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		FB7E459C05048B664B21D1C9 /* SharedRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedRootView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -115,11 +115,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-					78B53CC79860CBFC2F5543C6 = {
-						DevelopmentTeam = F9R8WGN6XM;
-					};
-				};
 			};
 			buildConfigurationList = FF7CA1CA754D017066F1822F /* Build configuration list for PBXProject "iosApp" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -131,7 +126,6 @@
 			);
 			mainGroup = 38B69C3F79CD97858CF7B609;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -318,7 +312,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = F9R8WGN6XM;
+				DEVELOPMENT_TEAM = 5S3Q48YS99;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
@@ -339,7 +333,7 @@
 					"-framework",
 					Shared,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.pgkfood.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.pgkfood.iosss;
 				PRODUCT_NAME = iosApp;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -353,7 +347,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = F9R8WGN6XM;
+				DEVELOPMENT_TEAM = 5S3Q48YS99;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
@@ -374,7 +368,7 @@
 					"-framework",
 					Shared,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.pgkfood.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.pgkfood.iosss;
 				PRODUCT_NAME = iosApp;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;

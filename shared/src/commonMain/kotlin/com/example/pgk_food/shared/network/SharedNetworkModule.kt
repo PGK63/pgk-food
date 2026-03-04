@@ -19,8 +19,11 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 object SharedNetworkModule {
-    private const val BASE_URL = "https://food.pgk.apis.alspio.com"
+    private const val DEFAULT_BASE_URL = "https://food.pgk.apis.alspio.com"
     private val sessionEventsScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val baseUrl: String by lazy {
+        normalizeBaseUrl(platformApiBaseUrlOverride())
+    }
 
     val client: HttpClient by lazy {
         HttpClient(platformHttpClientEngineFactory()) {
@@ -65,5 +68,24 @@ object SharedNetworkModule {
         }
     }
 
-    fun getUrl(path: String): String = "$BASE_URL$path"
+    fun getUrl(path: String): String {
+        val normalizedPath = if (path.startsWith("/")) path else "/$path"
+        return "$baseUrl$normalizedPath"
+    }
+
+    private fun normalizeBaseUrl(raw: String?): String {
+        val trimmed = raw?.trim().orEmpty()
+        if (trimmed.isEmpty()) return DEFAULT_BASE_URL
+
+        val withoutTrailingSlash = trimmed.trimEnd('/')
+        val hasSupportedScheme =
+            withoutTrailingSlash.startsWith("http://") ||
+                withoutTrailingSlash.startsWith("https://")
+
+        return if (hasSupportedScheme) {
+            withoutTrailingSlash
+        } else {
+            DEFAULT_BASE_URL
+        }
+    }
 }

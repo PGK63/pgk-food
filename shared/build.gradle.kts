@@ -8,6 +8,17 @@ plugins {
 }
 
 val debugHttpEnabled = (findProperty("PGK_DEBUG_HTTP")?.toString()?.toBoolean() == true)
+val defaultApiBaseUrl = "https://food.pgk.apis.alspio.com"
+// Override with: ./gradlew ... -PPGK_API_BASE_URL=https://your-backend.example.com
+val apiBaseUrl =
+    findProperty("PGK_API_BASE_URL")
+        ?.toString()
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?: defaultApiBaseUrl
+
+fun String.escapeForBuildConfig(): String =
+    replace("\\", "\\\\").replace("\"", "\\\"")
 
 kotlin {
     androidTarget {
@@ -89,6 +100,11 @@ android {
     defaultConfig {
         minSdk = 24
         buildConfigField("boolean", "PGK_DEBUG_HTTP", debugHttpEnabled.toString())
+        buildConfigField(
+            "String",
+            "PGK_API_BASE_URL",
+            "\"${apiBaseUrl.escapeForBuildConfig()}\"",
+        )
     }
 
     compileOptions {
