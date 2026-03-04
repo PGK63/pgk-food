@@ -1,13 +1,16 @@
 package com.example.pgk_food.shared.core.network
 
 import com.example.pgk_food.shared.core.session.SessionManager
+import com.example.pgk_food.shared.util.UxAnalytics
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.ContentConvertException
 import io.ktor.utils.io.errors.IOException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.SerializationException
 
 private val errorJson = Json {
     ignoreUnknownKeys = true
@@ -28,8 +31,26 @@ suspend inline fun <reified T> safeApiCall(
         buildFailureFromResponseException(e, emitSessionEventsOn401)
     } catch (e: ResponseException) {
         buildFailureFromResponseException(e, emitSessionEventsOn401)
+    } catch (e: ContentConvertException) {
+        buildClientFailure(
+            ApiError(
+                code = "RESPONSE_DESERIALIZATION_ERROR",
+                userMessage = "Ошибка обработки ответа сервера. Попробуйте снова.",
+                technicalMessage = e.message,
+                retryable = false,
+            )
+        )
+    } catch (e: SerializationException) {
+        buildClientFailure(
+            ApiError(
+                code = "RESPONSE_DESERIALIZATION_ERROR",
+                userMessage = "Ошибка обработки ответа сервера. Попробуйте снова.",
+                technicalMessage = e.message,
+                retryable = false,
+            )
+        )
     } catch (e: TimeoutCancellationException) {
-        ApiResult.Failure(
+        buildClientFailure(
             ApiError(
                 code = "TIMEOUT",
                 userMessage = "Превышено время ожидания запроса. Попробуйте снова.",
@@ -38,7 +59,7 @@ suspend inline fun <reified T> safeApiCall(
             )
         )
     } catch (e: IOException) {
-        ApiResult.Failure(
+        buildClientFailure(
             ApiError(
                 code = "NETWORK_ERROR",
                 userMessage = "Нет подключения к сети",
@@ -47,7 +68,7 @@ suspend inline fun <reified T> safeApiCall(
             )
         )
     } catch (e: Exception) {
-        ApiResult.Failure(
+        buildClientFailure(
             ApiError(
                 code = "UNEXPECTED_ERROR",
                 userMessage = "Непредвиденная ошибка. Попробуйте снова.",
@@ -108,7 +129,7 @@ suspend fun <T> buildFailureFromResponseException(
         else -> "Ошибка запроса к серверу."
     }
 
-    return ApiResult.Failure(
+    return buildClientFailure(
         ApiError(
             code = envelope?.code ?: "HTTP_${status.value}",
             userMessage = envelope?.userMessage ?: fallbackMessage,
@@ -120,4 +141,16 @@ suspend fun <T> buildFailureFromResponseException(
             requestPath = requestPath,
         )
     )
+}
+
+@PublishedApi
+internal fun <T> buildClientFailure(error: ApiError): ApiResult.Failure<T> {
+    UxAnalytics.log(
+        event = "network_failure",
+        role = "NETWORK",
+        screen = "API_CALL",
+        code = error.code,
+        requestId = error.requestId
+    )
+    return ApiResult.Failure(error)
 }

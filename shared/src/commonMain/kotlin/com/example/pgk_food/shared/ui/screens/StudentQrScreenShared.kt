@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -353,15 +354,17 @@ fun StudentQrScreenShared(
         val contentModifier = if (isCompactHeight) {
             Modifier
                 .align(Alignment.Center)
-                .fillMaxSize()
                 .widthIn(max = 560.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(top = verticalPadding, bottom = contentBottomInset)
         } else {
             Modifier
                 .align(Alignment.Center)
-                .fillMaxSize()
                 .widthIn(max = 560.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .padding(top = verticalPadding, bottom = contentBottomInset)
         }
         val contentArrangement = if (isCompactHeight) Arrangement.Top else Arrangement.Center

@@ -20,18 +20,18 @@ data class FraudReportDto(
 
 @Serializable
 data class ConsumptionReportRowDto(
-    val date: String,
-    val groupId: Int,
-    val groupName: String,
-    val studentId: String,
-    val studentName: String,
-    val category: StudentCategory?,
-    val assignedByRole: String?,
-    val assignedByName: String?,
-    val breakfastUsed: Boolean,
-    val breakfastTransactionId: Int?,
-    val breakfastScannedByName: String?,
-    val lunchUsed: Boolean,
-    val lunchTransactionId: Int?,
-    val lunchScannedByName: String?
+    val date: String = "",
+    val groupId: Int = -1,
+    val groupName: String = "",
+    val studentId: String = "",
+    val studentName: String = "",
+    val category: StudentCategory? = null,
+    val assignedByRole: String? = null,
+    val assignedByName: String? = null,
+    val breakfastUsed: Boolean = false,
+    val breakfastTransactionId: Int? = null,
+    val breakfastScannedByName: String? = null,
+    val lunchUsed: Boolean = false,
+    val lunchTransactionId: Int? = null,
+    val lunchScannedByName: String? = null
 )

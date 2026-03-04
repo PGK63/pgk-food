@@ -238,7 +238,7 @@ fun LoginScreen(authRepository: AuthRepository) {
             }
 
             Text(
-                text = "Команда ПГК",
+                text = "HM team",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W800),
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                 modifier = Modifier

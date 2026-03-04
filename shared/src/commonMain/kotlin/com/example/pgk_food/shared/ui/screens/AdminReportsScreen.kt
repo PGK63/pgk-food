@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
+import com.example.pgk_food.shared.core.network.toDetailedUserMessage
 import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
@@ -125,6 +126,11 @@ fun AdminReportsScreen(
         return api?.userMessage?.ifBlank { default } ?: message ?: default
     }
 
+    fun Throwable.detailedUserMessageOr(default: String): String {
+        val api = (this as? ApiCallException)?.apiError
+        return api?.toDetailedUserMessage(default) ?: userMessageOr(default)
+    }
+
     val selectedGroupLabel = remember(groups, selectedGroupId) {
         if (selectedGroupId == null) {
             "Все группы"
@@ -171,7 +177,7 @@ fun AdminReportsScreen(
                     groupId = selectedGroupId,
                     assignedByRole = "ALL",
                 ).onSuccess { rows = it }
-                    .onFailure { snackbarHostState.showSnackbar(it.userMessageOr("Ошибка загрузки отчета")) }
+                    .onFailure { snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка загрузки отчета")) }
             }
             isLoading = false
         }
@@ -404,7 +410,7 @@ fun AdminReportsScreen(
                                                 )
                                             )
                                         }.onFailure {
-                                            snackbarHostState.showSnackbar(it.userMessageOr("Ошибка экспорта CSV"))
+                                            snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка экспорта CSV"))
                                         }
                                     }
                                 },
@@ -433,7 +439,7 @@ fun AdminReportsScreen(
                                                 )
                                             )
                                         }.onFailure {
-                                            snackbarHostState.showSnackbar(it.userMessageOr("Ошибка экспорта PDF"))
+                                            snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка экспорта PDF"))
                                         }
                                     }
                                 },
