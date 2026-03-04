@@ -26,11 +26,14 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.UserDto
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 
 private sealed interface StudentGroupFilter {
@@ -62,7 +65,7 @@ fun RegistratorGroupsScreen(
     token: String,
     registratorRepository: RegistratorRepository,
     showHints: Boolean = true,
-    onHideHints: () -> Unit = {}
+    onDismissHints: () -> Unit = {}
 ) {
     var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -86,6 +89,7 @@ fun RegistratorGroupsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
+    val hintContent = remember { HintCatalog.content(HintScreenKey.REGISTRATOR_GROUPS) }
 
     fun Throwable.userMessageOr(default: String): String {
         val api = (this as? ApiCallException)?.apiError
@@ -322,16 +326,19 @@ fun RegistratorGroupsScreen(
             if (showHints) {
                 Spacer(modifier = Modifier.height(8.dp))
                 HowItWorksCard(
-                    steps = listOf(
-                        "Операции с группами доступны только ролям Регистратор/Администратор.",
-                        "При переносе группы выбирайте целевую группу по ID, а не только по названию.",
-                        "Если есть дубликаты названий (например две ИСП-31), сверяйте куратора и число студентов.",
-                        "Перед удалением группы убедитесь, что студенты уже перенесены."
-                    ),
-                    note = "Правило безопасности: при дубликатах выбор только по ID.",
-                    onHideHints = onHideHints,
+                    title = hintContent.title,
+                    steps = hintContent.steps,
+                    note = hintContent.note,
+                    onDismiss = onDismissHints,
                     modifier = Modifier.springEntrance(120),
                 )
+                hintContent.inlineHints.firstOrNull()?.let { inline ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    InlineHint(
+                        text = inline,
+                        modifier = Modifier.springEntrance(135)
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
             if (isLoading) {

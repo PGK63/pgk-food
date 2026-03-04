@@ -64,6 +64,9 @@ import com.example.pgk_food.shared.data.repository.ChefRepository
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.model.MenuMealTypeUi
 import com.example.pgk_food.shared.platform.rememberCsvImportLauncher
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
@@ -71,6 +74,7 @@ import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.plusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
+import com.example.pgk_food.shared.util.HintScreenKey
 import com.example.pgk_food.shared.util.MenuCsvParser
 import com.example.pgk_food.shared.util.MenuMealTypeCodec
 import com.example.pgk_food.shared.util.sortMenuItemsForUi
@@ -93,6 +97,8 @@ private data class CsvImportReport(
 fun ChefMenuManageScreenV2(
     token: String,
     chefRepository: ChefRepository,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
 ) {
     val studentRepository = remember { StudentRepository() }
     val scope = rememberCoroutineScope()
@@ -109,6 +115,7 @@ fun ChefMenuManageScreenV2(
     var copyDate by remember { mutableStateOf(plusDays(todayLocalDate(), 1)) }
     var showCopyDatePicker by remember { mutableStateOf(false) }
     var importReport by remember { mutableStateOf<CsvImportReport?>(null) }
+    val hintContent = remember { HintCatalog.content(HintScreenKey.CHEF_MENU_MANAGE) }
 
     fun Throwable.userMessageOr(default: String): String {
         val api = (this as? ApiCallException)?.apiError
@@ -240,6 +247,20 @@ fun ChefMenuManageScreenV2(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.springEntrance()
                 )
+                if (showHints) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HowItWorksCard(
+                        title = hintContent.title,
+                        steps = hintContent.steps,
+                        note = hintContent.note,
+                        onDismiss = onDismissHints,
+                        modifier = Modifier.springEntrance(40),
+                    )
+                    hintContent.inlineHints.firstOrNull()?.let { inline ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        InlineHint(text = inline, modifier = Modifier.springEntrance(45))
+                    }
+                }
                 Spacer(modifier = Modifier.height(12.dp))
                 if (isActionLoading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())

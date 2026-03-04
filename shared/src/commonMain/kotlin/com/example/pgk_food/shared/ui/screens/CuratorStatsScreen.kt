@@ -47,11 +47,14 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.StudentMealStatus
 import com.example.pgk_food.shared.data.repository.CuratorRepository
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.TagShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.todayLocalDate
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -63,7 +66,9 @@ import kotlinx.datetime.toLocalDateTime
 fun CuratorStatsScreen(
     token: String,
     curatorId: String,
-    curatorRepository: CuratorRepository
+    curatorRepository: CuratorRepository,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
 ) {
     val today = remember { todayLocalDate() }
 
@@ -78,6 +83,7 @@ fun CuratorStatsScreen(
     var isGroupMenuExpanded by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
+    val hintContent = remember { HintCatalog.content(HintScreenKey.CURATOR_STATS) }
 
     fun loadGroups() {
         scope.launch {
@@ -150,6 +156,16 @@ fun CuratorStatsScreen(
             fontWeight = FontWeight.Black,
             modifier = Modifier.springEntrance(),
         )
+        if (showHints) {
+            Spacer(modifier = Modifier.height(8.dp))
+            HowItWorksCard(
+                title = hintContent.title,
+                steps = hintContent.steps,
+                note = hintContent.note,
+                onDismiss = onDismissHints,
+                modifier = Modifier.springEntrance(40),
+            )
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 

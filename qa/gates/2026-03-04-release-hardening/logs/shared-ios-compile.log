@@ -1,0 +1,90 @@
+> Task :shared:kmpPartiallyResolvedDependenciesChecker
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:downloadKotlinNativeDistribution
+> Task :shared:convertXmlValueResourcesForAppleMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForAppleMain NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForAppleMain NO-SOURCE
+> Task :shared:generateResourceAccessorsForAppleMain NO-SOURCE
+> Task :shared:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForCommonMain
+> Task :shared:prepareComposeResourcesTaskForCommonMain
+> Task :shared:generateResourceAccessorsForCommonMain
+> Task :shared:convertXmlValueResourcesForIosMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForIosMain NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForIosMain NO-SOURCE
+> Task :shared:generateResourceAccessorsForIosMain NO-SOURCE
+> Task :shared:convertXmlValueResourcesForIosX64Main NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForIosX64Main NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForIosX64Main NO-SOURCE
+> Task :shared:generateResourceAccessorsForIosX64Main NO-SOURCE
+> Task :shared:convertXmlValueResourcesForNativeMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForNativeMain NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForNativeMain NO-SOURCE
+> Task :shared:generateResourceAccessorsForNativeMain NO-SOURCE
+> Task :shared:generateActualResourceCollectorsForIosX64Main
+> Task :shared:generateComposeResClass
+> Task :shared:generateExpectResourceCollectorsForCommonMain
+> Task :shared:kspKotlinIosX64 SKIPPED
+
+> Task :shared:compileKotlinIosX64
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/core/network/ApiCaller.kt:8:8 'typealias IOException = IOException' is deprecated. Use kotlinx.io.IOException instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/core/network/ApiCaller.kt:40:17 'typealias IOException = IOException' is deprecated. Use kotlinx.io.IOException instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/local/AppDatabase.kt:49:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/repository/ChefRepository.kt:33:8 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/repository/ChefRepository.kt:337:17 Redundant creation of Json format. Creating instances for each usage can be slow.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/repository/ChefRepository.kt:509:14 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/repository/ChefRepository.kt:512:16 'val monthNumber: Int' is deprecated. Use the 'month' property instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/data/repository/ChefRepository.kt:513:16 'val dayOfMonth: Int' is deprecated. Use the 'day' property instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/platform/KeyValueStore.kt:3:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/platform/SecureStore.kt:3:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/components/CredentialsDialog.kt:31:28 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/AdminReportsScreen.kt:72:8 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/AdminReportsScreen.kt:196:37 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/AdminReportsScreen.kt:216:35 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/AdminReportsScreen.kt:279:21 'fun TabRow(selectedTabIndex: Int, modifier: Modifier = ..., containerColor: Color = ..., contentColor: Color = ..., indicator: ComposableFunction1<List<TabPosition>, Unit> = ..., divider: ComposableFunction0<Unit> = ..., tabs: ComposableFunction0<Unit>): Unit' is deprecated. Replaced with PrimaryTabRow and SecondaryTabRow.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefMenuManageScreenV2.kt:82:8 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefMenuManageScreenV2.kt:210:40 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefMenuManageScreenV2.kt:226:36 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefMenuManageScreenV2.kt:515:32 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefMenuManageScreenV2.kt:551:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes ExposedDropdownMenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:80:8 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:187:40 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:211:36 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:286:110 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Throwable'.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:374:30 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes ExposedDropdownMenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorRosterScreen.kt:500:110 Unnecessary non-null assertion (!!) on a non-null receiver of type 'Throwable'.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorStatsScreen.kt:59:8 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorStatsScreen.kt:133:40 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/CuratorStatsScreen.kt:186:26 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes ExposedDropdownMenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:53:8 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:327:48 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:344:47 'val Icons.Filled.ExitToApp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ExitToApp.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:1040:9 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:1043:20 'val dayOfMonth: Int' is deprecated. Use the 'day' property instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:1044:12 'val monthNumber: Int' is deprecated. Use the 'month' property instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:1140:65 Elvis operator (?:) always returns the left operand of non-nullable type 'String'.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/MainScreenShared.kt:1167:39 'val Icons.Filled.ListAlt: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ListAlt.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorCreateUserRoute.kt:323:41 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes ExposedDropdownMenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorGroupsScreen.kt:180:57 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorGroupsScreen.kt:250:30 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorGroupsScreen.kt:776:53 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes ExposedDropdownMenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorUsersScreen.kt:83:28 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/screens/RegistratorUsersScreen.kt:827:49 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes ExposedDropdownMenuAnchorType and enabled parameters.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/util/DateUtils.kt:5:8 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/util/DateUtils.kt:15:5 'typealias Instant = Instant' is deprecated. This type is deprecated in favor of `kotlin.time.Instant`.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/util/DateUtils.kt:22:17 'val dayOfMonth: Int' is deprecated. Use the 'day' property instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/util/DateUtils.kt:23:19 'val monthNumber: Int' is deprecated. Use the 'month' property instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/util/DateUtils.kt:45:13 'val dayOfMonth: Int' is deprecated. Use the 'day' property instead.
+w: file:///home/wsr/pgk-food/shared/src/commonMain/kotlin/com/example/pgk_food/shared/ui/util/DateUtils.kt:45:60 'val monthNumber: Int' is deprecated. Use the 'month' property instead.
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/data/local/AppDatabaseConstructor.ios.kt:5:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/platform/FileSave.ios.kt:97:12 This declaration needs opt-in. Its usage should be marked with '@kotlinx.cinterop.BetaInteropApi' or '@OptIn(kotlinx.cinterop.BetaInteropApi::class)'
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/platform/KeyValueStore.ios.kt:6:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/platform/QrSupport.ios.kt:154:52 Redundant call of conversion method.
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/platform/QrSupport.ios.kt:179:9 'fun <T : UIView> UIKitView(factory: () -> T, modifier: Modifier, update: (T) -> Unit = ..., background: Color = ..., onRelease: (T) -> Unit = ..., onResize: (T, CValue<CGRect>) -> Unit = ..., interactive: Boolean = ..., accessibilityEnabled: Boolean = ...): Unit' is deprecated. This function was deprecated in favor of newer API.
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/platform/QrSupport.ios.kt:581:12 This declaration needs opt-in. Its usage should be marked with '@kotlinx.cinterop.BetaInteropApi' or '@OptIn(kotlinx.cinterop.BetaInteropApi::class)'
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/platform/SecureStore.ios.kt:49:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. Consider using the '-Xexpect-actual-classes' flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/platform/Time.ios.kt:14:16 Redundant call of conversion method.
+w: file:///home/wsr/pgk-food/shared/src/iosMain/kotlin/com/example/pgk_food/shared/ui/screens/ChefScannerScreenShared.ios.kt:581:86 No cast needed.
+
+BUILD SUCCESSFUL in 12s
+9 actionable tasks: 9 executed

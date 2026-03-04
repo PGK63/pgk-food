@@ -57,6 +57,9 @@ import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.platform.FileSaveRequest
 import com.example.pgk_food.shared.platform.rememberFileSaveLauncher
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
@@ -64,6 +67,7 @@ import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.minusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -77,6 +81,9 @@ fun AdminReportsScreen(
     adminRepository: AdminRepository,
     showFraudTab: Boolean = true,
     loadGroups: suspend () -> Result<List<GroupDto>>,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
+    hintScreen: HintScreenKey = HintScreenKey.ADMIN_REPORTS,
 ) {
     val today = remember { todayLocalDate() }
 
@@ -101,6 +108,7 @@ fun AdminReportsScreen(
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
     val scope = rememberCoroutineScope()
+    val hintContent = remember(hintScreen) { HintCatalog.content(hintScreen) }
     val saveFile = rememberFileSaveLauncher { success, message ->
         scope.launch {
             val snack = when {
@@ -254,6 +262,17 @@ fun AdminReportsScreen(
                     modifier = Modifier.springEntrance(),
                 )
             }
+            if (showHints) {
+                item {
+                    HowItWorksCard(
+                        title = hintContent.title,
+                        steps = hintContent.steps,
+                        note = hintContent.note,
+                        onDismiss = onDismissHints,
+                        modifier = Modifier.springEntrance(40),
+                    )
+                }
+            }
 
             if (showFraudTab) {
                 item {
@@ -352,6 +371,16 @@ fun AdminReportsScreen(
                 if (rows.isEmpty()) {
                     item { Text("Нет данных за выбранный период", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
+                    if (showHints) {
+                        hintContent.inlineHints.firstOrNull()?.let { inline ->
+                            item {
+                                InlineHint(
+                                    text = inline,
+                                    modifier = Modifier.springEntrance(80)
+                                )
+                            }
+                        }
+                    }
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),

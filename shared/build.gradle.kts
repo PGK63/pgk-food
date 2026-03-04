@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val debugHttpEnabled = (findProperty("PGK_DEBUG_HTTP")?.toString()?.toBoolean() == true)
+
 kotlin {
     androidTarget {
         compilerOptions {
@@ -46,11 +48,15 @@ kotlin {
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         androidMain.dependencies {
             implementation(compose.preview)
             compileOnly(libs.androidx.activity.compose)
             implementation(libs.ktor.client.android)
             implementation(libs.room.ktx)
+            implementation(libs.androidx.security.crypto)
             implementation(libs.zxing.core)
             implementation(libs.androidx.camera.core)
             implementation(libs.androidx.camera.camera2)
@@ -65,6 +71,7 @@ kotlin {
 }
 
 dependencies {
+    add("kspCommonMainMetadata", libs.room.compiler)
     add("kspAndroid", libs.room.compiler)
     add("kspIosX64", libs.room.compiler)
     add("kspIosArm64", libs.room.compiler)
@@ -75,8 +82,13 @@ android {
     namespace = "com.example.pgk_food.shared"
     compileSdk = 36
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         minSdk = 24
+        buildConfigField("boolean", "PGK_DEBUG_HTTP", debugHttpEnabled.toString())
     }
 
     compileOptions {

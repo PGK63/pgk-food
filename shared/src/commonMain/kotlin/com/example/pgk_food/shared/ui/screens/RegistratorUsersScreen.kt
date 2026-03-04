@@ -37,6 +37,9 @@ import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.data.session.SessionStore
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.SectionShape
@@ -46,6 +49,7 @@ import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 
 private fun UserRole.titleRu(): String = when (this) {
@@ -66,6 +70,8 @@ fun RegistratorUsersScreen(
     token: String,
     registratorRepository: RegistratorRepository,
     reloadKey: Int = 0,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
     onCreateUserClick: (Int?) -> Unit = {},
 ) {
     var users by remember { mutableStateOf<List<UserDto>>(emptyList()) }
@@ -75,6 +81,7 @@ fun RegistratorUsersScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
+    val hintContent = remember { HintCatalog.content(HintScreenKey.REGISTRATOR_USERS) }
 
     var credentialsDialog by remember { mutableStateOf<UserCredentialsUi?>(null) }
 
@@ -162,6 +169,20 @@ fun RegistratorUsersScreen(
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
+            if (showHints) {
+                HowItWorksCard(
+                    title = hintContent.title,
+                    steps = hintContent.steps,
+                    note = hintContent.note,
+                    onDismiss = onDismissHints,
+                    modifier = Modifier.springEntrance(10),
+                )
+                hintContent.inlineHints.firstOrNull()?.let { inline ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    InlineHint(text = inline, modifier = Modifier.springEntrance(15))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Search bar
             OutlinedTextField(

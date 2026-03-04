@@ -4,9 +4,12 @@ import com.example.pgk_food.shared.data.local.SharedDatabase
 import com.example.pgk_food.shared.data.local.entity.UserSessionEntity
 import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.ChefRepository
+import com.example.pgk_food.shared.data.session.SessionSecrets
 import com.example.pgk_food.shared.data.session.UserSession
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
+
+private const val SECURE_TOKEN_SENTINEL = "__SECURE_TOKEN__"
 
 enum class BackgroundSyncOutcome {
     SUCCESS,
@@ -50,7 +53,9 @@ object BackgroundSyncBridge {
 
 private fun UserSessionEntity.toDomain(): UserSession = UserSession(
     userId = userId,
-    token = token,
+    token = SessionSecrets.getToken(userId)
+        ?: token.takeIf { it.isNotBlank() && it != SECURE_TOKEN_SENTINEL }
+        ?: "",
     roles = roles,
     name = name,
     surname = surname,
@@ -58,5 +63,5 @@ private fun UserSessionEntity.toDomain(): UserSession = UserSession(
     groupId = groupId,
     studentCategory = studentCategory,
     publicKey = publicKey,
-    privateKey = privateKey,
+    privateKey = SessionSecrets.getPrivateKey(userId) ?: privateKey,
 )

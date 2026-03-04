@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.repository
 
+import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.local.SharedDatabase
@@ -45,24 +46,36 @@ class StudentRepository {
                         date = response.date,
                         isBreakfastAllowed = response.isBreakfastAllowed,
                         isLunchAllowed = response.isLunchAllowed,
+                        isBreakfastConsumed = response.isBreakfastConsumed,
+                        isLunchConsumed = response.isLunchConsumed,
                     )
                 )
             }
             response
         }
 
-        remoteResult.recoverCatching {
-            val cached = SharedDatabase.instance.offlineCouponDao().getDailyCoupons()
-                ?: throw it
+        if (remoteResult.isSuccess) {
+            return@withContext remoteResult
+        }
+
+        val failure = remoteResult.exceptionOrNull() ?: return@withContext remoteResult
+        if (!failure.shouldAllowOfflineMealsFallback()) {
+            return@withContext Result.failure(failure)
+        }
+
+        val cached = SharedDatabase.instance.offlineCouponDao().getDailyCoupons()
+            ?: return@withContext Result.failure(failure)
+
+        Result.success(
             MealsTodayResponse(
                 date = cached.date,
                 isBreakfastAllowed = cached.isBreakfastAllowed,
                 isLunchAllowed = cached.isLunchAllowed,
                 reason = "Оффлайн режим",
-                isBreakfastConsumed = null,
-                isLunchConsumed = null,
+                isBreakfastConsumed = cached.isBreakfastConsumed,
+                isLunchConsumed = cached.isLunchConsumed,
             )
-        }
+        )
     }
 
     suspend fun getMenu(token: String, date: String? = null): Result<List<MenuItemDto>> = safeResultApiCall {
@@ -94,9 +107,18 @@ class StudentRepository {
                 isBreakfastAllowed = cached.isBreakfastAllowed,
                 isLunchAllowed = cached.isLunchAllowed,
                 reason = "Оффлайн режим",
-                isBreakfastConsumed = null,
-                isLunchConsumed = null,
+                isBreakfastConsumed = cached.isBreakfastConsumed,
+                isLunchConsumed = cached.isLunchConsumed,
             )
         }.getOrNull()
     }
+}
+
+internal fun Throwable.shouldAllowOfflineMealsFallback(): Boolean {
+    val api = this as? ApiCallException ?: return false
+    val code = api.apiError.code
+    val status = api.apiError.httpStatus
+    if (status == 401 || status == 403) return false
+    if (code == "HTTP_401" || code == "HTTP_403" || code == "ACCESS_DENIED") return false
+    return api.apiError.retryable || code == "NETWORK_ERROR" || code == "TIMEOUT"
 }

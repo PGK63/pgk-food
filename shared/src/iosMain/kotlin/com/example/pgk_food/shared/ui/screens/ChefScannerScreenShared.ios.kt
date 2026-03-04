@@ -70,7 +70,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.UIKitView
+import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
@@ -78,6 +80,7 @@ import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.ScanState
 import com.example.pgk_food.shared.ui.viewmodels.SyncState
 import com.example.pgk_food.shared.platform.currentTimeMillis
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.AVAuthorizationStatusAuthorized
 import platform.AVFoundation.AVAuthorizationStatusNotDetermined
@@ -112,7 +115,7 @@ actual fun ChefScannerScreenShared(
     token: String,
     viewModel: ChefViewModel,
     showHints: Boolean,
-    onHideHints: () -> Unit,
+    onDismissHints: () -> Unit,
 ) {
     val scanState by viewModel.scanState.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
@@ -124,6 +127,7 @@ actual fun ChefScannerScreenShared(
     var torchEnabled by remember { mutableStateOf(false) }
     var scanResetKey by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val hintContent = remember { HintCatalog.content(HintScreenKey.CHEF_SCANNER) }
 
     LaunchedEffect(Unit) {
         when (AVCaptureDevice.Companion.authorizationStatusForMediaType(mediaType = AVMediaTypeVideo)) {
@@ -249,15 +253,15 @@ actual fun ChefScannerScreenShared(
             if (showHints) {
                 Spacer(modifier = Modifier.height(hintsTopSpacer))
                 HowItWorksCard(
-                    steps = listOf(
-                        "Сканируйте QR студента и дождитесь карточки результата.",
-                        "Если есть отказ, исправьте причину и повторите проверку.",
-                        "При потере сети сканер автоматически уходит в оффлайн с последующей синхронизацией.",
-                        "Сверяйте тип питания и группу в карточке перед выдачей."
-                    ),
-                    note = "Онлайн-результат приоритетнее оффлайн-проверки.",
-                    onHideHints = onHideHints,
+                    title = hintContent.title,
+                    steps = hintContent.steps,
+                    note = hintContent.note,
+                    onDismiss = onDismissHints,
                 )
+                hintContent.inlineHints.firstOrNull()?.let { inline ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    InlineHint(text = inline)
+                }
                 Spacer(modifier = Modifier.height(hintsBottomSpacer))
             } else {
                 Spacer(modifier = Modifier.height(if (isCompactHeight) 12.dp else 20.dp))

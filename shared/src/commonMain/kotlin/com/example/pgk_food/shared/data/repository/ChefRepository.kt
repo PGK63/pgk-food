@@ -436,9 +436,9 @@ class ChefRepository {
         val items = unsynced.map {
             TransactionSyncItem(
                 studentId = it.studentId,
-                timestamp = epochSecondsToLocalIso(it.timestamp),
                 mealType = it.mealType,
                 transactionHash = it.transactionHash,
+                timestampEpochSec = it.timestamp,
             )
         }
 
@@ -467,25 +467,25 @@ class ChefRepository {
     ): List<Int> {
         val cappedSuccessCount = response.successCount.coerceIn(0, unsynced.size)
         if (cappedSuccessCount == 0) return emptyList()
-        if (response.errors.isEmpty()) return unsynced.take(cappedSuccessCount).map { it.id }
-
-        val failedStudentIds = response.errors.mapNotNull { error ->
-            SYNC_ERROR_STUDENT_REGEX.find(error)
-                ?.groupValues
-                ?.getOrNull(1)
-        }.toSet()
-
-        val likelySuccess = unsynced.filterNot { it.studentId in failedStudentIds }.map { it.id }.toMutableList()
-        if (likelySuccess.size < cappedSuccessCount) {
-            val fallbackIds = unsynced.map { it.id }.filterNot { it in likelySuccess }
-            likelySuccess += fallbackIds.take(cappedSuccessCount - likelySuccess.size)
+        if (response.processed.isNotEmpty()) {
+            val unsyncedByHash = unsynced.associateBy { it.transactionHash }
+            val ids = response.processed.asSequence()
+                .filter { it.status == "SUCCESS" || it.status == "IDEMPOTENT" }
+                .mapNotNull { processed ->
+                    val hash = processed.transactionHash ?: return@mapNotNull null
+                    unsyncedByHash[hash]?.id
+                }
+                .toSet()
+                .toList()
+            return ids.take(cappedSuccessCount)
         }
-        return likelySuccess.take(cappedSuccessCount)
+
+        // Legacy fallback for older server contracts without per-item statuses.
+        return unsynced.take(cappedSuccessCount).map { it.id }
     }
 
     private companion object {
         const val HISTORY_DEDUPE_WINDOW_MS = 30_000L
-        val SYNC_ERROR_STUDENT_REGEX = Regex("""Student ([^: ]+):""")
     }
 }
 
@@ -512,17 +512,6 @@ private fun currentDateIsoString(): String {
     val m = dt.monthNumber.toString().padStart(2, '0')
     val d = dt.dayOfMonth.toString().padStart(2, '0')
     return "$y-$m-$d"
-}
-
-private fun epochSecondsToLocalIso(epochSeconds: Long): String {
-    val dt = Instant.fromEpochSeconds(epochSeconds).toLocalDateTime(TimeZone.currentSystemDefault())
-    val y = dt.year.toString().padStart(4, '0')
-    val m = dt.monthNumber.toString().padStart(2, '0')
-    val d = dt.dayOfMonth.toString().padStart(2, '0')
-    val hh = dt.hour.toString().padStart(2, '0')
-    val mm = dt.minute.toString().padStart(2, '0')
-    val ss = dt.second.toString().padStart(2, '0')
-    return "$y-$m-$d" + "T$hh:$mm:$ss"
 }
 
 private fun deterministicFallbackTransactionHash(payload: QrPayload): String {

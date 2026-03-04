@@ -209,7 +209,7 @@ fun SettingsScreen(
                                 ) {
                                     Text("Показывать подсказки", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                                     Text(
-                                        "По умолчанию подсказки активны первые 3 дня, затем скрываются автоматически.",
+                                        "По умолчанию подсказки активны первые 3 дня. Повторное включение снова покажет их на всех экранах.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )

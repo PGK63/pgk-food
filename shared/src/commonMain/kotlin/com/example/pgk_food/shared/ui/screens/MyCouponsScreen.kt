@@ -53,11 +53,14 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.repository.MealsTodayResponse
 import com.example.pgk_food.shared.data.repository.StudentRepository
+import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.viewmodels.DownloadKeysState
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 
 private enum class CouponStatus {
@@ -88,7 +91,7 @@ fun MyCouponsScreen(
     studentRepository: StudentRepository,
     viewModel: StudentViewModel,
     showHints: Boolean = true,
-    onHideHints: () -> Unit = {},
+    onDismissHints: () -> Unit = {},
     onCouponClick: (String) -> Unit
 ) {
     var mealsToday by remember { mutableStateOf<MealsTodayResponse?>(null) }
@@ -98,6 +101,7 @@ fun MyCouponsScreen(
     val downloadState by viewModel.downloadKeysState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val hintContent = remember { HintCatalog.content(HintScreenKey.STUDENT_COUPONS) }
 
     fun Throwable.userMessageOr(default: String): String {
         val api = (this as? ApiCallException)?.apiError
@@ -224,14 +228,10 @@ fun MyCouponsScreen(
                     if (showHints) {
                         Spacer(modifier = Modifier.height(8.dp))
                         HowItWorksCard(
-                            steps = listOf(
-                                "Статусы талона: доступен, использован, недоступен.",
-                                "После сканирования статус может обновиться с небольшой задержкой.",
-                                "В оффлайн-режиме отображаются последние сохраненные данные.",
-                                "Если статус не обновился, откройте экран повторно."
-                            ),
-                            note = "Оффлайн-режим не гарантирует мгновенную синхронизацию.",
-                            onHideHints = onHideHints,
+                            title = hintContent.title,
+                            steps = hintContent.steps,
+                            note = hintContent.note,
+                            onDismiss = onDismissHints,
                         )
                     }
 
@@ -259,6 +259,12 @@ fun MyCouponsScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+                    if (showHints) {
+                        hintContent.inlineHints.firstOrNull()?.let { inline ->
+                            InlineHint(text = inline)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
                     val isLoadingKeys = downloadState is DownloadKeysState.Loading
                     OutlinedButton(
                         onClick = { viewModel.downloadKeys() },

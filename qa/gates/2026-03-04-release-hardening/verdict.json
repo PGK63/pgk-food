@@ -1,0 +1,23 @@
+{
+  "go_no_go": "PENDING",
+  "date": "2026-03-04",
+  "build_refs": {
+    "root_head": "dd5dbe08d39fea85dcc87950916301c6a81beedf",
+    "backend_head": "0214e4448c3ab3893936c09af3d47b0af63d4d45"
+  },
+  "failed_scenarios": [
+    "K6_RELEASE_HARDENING_NOT_EXECUTED",
+    "IOS_SIMULATOR_EVIDENCE_MISSING",
+    "IOS_REAL_DEVICE_EVIDENCE_MISSING",
+    "CROSS_PLATFORM_QR_MANUAL_EVIDENCE_MISSING"
+  ],
+  "sev12_open_count": 0,
+  "ios_mac_evidence": false,
+  "ios_device_evidence": false,
+  "blockers": [
+    "Install k6 and attach k6 threshold summary for qa/load/k6/release-hardening.js",
+    "Attach iOS simulator evidence",
+    "Attach iOS real-device evidence",
+    "Attach cross-platform QR (Android<->iOS) manual evidence"
+  ]
+}

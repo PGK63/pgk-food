@@ -35,17 +35,26 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.repository.StudentRepository
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.util.HintScreenKey
 import com.example.pgk_food.shared.util.MenuMealTypeCodec
 import com.example.pgk_food.shared.util.sortMenuItemsForUi
 import kotlinx.coroutines.launch
 
 @Composable
-fun MenuScreenV2(token: String, studentRepository: StudentRepository) {
+fun MenuScreenV2(
+    token: String,
+    studentRepository: StudentRepository,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
+) {
     var isLoading by remember { mutableStateOf(true) }
     var items by remember { mutableStateOf<List<MenuItemDto>>(emptyList()) }
     var errorText by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val hintContent = remember { HintCatalog.content(HintScreenKey.STUDENT_MENU) }
 
     fun Throwable.userMessageOr(default: String): String {
         val api = (this as? ApiCallException)?.apiError
@@ -100,6 +109,15 @@ fun MenuScreenV2(token: String, studentRepository: StudentRepository) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.springEntrance(),
             )
+            if (showHints) {
+                Spacer(modifier = Modifier.height(8.dp))
+                HowItWorksCard(
+                    title = hintContent.title,
+                    steps = hintContent.steps,
+                    note = hintContent.note,
+                    onDismiss = onDismissHints,
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
         }
 

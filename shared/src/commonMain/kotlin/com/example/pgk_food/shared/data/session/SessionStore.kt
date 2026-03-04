@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
+private const val SECURE_TOKEN_SENTINEL = "__SECURE_TOKEN__"
+
 object SessionStore {
     private val _session = MutableStateFlow<UserSession?>(null)
     val session: StateFlow<UserSession?> = _session.asStateFlow()
@@ -26,12 +28,24 @@ object SessionStore {
             val entity = runCatching {
                 SharedDatabase.instance.userSessionDao().getUserSession().firstOrNull()
             }.getOrNull()
-            _session.value = entity?.toDomain()
+            val restoredSession = entity?.toDomainSecureAware()
+            _session.value = restoredSession
+            if (restoredSession != null) {
+                runCatching {
+                    SharedDatabase.instance.userSessionDao().saveSession(restoredSession.toEntity())
+                }
+            }
             _isRestored.value = true
         }
     }
 
     fun save(session: UserSession) {
+        SessionSecrets.saveToken(session.userId, session.token)
+        if (!session.privateKey.isNullOrBlank()) {
+            SessionSecrets.savePrivateKey(session.userId, session.privateKey)
+        } else {
+            SessionSecrets.removePrivateKey(session.userId)
+        }
         _session.value = session
         scope.launch {
             SharedDatabase.instance.userSessionDao().saveSession(session.toEntity())
@@ -39,6 +53,9 @@ object SessionStore {
     }
 
     fun clear() {
+        _session.value?.userId?.let { userId ->
+            SessionSecrets.removeSecrets(userId)
+        }
         _session.value = null
         scope.launch {
             SharedDatabase.instance.userSessionDao().clearSession()
@@ -48,7 +65,7 @@ object SessionStore {
 
 private fun UserSession.toEntity() = UserSessionEntity(
     userId = userId,
-    token = token,
+    token = SECURE_TOKEN_SENTINEL,
     roles = roles,
     name = name,
     surname = surname,
@@ -56,18 +73,34 @@ private fun UserSession.toEntity() = UserSessionEntity(
     groupId = groupId,
     studentCategory = studentCategory,
     publicKey = publicKey,
-    privateKey = privateKey
+    privateKey = null,
 )
 
-private fun UserSessionEntity.toDomain() = UserSession(
-    userId = userId,
-    token = token,
-    roles = roles,
-    name = name,
-    surname = surname,
-    fatherName = fatherName,
-    groupId = groupId,
-    studentCategory = studentCategory,
-    publicKey = publicKey,
-    privateKey = privateKey
-)
+private fun UserSessionEntity.toDomainSecureAware(): UserSession? {
+    val secureToken = SessionSecrets.getToken(userId)
+    val legacyToken = token.takeIf { it.isNotBlank() && it != SECURE_TOKEN_SENTINEL }
+    if (secureToken == null && legacyToken != null) {
+        SessionSecrets.saveToken(userId, legacyToken)
+    }
+    val tokenValue = secureToken ?: legacyToken ?: return null
+
+    val securePrivateKey = SessionSecrets.getPrivateKey(userId)
+    val legacyPrivateKey = privateKey.takeIf { !it.isNullOrBlank() }
+    if (securePrivateKey == null && legacyPrivateKey != null) {
+        SessionSecrets.savePrivateKey(userId, legacyPrivateKey)
+    }
+    val privateKeyValue = securePrivateKey ?: legacyPrivateKey
+
+    return UserSession(
+        userId = userId,
+        token = tokenValue,
+        roles = roles,
+        name = name,
+        surname = surname,
+        fatherName = fatherName,
+        groupId = groupId,
+        studentCategory = studentCategory,
+        publicKey = publicKey,
+        privateKey = privateKeyValue,
+    )
+}

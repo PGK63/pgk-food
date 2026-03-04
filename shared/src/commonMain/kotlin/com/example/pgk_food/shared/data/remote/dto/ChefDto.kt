@@ -50,13 +50,25 @@ data class StudentPermissionDto(
 @Serializable
 data class TransactionSyncItem(
     val studentId: String,
-    val timestamp: String,
     val mealType: String,
-    val transactionHash: String
+    val transactionHash: String,
+    @Deprecated("Use timestampEpochSec")
+    val timestamp: String? = null,
+    val timestampEpochSec: Long? = null,
 )
 
 @Serializable
 data class SyncResponse(
     val successCount: Int,
-    val errors: List<String>
+    val errors: List<String>,
+    val processed: List<SyncProcessedItem> = emptyList(),
+)
+
+@Serializable
+data class SyncProcessedItem(
+    val transactionHash: String? = null,
+    val studentId: String? = null,
+    val status: String,
+    val code: String? = null,
+    val message: String? = null,
 )

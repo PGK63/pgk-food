@@ -3,11 +3,13 @@ package com.example.pgk_food.shared.network
 import com.example.pgk_food.shared.core.session.SessionManager
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpResponseValidator
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +35,11 @@ object SharedNetworkModule {
                     }
                 )
             }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 10_000
+                connectTimeoutMillis = 5_000
+                socketTimeoutMillis = 10_000
+            }
             HttpResponseValidator {
                 handleResponseExceptionWithRequest { cause, _ ->
                     val responseException = cause as? ResponseException ?: return@handleResponseExceptionWithRequest
@@ -44,12 +51,16 @@ object SharedNetworkModule {
                 }
             }
             install(Logging) {
+                val enabled = isDebugHttpLoggingEnabled()
                 logger = object : Logger {
                     override fun log(message: String) {
-                        println(message)
+                        if (enabled) {
+                            println(message)
+                        }
                     }
                 }
-                level = LogLevel.ALL
+                level = if (enabled) LogLevel.HEADERS else LogLevel.NONE
+                sanitizeHeader { it == HttpHeaders.Authorization }
             }
         }
     }

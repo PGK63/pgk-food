@@ -34,11 +34,15 @@ import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 
 private fun UserRole.titleRu(): String = when (this) {
@@ -59,6 +63,8 @@ fun RegistratorCreateUserRoute(
     token: String,
     registratorRepository: RegistratorRepository,
     initialGroupId: Int? = null,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
     onBack: () -> Unit,
     onUserCreated: () -> Unit,
 ) {
@@ -104,6 +110,8 @@ fun RegistratorCreateUserRoute(
                 groups = groups,
                 initialGroupId = initialGroupId,
                 isSubmitting = isSubmitting,
+                showHints = showHints,
+                onDismissHints = onDismissHints,
                 contentPadding = padding,
                 onBack = onBack,
                 onSubmit = { request ->
@@ -147,6 +155,8 @@ private fun RegistratorCreateUserForm(
     groups: List<GroupDto>,
     initialGroupId: Int?,
     isSubmitting: Boolean,
+    showHints: Boolean,
+    onDismissHints: () -> Unit,
     contentPadding: PaddingValues,
     onBack: () -> Unit,
     onSubmit: (CreateUserRequest) -> Unit,
@@ -163,6 +173,7 @@ private fun RegistratorCreateUserForm(
     var selectedGroupId by remember(initialGroupId) { mutableStateOf(initialGroupId) }
     var expandedGroup by remember { mutableStateOf(false) }
     var selectedStudentCategory by remember { mutableStateOf<StudentCategory?>(null) }
+    val hintContent = remember { HintCatalog.content(HintScreenKey.REGISTRATOR_USER_CREATE) }
     val canSubmit = !isSubmitting &&
         name.isNotBlank() &&
         surname.isNotBlank() &&
@@ -188,6 +199,23 @@ private fun RegistratorCreateUserForm(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.springEntrance()
         )
+        if (showHints) {
+            HowItWorksCard(
+                title = hintContent.title,
+                steps = hintContent.steps,
+                note = hintContent.note,
+                onDismiss = onDismissHints,
+                modifier = Modifier.springEntrance(20),
+            )
+            hintContent.inlineHints.firstOrNull()?.let { inline ->
+                InlineHint(
+                    text = inline,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .springEntrance(30)
+                )
+            }
+        }
 
         if (isSubmitting) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())

@@ -3,6 +3,28 @@ package com.example.pgk_food.shared.util
 import com.example.pgk_food.shared.platform.PlatformKeyValueStore
 import com.example.pgk_food.shared.platform.currentTimeMillis
 
+enum class HintScreenKey {
+    STUDENT_DASHBOARD,
+    STUDENT_COUPONS,
+    STUDENT_QR,
+    STUDENT_MENU,
+    CHEF_DASHBOARD,
+    CHEF_SCANNER,
+    CHEF_MENU_MANAGE,
+    CHEF_STATS,
+    REGISTRATOR_DASHBOARD,
+    REGISTRATOR_USERS,
+    REGISTRATOR_USER_CREATE,
+    REGISTRATOR_GROUPS,
+    CURATOR_DASHBOARD,
+    CURATOR_ROSTER,
+    CURATOR_STATS,
+    CURATOR_CATEGORIES,
+    CURATOR_REPORTS,
+    ADMIN_DASHBOARD,
+    ADMIN_REPORTS,
+}
+
 class UiSettingsManager {
     fun shouldShowHints(
         userId: String?,
@@ -20,20 +42,40 @@ class UiSettingsManager {
         val safeUserId = safeUserId(userId)
         PlatformKeyValueStore.putBoolean(PREFS_NAME, hintsOverrideKey(safeUserId), enabled)
         PlatformKeyValueStore.putBoolean(PREFS_NAME, legacyHintsEnabledKey(safeUserId), enabled)
+        if (enabled) {
+            clearAllScreenHints(userId)
+        }
     }
 
     fun hideHints(userId: String?) = setHintsOverride(userId, false)
     fun setHintsEnabled(userId: String?, enabled: Boolean) = setHintsOverride(userId, enabled)
 
-    fun isGuideSeen(userId: String?, guideKey: String): Boolean =
-        PlatformKeyValueStore.getBoolean(PREFS_NAME, guideKey(userId, guideKey), false)
-
-    fun markGuideSeen(userId: String?, guideKey: String) {
-        PlatformKeyValueStore.putBoolean(PREFS_NAME, guideKey(userId, guideKey), true)
+    fun shouldShowScreenHints(
+        userId: String?,
+        screen: HintScreenKey,
+        nowMillis: Long = currentTimeMillis(),
+    ): Boolean {
+        val globalVisible = shouldShowHints(userId, nowMillis)
+        val safeUserId = safeUserId(userId)
+        val isScreenHidden = PlatformKeyValueStore.getBoolean(PREFS_NAME, hiddenScreenKey(safeUserId, screen), false)
+        return HintVisibilityPolicy.resolveScreen(globalVisible, isScreenHidden)
     }
 
-    fun clearGuideSeen(userId: String?, guideKey: String) {
-        PlatformKeyValueStore.remove(PREFS_NAME, guideKey(userId, guideKey))
+    fun hideScreenHints(userId: String?, screen: HintScreenKey) {
+        val safeUserId = safeUserId(userId)
+        PlatformKeyValueStore.putBoolean(PREFS_NAME, hiddenScreenKey(safeUserId, screen), true)
+    }
+
+    fun clearScreenHints(userId: String?, screen: HintScreenKey) {
+        val safeUserId = safeUserId(userId)
+        PlatformKeyValueStore.remove(PREFS_NAME, hiddenScreenKey(safeUserId, screen))
+    }
+
+    fun clearAllScreenHints(userId: String?) {
+        val safeUserId = safeUserId(userId)
+        HintScreenKey.values().forEach { screen ->
+            PlatformKeyValueStore.remove(PREFS_NAME, hiddenScreenKey(safeUserId, screen))
+        }
     }
 
     private fun ensureHintsFirstSeenAt(safeUserId: String, nowMillis: Long): Long {
@@ -61,13 +103,11 @@ class UiSettingsManager {
     private fun legacyHintsEnabledKey(safeUserId: String): String = "hints_enabled:$safeUserId"
     private fun hintsOverrideKey(safeUserId: String): String = "hints_override:$safeUserId"
     private fun hintsFirstSeenAtKey(safeUserId: String): String = "hints_first_seen_at:$safeUserId"
-    private fun guideKey(userId: String?, guideKey: String): String = "guide_seen:${safeUserId(userId)}:$guideKey"
+    private fun hiddenScreenKey(safeUserId: String, screen: HintScreenKey): String =
+        "hints_hidden_screen:$safeUserId:${screen.name}"
 
     companion object {
         private const val PREFS_NAME = "ui_settings"
-        const val GUIDE_CSV_IMPORT = "csv_import"
-        const val GUIDE_MANUAL_USER_CREATE = "manual_user_create"
-        const val GUIDE_GROUP_TRANSFER = "group_transfer"
     }
 }
 
@@ -77,5 +117,9 @@ internal object HintVisibilityPolicy {
         if (override != null) return override
         if (firstSeenAtMillis <= 0L) return true
         return nowMillis - firstSeenAtMillis <= HINT_WINDOW_MILLIS
+    }
+
+    fun resolveScreen(globalVisible: Boolean, isScreenHidden: Boolean): Boolean {
+        return globalVisible && !isScreenHidden
     }
 }

@@ -8,5 +8,5 @@ expect fun ChefScannerScreenShared(
     token: String,
     viewModel: ChefViewModel,
     showHints: Boolean = true,
-    onHideHints: () -> Unit = {},
+    onDismissHints: () -> Unit = {},
 )

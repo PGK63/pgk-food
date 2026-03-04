@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Card
@@ -27,7 +28,8 @@ fun HowItWorksCard(
     steps: List<String>,
     modifier: Modifier = Modifier,
     note: String? = null,
-    onHideHints: (() -> Unit)? = null,
+    dismissLabel: String = "Скрыть на этом экране",
+    onDismiss: (() -> Unit)? = null,
 ) {
     if (steps.isEmpty()) return
 
@@ -75,15 +77,47 @@ fun HowItWorksCard(
                 )
             }
 
-            if (onHideHints != null) {
+            if (onDismiss != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(
-                    onClick = onHideHints,
+                    onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End),
                 ) {
-                    Text("Скрыть подсказки")
+                    Text(dismissLabel)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun InlineHint(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

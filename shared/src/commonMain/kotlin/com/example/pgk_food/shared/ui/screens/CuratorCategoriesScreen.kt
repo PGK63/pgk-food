@@ -45,7 +45,11 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 
 private fun StudentCategory.titleRu(): String = when (this) {
@@ -58,7 +62,9 @@ private fun StudentCategory.titleRu(): String = when (this) {
 fun CuratorCategoriesScreen(
     token: String,
     curatorId: String,
-    curatorRepository: CuratorRepository
+    curatorRepository: CuratorRepository,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
 ) {
     var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
     var selectedGroupId by remember { mutableStateOf<Int?>(null) }
@@ -69,6 +75,7 @@ fun CuratorCategoriesScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val hintContent = remember { HintCatalog.content(HintScreenKey.CURATOR_CATEGORIES) }
 
     fun Throwable.userMessageOr(default: String): String {
         val api = (this as? ApiCallException)?.apiError
@@ -150,6 +157,20 @@ fun CuratorCategoriesScreen(
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.springEntrance()
             )
+            if (showHints) {
+                Spacer(modifier = Modifier.height(8.dp))
+                HowItWorksCard(
+                    title = hintContent.title,
+                    steps = hintContent.steps,
+                    note = hintContent.note,
+                    onDismiss = onDismissHints,
+                    modifier = Modifier.springEntrance(40)
+                )
+                hintContent.inlineHints.firstOrNull()?.let { inline ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    InlineHint(text = inline, modifier = Modifier.springEntrance(50))
+                }
+            }
 
             if (groups.isNotEmpty()) {
                 OutlinedTextField(

@@ -42,9 +42,12 @@ import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.runtime.MainLoopSnapshot
 import com.example.pgk_food.shared.runtime.MainLoopStateStore
+import com.example.pgk_food.shared.ui.components.HintCatalog
+import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
+import com.example.pgk_food.shared.util.HintScreenKey
 import com.example.pgk_food.shared.util.NetworkMonitor
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
@@ -154,13 +157,14 @@ fun MainScreenShared(
     var navDirection by remember(session.userId) { mutableStateOf(NavDirection.Forward) }
     var selectedMealType by remember(session.userId) { mutableStateOf("") }
     var selectedRole by remember(session.userId) { mutableStateOf<UserRole?>(null) }
-    var showHints by remember(session.userId) {
+    var showGlobalHints by remember(session.userId) {
         mutableStateOf(
             uiSettingsManager.shouldShowHints(
                 session.userId
             )
         )
     }
+    var hintsVersion by remember(session.userId) { mutableIntStateOf(0) }
     var isSnapshotRestored by remember(session.userId) { mutableStateOf(false) }
     val isIos = platformName() == "iOS"
 
@@ -201,7 +205,7 @@ fun MainScreenShared(
         currentSubScreen = resolveSubScreenForRole(activeRole, restoredSubScreen)
         backStack = emptyList()
         selectedMealType = restored?.selectedMealType.orEmpty()
-        showHints = uiSettingsManager.shouldShowHints(session.userId)
+        showGlobalHints = uiSettingsManager.shouldShowHints(session.userId)
         isSnapshotRestored = true
     }
 
@@ -248,12 +252,21 @@ fun MainScreenShared(
 
     LaunchedEffect(currentSubScreen, session.userId) {
         if (currentSubScreen != "settings") {
-            showHints = uiSettingsManager.shouldShowHints(session.userId)
+            showGlobalHints = uiSettingsManager.shouldShowHints(session.userId)
+            hintsVersion += 1
         }
     }
-    val onHideHints = {
-        uiSettingsManager.hideHints(session.userId)
-        showHints = uiSettingsManager.shouldShowHints(session.userId)
+    val shouldShowScreenHints: (HintScreenKey) -> Boolean = { screen ->
+        hintsVersion
+        if (!showGlobalHints) {
+            false
+        } else {
+            uiSettingsManager.shouldShowScreenHints(session.userId, screen)
+        }
+    }
+    val onDismissScreenHints: (HintScreenKey) -> Unit = { screen ->
+        uiSettingsManager.hideScreenHints(session.userId, screen)
+        hintsVersion += 1
     }
     val density = LocalDensity.current
     val edgeSwipeModifier = if (isIos && canPop) {
@@ -387,8 +400,8 @@ fun MainScreenShared(
                                     selectedMealType = selectedMealType,
                                     studentRepository = studentRepository,
                                     studentViewModel = studentViewModel,
-                                    showHints = showHints,
-                                    onHideHints = onHideHints,
+                                    showHints = shouldShowScreenHints,
+                                    onDismissHints = onDismissScreenHints,
                                     onNavigate = { navigateTo(it) },
                                     onMealSelect = {
                                         selectedMealType = it
@@ -401,28 +414,32 @@ fun MainScreenShared(
                                     currentSubScreen = targetSubScreen,
                                     chefRepository = chefRepository,
                                     chefViewModel = chefViewModel,
-                                    showHints = showHints,
-                                    onHideHints = onHideHints,
+                                    showHints = shouldShowScreenHints,
+                                    onDismissHints = onDismissScreenHints,
                                     onNavigate = { navigateTo(it) }
                                 )
 
                                 UserRole.REGISTRATOR -> RegistratorFlowShared(
                                     session = session,
                                     currentSubScreen = targetSubScreen,
-                                    showHints = showHints,
-                                    onHideHints = onHideHints,
+                                    showHints = shouldShowScreenHints,
+                                    onDismissHints = onDismissScreenHints,
                                     onNavigate = { navigateTo(it) },
                                     onNavigateBack = { popScreen() },
                                 )
 
                                 UserRole.CURATOR -> CuratorFlowShared(
                                     session,
-                                    targetSubScreen
+                                    targetSubScreen,
+                                    shouldShowScreenHints,
+                                    onDismissScreenHints,
                                 ) { navigateTo(it) }
 
                                 UserRole.ADMIN -> AdminFlowShared(
                                     session,
-                                    targetSubScreen
+                                    targetSubScreen,
+                                    shouldShowScreenHints,
+                                    onDismissScreenHints,
                                 ) { navigateTo(it) }
 
                                 else -> Text(
@@ -508,34 +525,51 @@ fun StudentFlowShared(
     selectedMealType: String,
     studentRepository: StudentRepository,
     studentViewModel: StudentViewModel,
-    showHints: Boolean,
-    onHideHints: () -> Unit,
+    showHints: (HintScreenKey) -> Boolean,
+    onDismissHints: (HintScreenKey) -> Unit,
     onNavigate: (String) -> Unit,
     onMealSelect: (String) -> Unit
 ) {
     when (currentSubScreen) {
         "dashboard" -> StudentDashboardShared(
-            session.token,
-            studentRepository,
-            { onNavigate("coupons") },
-            { onNavigate("menu") })
+            token = session.token,
+            studentRepository = studentRepository,
+            onCouponsClick = { onNavigate("coupons") },
+            onMenuClick = { onNavigate("menu") },
+            showHints = showHints(HintScreenKey.STUDENT_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.STUDENT_DASHBOARD) },
+        )
 
         "coupons" -> MyCouponsScreen(
             token = session.token,
             studentRepository = studentRepository,
             viewModel = studentViewModel,
-            showHints = showHints,
-            onHideHints = onHideHints,
+            showHints = showHints(HintScreenKey.STUDENT_COUPONS),
+            onDismissHints = { onDismissHints(HintScreenKey.STUDENT_COUPONS) },
             onCouponClick = onMealSelect
         )
 
-        "qr" -> StudentQrScreenShared(session, selectedMealType, studentViewModel)
-        "menu" -> MenuScreenV2(token = session.token, studentRepository = studentRepository)
+        "qr" -> StudentQrScreenShared(
+            session = session,
+            mealType = selectedMealType,
+            viewModel = studentViewModel,
+            showHints = showHints(HintScreenKey.STUDENT_QR),
+            onDismissHints = { onDismissHints(HintScreenKey.STUDENT_QR) },
+        )
+        "menu" -> MenuScreenV2(
+            token = session.token,
+            studentRepository = studentRepository,
+            showHints = showHints(HintScreenKey.STUDENT_MENU),
+            onDismissHints = { onDismissHints(HintScreenKey.STUDENT_MENU) },
+        )
         else -> StudentDashboardShared(
-            session.token,
-            studentRepository,
-            { onNavigate("coupons") },
-            { onNavigate("menu") })
+            token = session.token,
+            studentRepository = studentRepository,
+            onCouponsClick = { onNavigate("coupons") },
+            onMenuClick = { onNavigate("menu") },
+            showHints = showHints(HintScreenKey.STUDENT_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.STUDENT_DASHBOARD) },
+        )
     }
 }
 
@@ -545,33 +579,45 @@ fun ChefFlowShared(
     currentSubScreen: String,
     chefRepository: ChefRepository,
     chefViewModel: ChefViewModel,
-    showHints: Boolean,
-    onHideHints: () -> Unit,
+    showHints: (HintScreenKey) -> Boolean,
+    onDismissHints: (HintScreenKey) -> Unit,
     onNavigate: (String) -> Unit
 ) {
     when (currentSubScreen) {
         "dashboard" -> ChefDashboardShared(
-            { onNavigate("scanner") },
-            { onNavigate("menu_manage") },
-            { onNavigate("stats") })
+            onScannerClick = { onNavigate("scanner") },
+            onMenuManageClick = { onNavigate("menu_manage") },
+            onStatsClick = { onNavigate("stats") },
+            showHints = showHints(HintScreenKey.CHEF_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.CHEF_DASHBOARD) },
+        )
 
         "scanner" -> ChefScannerScreenShared(
             token = session.token,
             viewModel = chefViewModel,
-            showHints = showHints,
-            onHideHints = onHideHints
+            showHints = showHints(HintScreenKey.CHEF_SCANNER),
+            onDismissHints = { onDismissHints(HintScreenKey.CHEF_SCANNER) },
         )
 
         "menu_manage" -> ChefMenuManageScreenV2(
             token = session.token,
-            chefRepository = chefRepository
+            chefRepository = chefRepository,
+            showHints = showHints(HintScreenKey.CHEF_MENU_MANAGE),
+            onDismissHints = { onDismissHints(HintScreenKey.CHEF_MENU_MANAGE) },
         )
 
-        "stats" -> ChefStatsScreenShared(chefRepository)
+        "stats" -> ChefStatsScreenShared(
+            chefRepository = chefRepository,
+            showHints = showHints(HintScreenKey.CHEF_STATS),
+            onDismissHints = { onDismissHints(HintScreenKey.CHEF_STATS) },
+        )
         else -> ChefDashboardShared(
-            { onNavigate("scanner") },
-            { onNavigate("menu_manage") },
-            { onNavigate("stats") })
+            onScannerClick = { onNavigate("scanner") },
+            onMenuManageClick = { onNavigate("menu_manage") },
+            onStatsClick = { onNavigate("stats") },
+            showHints = showHints(HintScreenKey.CHEF_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.CHEF_DASHBOARD) },
+        )
     }
 }
 
@@ -579,8 +625,8 @@ fun ChefFlowShared(
 fun RegistratorFlowShared(
     session: UserSession,
     currentSubScreen: String,
-    showHints: Boolean,
-    onHideHints: () -> Unit,
+    showHints: (HintScreenKey) -> Boolean,
+    onDismissHints: (HintScreenKey) -> Unit,
     onNavigate: (String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
@@ -588,11 +634,18 @@ fun RegistratorFlowShared(
     var createUserInitialGroupId by remember(session.userId) { mutableStateOf<Int?>(null) }
     var usersReloadKey by remember(session.userId) { mutableIntStateOf(0) }
     when (currentSubScreen) {
-        "dashboard" -> RegistratorDashboardShared({ onNavigate("users") }, { onNavigate("groups") })
+        "dashboard" -> RegistratorDashboardShared(
+            onUsersClick = { onNavigate("users") },
+            onGroupsClick = { onNavigate("groups") },
+            showHints = showHints(HintScreenKey.REGISTRATOR_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.REGISTRATOR_DASHBOARD) },
+        )
         "users" -> RegistratorUsersScreen(
             token = session.token,
             registratorRepository = registratorRepository,
             reloadKey = usersReloadKey,
+            showHints = showHints(HintScreenKey.REGISTRATOR_USERS),
+            onDismissHints = { onDismissHints(HintScreenKey.REGISTRATOR_USERS) },
             onCreateUserClick = { groupId ->
                 createUserInitialGroupId = groupId
                 onNavigate("users_create")
@@ -602,6 +655,8 @@ fun RegistratorFlowShared(
             token = session.token,
             registratorRepository = registratorRepository,
             initialGroupId = createUserInitialGroupId,
+            showHints = showHints(HintScreenKey.REGISTRATOR_USER_CREATE),
+            onDismissHints = { onDismissHints(HintScreenKey.REGISTRATOR_USER_CREATE) },
             onBack = {
                 createUserInitialGroupId = null
                 onNavigateBack()
@@ -616,11 +671,16 @@ fun RegistratorFlowShared(
         "groups" -> RegistratorGroupsScreen(
             token = session.token,
             registratorRepository = registratorRepository,
-            showHints = showHints,
-            onHideHints = onHideHints
+            showHints = showHints(HintScreenKey.REGISTRATOR_GROUPS),
+            onDismissHints = { onDismissHints(HintScreenKey.REGISTRATOR_GROUPS) },
         )
 
-        else -> RegistratorDashboardShared({ onNavigate("users") }, { onNavigate("groups") })
+        else -> RegistratorDashboardShared(
+            onUsersClick = { onNavigate("users") },
+            onGroupsClick = { onNavigate("groups") },
+            showHints = showHints(HintScreenKey.REGISTRATOR_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.REGISTRATOR_DASHBOARD) },
+        )
     }
 }
 
@@ -628,66 +688,114 @@ fun RegistratorFlowShared(
 fun CuratorFlowShared(
     session: UserSession,
     currentSubScreen: String,
+    showHints: (HintScreenKey) -> Boolean,
+    onDismissHints: (HintScreenKey) -> Unit,
     onNavigate: (String) -> Unit
 ) {
     val curatorRepository = remember { CuratorRepository() }
     when (currentSubScreen) {
         "dashboard" -> CuratorDashboardShared(
-            session.token,
-            curatorRepository,
-            { onNavigate("roster") },
-            { onNavigate("stats") },
-            { onNavigate("categories") },
-            { onNavigate("reports") })
+            token = session.token,
+            curatorRepository = curatorRepository,
+            onRosterClick = { onNavigate("roster") },
+            onStatsClick = { onNavigate("stats") },
+            onCategoriesClick = { onNavigate("categories") },
+            onReportsClick = { onNavigate("reports") },
+            showHints = showHints(HintScreenKey.CURATOR_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.CURATOR_DASHBOARD) },
+        )
 
         "roster" -> CuratorRosterScreen(
             token = session.token,
             curatorId = session.userId,
             curatorRepository = curatorRepository,
-            onNavigateToCategories = { onNavigate("categories") }
+            showHints = showHints(HintScreenKey.CURATOR_ROSTER),
+            onDismissHints = { onDismissHints(HintScreenKey.CURATOR_ROSTER) },
+            onNavigateToCategories = { onNavigate("categories") },
         )
 
         "stats" -> CuratorStatsScreen(
             token = session.token,
             curatorId = session.userId,
-            curatorRepository = curatorRepository
+            curatorRepository = curatorRepository,
+            showHints = showHints(HintScreenKey.CURATOR_STATS),
+            onDismissHints = { onDismissHints(HintScreenKey.CURATOR_STATS) },
         )
 
         "categories" -> CuratorCategoriesScreen(
             token = session.token,
             curatorId = session.userId,
-            curatorRepository = curatorRepository
+            curatorRepository = curatorRepository,
+            showHints = showHints(HintScreenKey.CURATOR_CATEGORIES),
+            onDismissHints = { onDismissHints(HintScreenKey.CURATOR_CATEGORIES) },
         )
 
         "reports" -> CuratorReportsScreen(
             token = session.token,
             curatorId = session.userId,
-            curatorRepository = curatorRepository
+            curatorRepository = curatorRepository,
+            showHints = showHints(HintScreenKey.CURATOR_REPORTS),
+            onDismissHints = { onDismissHints(HintScreenKey.CURATOR_REPORTS) },
         )
 
         else -> CuratorDashboardShared(
-            session.token,
-            curatorRepository,
-            { onNavigate("roster") },
-            { onNavigate("stats") },
-            { onNavigate("categories") },
-            { onNavigate("reports") })
+            token = session.token,
+            curatorRepository = curatorRepository,
+            onRosterClick = { onNavigate("roster") },
+            onStatsClick = { onNavigate("stats") },
+            onCategoriesClick = { onNavigate("categories") },
+            onReportsClick = { onNavigate("reports") },
+            showHints = showHints(HintScreenKey.CURATOR_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.CURATOR_DASHBOARD) },
+        )
     }
 }
 
 @Composable
-fun AdminFlowShared(session: UserSession, currentSubScreen: String, onNavigate: (String) -> Unit) {
+fun AdminFlowShared(
+    session: UserSession,
+    currentSubScreen: String,
+    showHints: (HintScreenKey) -> Boolean,
+    onDismissHints: (HintScreenKey) -> Unit,
+    onNavigate: (String) -> Unit,
+) {
     val adminRepository = remember { AdminRepository() }
     val registratorRepository = remember { RegistratorRepository() }
     when (currentSubScreen) {
-        "dashboard" -> AdminDashboardShared { onNavigate("reports") }
+        "dashboard" -> AdminDashboardShared(
+            onReportsClick = { onNavigate("reports") },
+            showHints = showHints(HintScreenKey.ADMIN_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.ADMIN_DASHBOARD) },
+        )
         "reports" -> AdminReportsScreen(
             token = session.token,
             adminRepository = adminRepository,
-            loadGroups = { registratorRepository.getGroups(session.token) }
+            loadGroups = { registratorRepository.getGroups(session.token) },
+            showHints = showHints(HintScreenKey.ADMIN_REPORTS),
+            onDismissHints = { onDismissHints(HintScreenKey.ADMIN_REPORTS) },
         )
-        else -> AdminDashboardShared { onNavigate("reports") }
+        else -> AdminDashboardShared(
+            onReportsClick = { onNavigate("reports") },
+            showHints = showHints(HintScreenKey.ADMIN_DASHBOARD),
+            onDismissHints = { onDismissHints(HintScreenKey.ADMIN_DASHBOARD) },
+        )
     }
+}
+
+@Composable
+private fun ScreenHintBlock(
+    screen: HintScreenKey,
+    showHints: Boolean,
+    onDismissHints: () -> Unit,
+) {
+    if (!showHints) return
+    val hint = remember(screen) { HintCatalog.content(screen) }
+    HowItWorksCard(
+        title = hint.title,
+        steps = hint.steps,
+        note = hint.note,
+        onDismiss = onDismissHints,
+    )
 }
 
 @Composable
@@ -695,7 +803,9 @@ fun StudentDashboardShared(
     token: String,
     studentRepository: StudentRepository,
     onCouponsClick: () -> Unit,
-    onMenuClick: () -> Unit
+    onMenuClick: () -> Unit,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
 ) {
     var mealsResponse by remember { mutableStateOf<MealsTodayResponse?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -704,6 +814,14 @@ fun StudentDashboardShared(
         isLoading = false
     }
     DashboardLayoutShared(title = "Кабинет Студента") {
+        ScreenHintBlock(
+            screen = HintScreenKey.STUDENT_DASHBOARD,
+            showHints = showHints,
+            onDismissHints = onDismissHints,
+        )
+        if (showHints) {
+            Spacer(Modifier.height(12.dp))
+        }
         if (isLoading) {
             Box(
                 Modifier.fillMaxWidth(),
@@ -810,9 +928,19 @@ private fun AdaptiveTwoButtonRowShared(
 fun ChefDashboardShared(
     onScannerClick: () -> Unit,
     onMenuManageClick: () -> Unit,
-    onStatsClick: () -> Unit
+    onStatsClick: () -> Unit,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
 ) {
     DashboardLayoutShared("Кабинет Повара") {
+        ScreenHintBlock(
+            screen = HintScreenKey.CHEF_DASHBOARD,
+            showHints = showHints,
+            onDismissHints = onDismissHints,
+        )
+        if (showHints) {
+            Spacer(Modifier.height(12.dp))
+        }
         DashboardButtonShared(
             text = "Сканер QR",
             icon = Icons.Default.QrCodeScanner,
@@ -832,13 +960,23 @@ fun ChefDashboardShared(
 }
 
 @Composable
-fun ChefStatsScreenShared(chefRepository: ChefRepository) {
+fun ChefStatsScreenShared(
+    chefRepository: ChefRepository,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
+) {
     val history by chefRepository.getScanHistory().collectAsState(initial = emptyList())
     Column(Modifier.padding(16.dp).fillMaxSize()) {
         Text(
             "Статистика повара",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(12.dp))
+        ScreenHintBlock(
+            screen = HintScreenKey.CHEF_STATS,
+            showHints = showHints,
+            onDismissHints = onDismissHints,
         )
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -941,8 +1079,21 @@ fun HistoryItemShared(item: SharedScannedQrRecord) {
 }
 
 @Composable
-fun RegistratorDashboardShared(onUsersClick: () -> Unit, onGroupsClick: () -> Unit) {
+fun RegistratorDashboardShared(
+    onUsersClick: () -> Unit,
+    onGroupsClick: () -> Unit,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
+) {
     DashboardLayoutShared("Кабинет Регистратора") {
+        ScreenHintBlock(
+            screen = HintScreenKey.REGISTRATOR_DASHBOARD,
+            showHints = showHints,
+            onDismissHints = onDismissHints,
+        )
+        if (showHints) {
+            Spacer(Modifier.height(12.dp))
+        }
         AdaptiveTwoButtonRowShared(
             firstText = "Пользователи",
             firstIcon = Icons.Default.Group,
@@ -961,13 +1112,23 @@ fun CuratorDashboardShared(
     onRosterClick: () -> Unit,
     onStatsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
-    onReportsClick: () -> Unit
+    onReportsClick: () -> Unit,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
 ) {
     var notification by remember { mutableStateOf<RosterDeadlineNotificationDto?>(null) }
     LaunchedEffect(token) {
         curatorRepository.getRosterDeadlineNotification(token).onSuccess { notification = it }
     }
     DashboardLayoutShared("Кабинет Куратора") {
+        ScreenHintBlock(
+            screen = HintScreenKey.CURATOR_DASHBOARD,
+            showHints = showHints,
+            onDismissHints = onDismissHints,
+        )
+        if (showHints) {
+            Spacer(Modifier.height(12.dp))
+        }
         notification?.let { data ->
             val showCard = data.needsReminder || !data.reason.isNullOrBlank()
             if (showCard) {
@@ -1022,8 +1183,20 @@ fun CuratorDashboardShared(
 }
 
 @Composable
-fun AdminDashboardShared(onReportsClick: () -> Unit) =
+fun AdminDashboardShared(
+    onReportsClick: () -> Unit,
+    showHints: Boolean = true,
+    onDismissHints: () -> Unit = {},
+) =
     DashboardLayoutShared("Кабинет Администратора") {
+        ScreenHintBlock(
+            screen = HintScreenKey.ADMIN_DASHBOARD,
+            showHints = showHints,
+            onDismissHints = onDismissHints,
+        )
+        if (showHints) {
+            Spacer(Modifier.height(12.dp))
+        }
         DashboardButtonShared(
             "Отчеты",
             Icons.Default.Assessment,
