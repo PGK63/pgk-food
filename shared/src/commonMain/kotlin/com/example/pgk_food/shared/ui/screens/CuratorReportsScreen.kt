@@ -20,9 +20,12 @@ fun CuratorReportsScreen(
         token = token,
         adminRepository = adminRepository,
         showFraudTab = false,
+        showZeroFillBlock = false,
         loadGroups = { curatorRepository.getCuratorGroups(token, curatorId) },
         showHints = showHints,
         onDismissHints = onDismissHints,
         hintScreen = HintScreenKey.CURATOR_REPORTS,
+        allGroupsLabel = "Все мои группы",
+        groupFieldLabel = "Мои группы (одна или все)",
     )
 }

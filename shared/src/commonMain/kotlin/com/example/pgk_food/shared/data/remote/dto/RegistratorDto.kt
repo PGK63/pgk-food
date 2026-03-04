@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.data.remote.dto
 
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.model.AccountStatus
 import com.example.pgk_food.shared.model.StudentCategory
 import kotlinx.serialization.Serializable
 
@@ -13,7 +14,8 @@ data class UserDto(
     val fatherName: String?,
     val roles: List<UserRole>,
     val groupId: Int?,
-    val studentCategory: StudentCategory?
+    val studentCategory: StudentCategory?,
+    val accountStatus: AccountStatus = AccountStatus.ACTIVE,
 )
 
 @Serializable
@@ -80,4 +82,10 @@ data class CuratorStudentRow(
     val groupId: Int,
     val groupName: String,
     val studentCategory: StudentCategory?
+)
+
+@Serializable
+data class UpdateLifecycleRequest(
+    val status: AccountStatus,
+    val expelNote: String? = null,
 )

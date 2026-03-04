@@ -371,7 +371,12 @@ private fun CuratorDeadlineCard(
                     "Нужно заполнить табель на следующую неделю. До дедлайна: ${rosterDeadline.daysUntilDeadline ?: "?"} дн.",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                rosterDeadline.deadlineDate?.let { Text("Дедлайн: $it", style = MaterialTheme.typography.bodySmall) }
+                (rosterDeadline.cutoffDateTime ?: rosterDeadline.deadlineDate)?.let {
+                    Text("Дедлайн: $it", style = MaterialTheme.typography.bodySmall)
+                }
+                rosterDeadline.weekStart?.let {
+                    Text("Неделя: $it", style = MaterialTheme.typography.bodySmall)
+                }
             } else {
                 Text(rosterDeadline.reason ?: "Напоминание не требуется.", style = MaterialTheme.typography.bodySmall)
             }

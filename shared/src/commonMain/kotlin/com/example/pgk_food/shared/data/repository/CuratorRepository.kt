@@ -2,6 +2,8 @@ package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
+import com.example.pgk_food.shared.data.remote.dto.ConsumptionSummaryResponseDto
+import com.example.pgk_food.shared.data.remote.dto.CuratorStudentAbsenceRequestDto
 import com.example.pgk_food.shared.data.remote.dto.CuratorStudentRow
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
@@ -76,6 +78,22 @@ class CuratorRepository {
         }.body()
     }
 
+    suspend fun getConsumptionSummary(
+        token: String,
+        startDate: String,
+        endDate: String,
+        groupId: Int? = null,
+        assignedByRole: String = "ALL"
+    ): Result<ConsumptionSummaryResponseDto> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/summary")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            parameter("startDate", startDate)
+            parameter("endDate", endDate)
+            if (groupId != null) parameter("groupId", groupId)
+            parameter("assignedByRole", assignedByRole)
+        }.body()
+    }
+
     suspend fun listMyStudents(token: String, groupId: Int? = null): Result<List<CuratorStudentRow>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/curator/students")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -91,4 +109,16 @@ class CuratorRepository {
                 setBody(UpdateCategoryRequest(category))
             }
         }
+
+    suspend fun applyStudentAbsence(
+        token: String,
+        studentId: String,
+        request: CuratorStudentAbsenceRequestDto
+    ): Result<Unit> = safeResultApiCall {
+        SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/curator/students/$studentId/absence")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+    }
 }

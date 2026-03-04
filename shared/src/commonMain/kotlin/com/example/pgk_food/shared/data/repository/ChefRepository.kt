@@ -2,6 +2,7 @@ package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.CreateMenuItemRequest
+import com.example.pgk_food.shared.data.remote.dto.ChefWeeklyReportDto
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.remote.dto.QrPayload
 import com.example.pgk_food.shared.data.remote.dto.QrValidationRequest
@@ -24,6 +25,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -83,6 +85,19 @@ class ChefRepository {
         SharedDatabase.instance.permissionCacheDao().clearAll()
         SharedDatabase.instance.permissionCacheDao().savePermissions(entities)
         Unit
+    }
+
+    suspend fun getWeeklyReport(token: String, weekStart: String): Result<ChefWeeklyReportDto> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/chef/weekly-report")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            parameter("weekStart", weekStart)
+        }.body()
+    }
+
+    suspend fun confirmWeeklyReport(token: String, weekStart: String): Result<Unit> = safeResultApiCall {
+        SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/chef/weekly-report/$weekStart/confirm")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }
     }
 
     suspend fun validateQr(token: String, qrContent: String, isOffline: Boolean = false): Result<QrValidationResponse> {

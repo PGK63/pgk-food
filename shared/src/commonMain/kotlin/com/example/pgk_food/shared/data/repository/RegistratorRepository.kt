@@ -7,9 +7,11 @@ import com.example.pgk_food.shared.data.remote.dto.CreateUserResponse
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.ResetPasswordResponse
 import com.example.pgk_food.shared.data.remote.dto.UpdateCategoryRequest
+import com.example.pgk_food.shared.data.remote.dto.UpdateLifecycleRequest
 import com.example.pgk_food.shared.data.remote.dto.UpdateRolesRequest
 import com.example.pgk_food.shared.data.remote.dto.UserDto
 import com.example.pgk_food.shared.model.StudentCategory
+import com.example.pgk_food.shared.model.AccountStatus
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.network.SharedNetworkModule
 import io.ktor.client.call.body
@@ -77,6 +79,19 @@ class RegistratorRepository {
             contentType(ContentType.Application.Json)
             setBody(UpdateCategoryRequest(category))
         }
+    }
+
+    suspend fun updateLifecycle(
+        token: String,
+        userId: String,
+        status: AccountStatus,
+        expelNote: String? = null,
+    ): Result<UserDto> = safeResultApiCall {
+        SharedNetworkModule.client.patch(SharedNetworkModule.getUrl("/api/v1/registrator/users/$userId/lifecycle")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(UpdateLifecycleRequest(status = status, expelNote = expelNote))
+        }.body()
     }
 
     suspend fun importStudents(token: String, fileBytes: ByteArray, fileName: String): Result<Unit> = safeResultApiCall {

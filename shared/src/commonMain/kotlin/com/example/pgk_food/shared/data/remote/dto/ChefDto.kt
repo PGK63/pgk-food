@@ -72,3 +72,22 @@ data class SyncProcessedItem(
     val code: String? = null,
     val message: String? = null,
 )
+
+@Serializable
+data class ChefWeeklyReportDayDto(
+    val date: String,
+    val breakfastCount: Int,
+    val lunchCount: Int,
+    val bothCount: Int,
+)
+
+@Serializable
+data class ChefWeeklyReportDto(
+    val weekStart: String,
+    val days: List<ChefWeeklyReportDayDto>,
+    val totalBreakfastCount: Int,
+    val totalLunchCount: Int,
+    val totalBothCount: Int,
+    val confirmed: Boolean,
+    val confirmedAt: String? = null,
+)

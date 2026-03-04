@@ -1,5 +1,7 @@
 package com.example.pgk_food.shared.data.remote.dto
 
+import com.example.pgk_food.shared.model.CuratorWeekFillStatus
+import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.StudentCategory
 import kotlinx.serialization.Serializable
 
@@ -33,5 +35,44 @@ data class ConsumptionReportRowDto(
     val breakfastScannedByName: String? = null,
     val lunchUsed: Boolean = false,
     val lunchTransactionId: Int? = null,
-    val lunchScannedByName: String? = null
+    val lunchScannedByName: String? = null,
+    val plannedBreakfast: Boolean = false,
+    val plannedLunch: Boolean = false,
+    val noMealReasonType: NoMealReasonType? = null,
+    val noMealReasonText: String? = null,
+    val absenceFrom: String? = null,
+    val absenceTo: String? = null,
+    val comment: String? = null,
+    val isSyntheticMissingRoster: Boolean = false,
+)
+
+@Serializable
+data class ConsumptionSummaryDayDto(
+    val date: String,
+    val breakfastCount: Int,
+    val lunchCount: Int,
+    val bothCount: Int,
+)
+
+@Serializable
+data class ZeroFillCuratorSummaryDto(
+    val curatorId: String,
+    val curatorName: String,
+    val weekStart: String,
+    val groupIds: List<Int>,
+    val filledCells: Int,
+    val expectedCells: Int,
+    val fillStatus: CuratorWeekFillStatus,
+)
+
+@Serializable
+data class ConsumptionSummaryResponseDto(
+    val startDate: String,
+    val endDate: String,
+    val days: List<ConsumptionSummaryDayDto>,
+    val totalBreakfastCount: Int,
+    val totalLunchCount: Int,
+    val totalBothCount: Int,
+    val missingRosterRowsCount: Int,
+    val zeroFillCurators: List<ZeroFillCuratorSummaryDto>,
 )

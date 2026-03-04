@@ -2,6 +2,7 @@ package com.example.pgk_food.shared.data.repository
 
 import com.example.pgk_food.shared.core.network.safeResultApiCall
 import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
+import com.example.pgk_food.shared.data.remote.dto.ConsumptionSummaryResponseDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.network.SharedNetworkModule
 import io.ktor.client.call.body
@@ -34,6 +35,22 @@ class AdminRepository {
         assignedByRole: String = "ALL"
     ): Result<List<ConsumptionReportRowDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            parameter("startDate", startDate)
+            parameter("endDate", endDate)
+            if (groupId != null) parameter("groupId", groupId)
+            parameter("assignedByRole", assignedByRole)
+        }.body()
+    }
+
+    suspend fun getConsumptionSummary(
+        token: String,
+        startDate: String,
+        endDate: String,
+        groupId: Int? = null,
+        assignedByRole: String = "ALL"
+    ): Result<ConsumptionSummaryResponseDto> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/summary")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             parameter("startDate", startDate)
             parameter("endDate", endDate)

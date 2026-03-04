@@ -51,9 +51,11 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.core.network.toDetailedUserMessage
 import com.example.pgk_food.shared.data.remote.dto.ConsumptionReportRowDto
+import com.example.pgk_food.shared.data.remote.dto.ConsumptionSummaryResponseDto
 import com.example.pgk_food.shared.data.remote.dto.FraudReportDto
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.AdminRepository
+import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.platform.FileSaveRequest
 import com.example.pgk_food.shared.platform.rememberFileSaveLauncher
@@ -81,10 +83,13 @@ fun AdminReportsScreen(
     token: String,
     adminRepository: AdminRepository,
     showFraudTab: Boolean = true,
+    showZeroFillBlock: Boolean = true,
     loadGroups: suspend () -> Result<List<GroupDto>>,
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
     hintScreen: HintScreenKey = HintScreenKey.ADMIN_REPORTS,
+    allGroupsLabel: String = "Все группы",
+    groupFieldLabel: String = "Группа (опционально)",
 ) {
     val today = remember { todayLocalDate() }
 
@@ -100,6 +105,7 @@ fun AdminReportsScreen(
 
     var isLoading by remember { mutableStateOf(false) }
     var rows by remember { mutableStateOf<List<ConsumptionReportRowDto>>(emptyList()) }
+    var summary by remember { mutableStateOf<ConsumptionSummaryResponseDto?>(null) }
     var fraudRows by remember { mutableStateOf<List<FraudReportDto>>(emptyList()) }
 
     var showStartPicker by remember { mutableStateOf(false) }
@@ -133,10 +139,10 @@ fun AdminReportsScreen(
 
     val selectedGroupLabel = remember(groups, selectedGroupId) {
         if (selectedGroupId == null) {
-            "Все группы"
+            allGroupsLabel
         } else {
             groups.firstOrNull { it.id == selectedGroupId }?.let { "${it.name} (#${it.id})" }
-                ?: "Все группы"
+                ?: allGroupsLabel
         }
     }
 
@@ -178,6 +184,14 @@ fun AdminReportsScreen(
                     assignedByRole = "ALL",
                 ).onSuccess { rows = it }
                     .onFailure { snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка загрузки отчета")) }
+                adminRepository.getConsumptionSummary(
+                    token = token,
+                    startDate = startDate.toString(),
+                    endDate = endDate.toString(),
+                    groupId = selectedGroupId,
+                    assignedByRole = "ALL",
+                ).onSuccess { summary = it }
+                    .onFailure { snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка загрузки сводки")) }
             }
             isLoading = false
         }
@@ -260,14 +274,6 @@ fun AdminReportsScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                Text(
-                    "Отчеты",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.springEntrance(),
-                )
-            }
             if (showHints) {
                 item {
                     HowItWorksCard(
@@ -310,7 +316,7 @@ fun AdminReportsScreen(
                                     groupSearchQuery = it
                                     showGroupPicker = true
                                 },
-                                label = { Text("Группа (опционально)") },
+                                label = { Text(groupFieldLabel) },
                                 placeholder = { Text(selectedGroupLabel) },
                                 trailingIcon = {
                                     IconButton(
@@ -377,6 +383,58 @@ fun AdminReportsScreen(
                 if (rows.isEmpty()) {
                     item { Text("Нет данных за выбранный период", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
+                    summary?.let { summaryData ->
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                                ),
+                                shape = MaterialTheme.shapes.large
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("Сводка 3 единиц", fontWeight = FontWeight.Bold)
+                                    Text(
+                                        "Итого: Завтрак ${summaryData.totalBreakfastCount} • Обед ${summaryData.totalLunchCount} • Завтрак+Обед ${summaryData.totalBothCount}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "Строк с MISSING_ROSTER: ${summaryData.missingRosterRowsCount}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+
+                        if (showZeroFillBlock && summaryData.zeroFillCurators.isNotEmpty()) {
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
+                                    ),
+                                    shape = MaterialTheme.shapes.large
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text("КУРАТОРЫ С НУЛЕВЫМ ЗАПОЛНЕНИЕМ", fontWeight = FontWeight.Bold)
+                                        summaryData.zeroFillCurators.forEach { curator ->
+                                            Text(
+                                                "${curator.curatorName} • неделя ${curator.weekStart} • ${curator.filledCells}/${curator.expectedCells}",
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if (showHints) {
                         hintContent.inlineHints.firstOrNull()?.let { inline ->
                             item {
@@ -464,6 +522,22 @@ fun AdminReportsScreen(
                                     "Дата: ${row.date} • Назначил: ${assignedByDisplay(row.assignedByRole, row.assignedByName)}",
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                                Text(
+                                    "План: Завтрак ${yesNoRu(row.plannedBreakfast)} • Обед ${yesNoRu(row.plannedLunch)}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                val reasonLabel = row.noMealReasonType?.titleRu() ?: "-"
+                                if (reasonLabel != "-" || !row.noMealReasonText.isNullOrBlank() || !row.comment.isNullOrBlank()) {
+                                    Text(
+                                        "Причина: $reasonLabel${row.noMealReasonText?.let { " • $it" } ?: ""}${row.comment?.let { " • $it" } ?: ""}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (row.noMealReasonType == NoMealReasonType.MISSING_ROSTER) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     MealStatusBadge(
                                         label = "Завтрак",
@@ -486,6 +560,8 @@ fun AdminReportsScreen(
         }
     }
 }
+
+private fun yesNoRu(value: Boolean): String = if (value) "Да" else "Нет"
 
 @Composable
 private fun FraudReportItem(

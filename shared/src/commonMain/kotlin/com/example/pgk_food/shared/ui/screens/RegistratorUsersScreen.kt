@@ -44,6 +44,8 @@ import com.example.pgk_food.shared.ui.components.UserCredentialsUi
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.SectionShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.model.AccountStatus
+import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.ui.state.UiActionState
@@ -416,6 +418,24 @@ fun RegistratorUsersScreen(
                     }
                 }
             },
+            onUpdateLifecycle = { status ->
+                scope.launch {
+                    val result = registratorRepository.updateLifecycle(
+                        token = token,
+                        userId = user.userId,
+                        status = status,
+                    )
+                    val ok = runUiAction(
+                        actionState = actionState,
+                        successMessage = "Статус обновлен",
+                        fallbackErrorMessage = "Ошибка смены статуса",
+                    ) { result }
+                    if (ok) {
+                        loadData()
+                        selectedUser = null
+                    }
+                }
+            },
             onDelete = {
                 scope.launch {
                     val ok = runUiAction(
@@ -479,7 +499,7 @@ private fun UserRow(
                 )
                 Text(
                     text = user.roles.joinToString(", ") { it.titleRu() } +
-                        " • ${groupName ?: "Без группы"} • @${user.login}",
+                        " • ${groupName ?: "Без группы"} • ${user.accountStatus.titleRu()} • @${user.login}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -608,10 +628,13 @@ private fun UserDetailSheet(
     onCopyCredentials: () -> Unit,
     onResetPassword: () -> Unit,
     onUpdateRoles: (List<UserRole>, Int?, StudentCategory?) -> Unit,
+    onUpdateLifecycle: (AccountStatus) -> Unit,
     onDelete: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showRolesDialog by remember(user.userId) { mutableStateOf(false) }
+    var showFreezeConfirm by remember(user.userId) { mutableStateOf(false) }
+    var showUnfreezeConfirm by remember(user.userId) { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -658,6 +681,30 @@ private fun UserDetailSheet(
                     Text("Группа: ", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         groupName ?: "Не назначена",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Surface(
+                color = if (user.accountStatus == AccountStatus.FROZEN_EXPELLED) {
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                } else {
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                },
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Статус: ", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        user.accountStatus.titleRu(),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -725,7 +772,7 @@ private fun UserDetailSheet(
             Button(
                 onClick = { showRolesDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isProcessing,
+                enabled = !isProcessing && user.accountStatus == AccountStatus.ACTIVE,
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -736,6 +783,38 @@ private fun UserDetailSheet(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            if (user.accountStatus == AccountStatus.ACTIVE) {
+                Button(
+                    onClick = { showFreezeConfirm = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isProcessing,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                ) {
+                    Text("Отчислить (заморозить)", fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                Button(
+                    onClick = { showUnfreezeConfirm = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isProcessing,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Text("Разморозить", fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             Button(
                 onClick = onDelete,
@@ -750,6 +829,46 @@ private fun UserDetailSheet(
                 Text("Удалить пользователя", fontWeight = FontWeight.Bold)
             }
         }
+    }
+
+    if (showFreezeConfirm) {
+        AlertDialog(
+            onDismissRequest = { showFreezeConfirm = false },
+            title = { Text("Подтвердите отчисление") },
+            text = { Text("Пользователь будет заморожен и не сможет пользоваться системой.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showFreezeConfirm = false
+                        onUpdateLifecycle(AccountStatus.FROZEN_EXPELLED)
+                    },
+                    enabled = !isProcessing
+                ) { Text("Отчислить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFreezeConfirm = false }) { Text("Отмена") }
+            }
+        )
+    }
+
+    if (showUnfreezeConfirm) {
+        AlertDialog(
+            onDismissRequest = { showUnfreezeConfirm = false },
+            title = { Text("Подтвердите разморозку") },
+            text = { Text("Пользователь снова получит доступ к системе.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showUnfreezeConfirm = false
+                        onUpdateLifecycle(AccountStatus.ACTIVE)
+                    },
+                    enabled = !isProcessing
+                ) { Text("Разморозить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnfreezeConfirm = false }) { Text("Отмена") }
+            }
+        )
     }
 
     if (showRolesDialog) {

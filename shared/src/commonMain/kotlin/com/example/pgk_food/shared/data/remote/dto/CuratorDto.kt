@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.data.remote.dto
 
 import com.example.pgk_food.shared.model.StudentCategory
+import com.example.pgk_food.shared.model.NoMealReasonType
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -22,7 +23,12 @@ data class RosterDayDto(
     val date: String,
     val isBreakfast: Boolean,
     val isLunch: Boolean,
-    val reason: String?
+    val reason: String? = null,
+    val noMealReasonType: NoMealReasonType? = null,
+    val noMealReasonText: String? = null,
+    val absenceFrom: String? = null,
+    val absenceTo: String? = null,
+    val comment: String? = null,
 )
 
 @Serializable
@@ -44,4 +50,13 @@ data class StudentMealStatus(
     val fullName: String,
     val hadBreakfast: Boolean,
     val hadLunch: Boolean
+)
+
+@Serializable
+data class CuratorStudentAbsenceRequestDto(
+    val noMealReasonType: NoMealReasonType,
+    val noMealReasonText: String? = null,
+    val absenceFrom: String,
+    val absenceTo: String,
+    val comment: String? = null,
 )

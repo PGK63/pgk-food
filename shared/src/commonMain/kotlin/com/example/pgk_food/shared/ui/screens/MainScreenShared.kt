@@ -67,6 +67,7 @@ private fun mainScreenTitle(subScreen: String): String = when (subScreen) {
     "qr" -> "МОЙ QR-КОД"
     "scanner" -> "СКАНЕР QR"
     "menu_manage" -> "УПРАВЛЕНИЕ МЕНЮ"
+    "weekly_report" -> "НЕДЕЛЬНЫЙ ОТЧЕТ"
     "settings" -> "НАСТРОЙКИ"
     "categories" -> "КАТЕГОРИИ"
     else -> "ПГК ПИТАНИЕ"
@@ -84,7 +85,7 @@ private fun screenAllowedForRole(role: UserRole?, screen: String): Boolean {
     if (screen == "dashboard" || screen == "settings") return true
     val roleScreens = when (role) {
         UserRole.STUDENT -> setOf("coupons", "qr", "menu")
-        UserRole.CHEF -> setOf("scanner", "menu_manage", "stats")
+        UserRole.CHEF -> setOf("scanner", "menu_manage", "stats", "weekly_report")
         UserRole.REGISTRATOR -> setOf("users", "users_create", "groups")
         UserRole.CURATOR -> setOf("roster", "stats", "categories", "reports")
         UserRole.ADMIN -> setOf("reports")
@@ -157,6 +158,7 @@ fun MainScreenShared(
     var navDirection by remember(session.userId) { mutableStateOf(NavDirection.Forward) }
     var selectedMealType by remember(session.userId) { mutableStateOf("") }
     var selectedRole by remember(session.userId) { mutableStateOf<UserRole?>(null) }
+    var showLogoutConfirm by remember(session.userId) { mutableStateOf(false) }
     var showGlobalHints by remember(session.userId) {
         mutableStateOf(
             uiSettingsManager.shouldShowHints(
@@ -309,6 +311,25 @@ fun MainScreenShared(
         }
     }
 
+    if (showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirm = false },
+            title = { Text("Подтвердите выход") },
+            text = { Text("Вы действительно хотите выйти из аккаунта?") },
+            confirmButton = {
+                Button(onClick = {
+                    showLogoutConfirm = false
+                    scope.launch { onLogout() }
+                }) {
+                    Text("Выйти")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirm = false }) { Text("Отмена") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -335,7 +356,7 @@ fun MainScreenShared(
                 actions = {
                     if (currentSubScreen == "dashboard" && !canPop) {
                         IconButton(
-                            onClick = { scope.launch { onLogout() } },
+                            onClick = { showLogoutConfirm = true },
                             modifier = Modifier
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
@@ -591,6 +612,7 @@ fun ChefFlowShared(
             onScannerClick = { onNavigate("scanner") },
             onMenuManageClick = { onNavigate("menu_manage") },
             onStatsClick = { onNavigate("stats") },
+            onWeeklyReportClick = { onNavigate("weekly_report") },
             showHints = showHints(HintScreenKey.CHEF_DASHBOARD),
             onDismissHints = { onDismissHints(HintScreenKey.CHEF_DASHBOARD) },
         )
@@ -614,10 +636,15 @@ fun ChefFlowShared(
             showHints = showHints(HintScreenKey.CHEF_STATS),
             onDismissHints = { onDismissHints(HintScreenKey.CHEF_STATS) },
         )
+        "weekly_report" -> ChefWeeklyReportScreen(
+            token = session.token,
+            chefRepository = chefRepository,
+        )
         else -> ChefDashboardShared(
             onScannerClick = { onNavigate("scanner") },
             onMenuManageClick = { onNavigate("menu_manage") },
             onStatsClick = { onNavigate("stats") },
+            onWeeklyReportClick = { onNavigate("weekly_report") },
             showHints = showHints(HintScreenKey.CHEF_DASHBOARD),
             onDismissHints = { onDismissHints(HintScreenKey.CHEF_DASHBOARD) },
         )
@@ -932,6 +959,7 @@ fun ChefDashboardShared(
     onScannerClick: () -> Unit,
     onMenuManageClick: () -> Unit,
     onStatsClick: () -> Unit,
+    onWeeklyReportClick: () -> Unit,
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
 ) {
@@ -958,6 +986,13 @@ fun ChefDashboardShared(
             secondText = "История",
             secondIcon = Icons.Default.History,
             onSecondClick = onStatsClick
+        )
+        Spacer(Modifier.height(8.dp))
+        DashboardButtonShared(
+            text = "Недельный отчет",
+            icon = Icons.Default.Assessment,
+            onClick = onWeeklyReportClick,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -1135,16 +1170,26 @@ fun CuratorDashboardShared(
         notification?.let { data ->
             val showCard = data.needsReminder || !data.reason.isNullOrBlank()
             if (showCard) {
-                val title = if (data.needsReminder) "Нужно заполнить табель" else "Уведомление"
+                val title = when {
+                    data.isLocked -> "ДЕДЛАЙН ПРОПУЩЕН"
+                    data.needsReminder -> "НУЖНО ЗАПОЛНИТЬ ТАБЕЛЬ"
+                    else -> "Уведомление"
+                }
                 val body = when {
-                    data.needsReminder && data.deadlineDate != null && data.daysUntilDeadline != null -> "Заполните табель на следующую неделю. Дедлайн: ${data.deadlineDate} (через ${data.daysUntilDeadline} дн.)"
-                    data.needsReminder && data.deadlineDate != null -> "Заполните табель на следующую неделю. Дедлайн: ${data.deadlineDate}"
+                    data.needsReminder && data.cutoffDateTime != null && data.daysUntilDeadline != null -> "Заполните табель на неделю ${data.weekStart ?: "-"} до ${data.cutoffDateTime} (через ${data.daysUntilDeadline} дн.)."
+                    data.needsReminder && data.cutoffDateTime != null -> "Заполните табель на неделю ${data.weekStart ?: "-"} до ${data.cutoffDateTime}."
                     data.needsReminder -> "Заполните табель на следующую неделю."
                     !data.reason.isNullOrBlank() -> data.reason ?: ""
                     else -> ""
                 }
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (data.isLocked || data.severity == "CRITICAL" || data.severity == "HIGH") {
+                            MaterialTheme.colorScheme.errorContainer
+                        } else {
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        }
+                    ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                 ) {

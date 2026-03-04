@@ -63,6 +63,7 @@ import com.example.pgk_food.shared.data.remote.dto.SaveRosterRequest
 import com.example.pgk_food.shared.data.remote.dto.StudentRosterDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.core.network.ApiCallException
+import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
@@ -78,6 +79,7 @@ import com.example.pgk_food.shared.ui.util.todayLocalDate
 import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
@@ -88,6 +90,11 @@ private fun normalizeManyChildrenEntry(entry: StudentRosterDto): StudentRosterDt
         if (day.isBreakfast && day.isLunch) day.copy(isLunch = false) else day
     }
     return if (normalizedDays == entry.days) entry else entry.copy(days = normalizedDays)
+}
+
+private enum class AbsenceDateTarget {
+    FROM,
+    TO,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,6 +124,7 @@ fun CuratorRosterScreen(
     var groupsLoaded by remember { mutableStateOf(false) }
     var selectedGroupId by remember { mutableStateOf<Int?>(null) }
     var isGroupMenuExpanded by remember { mutableStateOf(false) }
+    var showExpelConfirm by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -283,7 +291,9 @@ fun CuratorRosterScreen(
                                     }
                                 }
                                 when {
-                                    missingCategoryError != null -> Result.failure<Unit>(missingCategoryError!!)
+                                    missingCategoryError != null -> {
+                                        Result.failure<Unit>(checkNotNull(missingCategoryError))
+                                    }
                                     hasError -> Result.failure<Unit>(IllegalStateException("Копирование завершилось с ошибками"))
                                     else -> Result.success(Unit)
                                 }
@@ -320,6 +330,108 @@ fun CuratorRosterScreen(
         } else {
             entries.filter { it.fullName.contains(searchQuery, ignoreCase = true) }
         }
+    }
+
+    fun hasExpelledForSelectedDate(): Boolean {
+        val targetDate = selectedDate.toString()
+        return entries.any { entry ->
+            val day = entry.days.firstOrNull { it.date == targetDate } ?: return@any false
+            !day.isBreakfast && !day.isLunch && day.noMealReasonType == NoMealReasonType.EXPELLED
+        }
+    }
+
+    fun invalidAbsenceRangeStudentForSelectedDate(): String? {
+        val targetDate = selectedDate.toString()
+        return entries.firstNotNullOfOrNull { entry ->
+            val day = entry.days.firstOrNull { it.date == targetDate } ?: return@firstNotNullOfOrNull null
+            if (day.noMealReasonType != NoMealReasonType.SICK_LEAVE && day.noMealReasonType != NoMealReasonType.OTHER) {
+                return@firstNotNullOfOrNull null
+            }
+            val from = parseIsoDateOrNull(day.absenceFrom) ?: return@firstNotNullOfOrNull null
+            val to = parseIsoDateOrNull(day.absenceTo) ?: return@firstNotNullOfOrNull null
+            if (to < from) entry.fullName else null
+        }
+    }
+
+    fun saveSelectedDate() {
+        scope.launch {
+            val invalidRangeStudent = invalidAbsenceRangeStudentForSelectedDate()
+            if (invalidRangeStudent != null) {
+                snackbarHostState.showSnackbar(
+                    "Период отсутствия заполнен неверно: у $invalidRangeStudent дата \"По\" раньше даты \"С\"."
+                )
+                return@launch
+            }
+
+            val success = runUiAction(
+                actionState = actionState,
+                successMessage = "Сохранено",
+                fallbackErrorMessage = "Ошибка сохранения некоторых записей",
+                emitSuccessFeedback = false
+            ) {
+                var hasError = false
+                var missingCategoryError: Throwable? = null
+                for (entry in entries) {
+                    val dayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
+                    if (dayDto != null) {
+                        val request = SaveRosterRequest(
+                            studentId = entry.studentId,
+                            permissions = listOf(dayDto),
+                        )
+                        val result = curatorRepository.updateRoster(token, request)
+                        if (result.isFailure) {
+                            val ex = result.exceptionOrNull()
+                            val code = (ex as? ApiCallException)?.apiError?.code
+                            if (code == "STUDENT_CATEGORY_REQUIRED") {
+                                missingCategoryError = ex
+                                break
+                            }
+                            hasError = true
+                        }
+                    }
+                }
+                when {
+                    missingCategoryError != null -> {
+                        Result.failure<Unit>(checkNotNull(missingCategoryError))
+                    }
+                    hasError -> Result.failure<Unit>(IllegalStateException("Ошибка сохранения некоторых записей"))
+                    else -> Result.success(Unit)
+                }
+            }
+            if (success) {
+                snackbarHostState.showSnackbar("Сохранено")
+            } else {
+                val error = actionState.value as? UiActionState.Error
+                if (error?.code == "STUDENT_CATEGORY_REQUIRED") {
+                    snackbarHostState.showSnackbar(error.userMessage)
+                    onNavigateToCategories()
+                } else {
+                    snackbarHostState.showSnackbar("Ошибка сохранения некоторых записей")
+                }
+            }
+        }
+    }
+
+    if (showExpelConfirm) {
+        AlertDialog(
+            onDismissRequest = { showExpelConfirm = false },
+            title = { Text("Подтвердите отчисление") },
+            text = {
+                Text(
+                    "На выбранную дату есть отметки \"Отчислен\". " +
+                        "Сохранение заморозит таких студентов и запретит назначение питания."
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showExpelConfirm = false
+                    saveSelectedDate()
+                }) { Text("Подтвердить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExpelConfirm = false }) { Text("Отмена") }
+            }
+        )
     }
 
     Scaffold(
@@ -468,51 +580,10 @@ fun CuratorRosterScreen(
 
                 Button(
                     onClick = {
-                        scope.launch {
-                            val success = runUiAction(
-                                actionState = actionState,
-                                successMessage = "Сохранено",
-                                fallbackErrorMessage = "Ошибка сохранения некоторых записей",
-                                emitSuccessFeedback = false
-                            ) {
-                                var hasError = false
-                                var missingCategoryError: Throwable? = null
-                                for (entry in entries) {
-                                    val dayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
-                                    if (dayDto != null) {
-                                        val request = SaveRosterRequest(
-                                            studentId = entry.studentId,
-                                            permissions = listOf(dayDto),
-                                        )
-                                        val result = curatorRepository.updateRoster(token, request)
-                                        if (result.isFailure) {
-                                            val ex = result.exceptionOrNull()
-                                            val code = (ex as? ApiCallException)?.apiError?.code
-                                            if (code == "STUDENT_CATEGORY_REQUIRED") {
-                                                missingCategoryError = ex
-                                                break
-                                            }
-                                            hasError = true
-                                        }
-                                    }
-                                }
-                                when {
-                                    missingCategoryError != null -> Result.failure<Unit>(missingCategoryError!!)
-                                    hasError -> Result.failure<Unit>(IllegalStateException("Ошибка сохранения некоторых записей"))
-                                    else -> Result.success(Unit)
-                                }
-                            }
-                            if (success) {
-                                snackbarHostState.showSnackbar("Сохранено")
-                            } else {
-                                val error = actionState.value as? UiActionState.Error
-                                if (error?.code == "STUDENT_CATEGORY_REQUIRED") {
-                                    snackbarHostState.showSnackbar(error.userMessage)
-                                    onNavigateToCategories()
-                                } else {
-                                    snackbarHostState.showSnackbar("Ошибка сохранения некоторых записей")
-                                }
-                            }
+                        if (hasExpelledForSelectedDate()) {
+                            showExpelConfirm = true
+                        } else {
+                            saveSelectedDate()
                         }
                     },
                     enabled = !isActionLoading,
@@ -546,6 +617,50 @@ private fun RosterCard(
         rawDayEntry.copy(isLunch = false)
     } else {
         rawDayEntry
+    }
+    var datePickerTarget by remember { mutableStateOf<AbsenceDateTarget?>(null) }
+
+    fun updateDayEntry(updated: RosterDayDto) {
+        val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updated
+        onUpdate(entry.copy(days = updatedDays))
+    }
+
+    val openDatePickerTarget = datePickerTarget
+    if (openDatePickerTarget != null) {
+        val initialDate = when (openDatePickerTarget) {
+            AbsenceDateTarget.FROM -> parseIsoDateOrNull(dayEntry.absenceFrom) ?: parseIsoDateOrNull(selectedDateStr)
+            AbsenceDateTarget.TO -> parseIsoDateOrNull(dayEntry.absenceTo) ?: parseIsoDateOrNull(selectedDateStr)
+        }
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialDate
+                ?.atStartOfDayIn(TimeZone.currentSystemDefault())
+                ?.toEpochMilliseconds()
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { datePickerTarget = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        val pickedDate = Instant.fromEpochMilliseconds(millis)
+                            .toLocalDateTime(TimeZone.currentSystemDefault())
+                            .date
+                            .toString()
+                        val updated = when (openDatePickerTarget) {
+                            AbsenceDateTarget.FROM -> dayEntry.copy(absenceFrom = pickedDate)
+                            AbsenceDateTarget.TO -> dayEntry.copy(absenceTo = pickedDate)
+                        }
+                        updateDayEntry(updated)
+                    }
+                    datePickerTarget = null
+                }) { Text("ОК") }
+            },
+            dismissButton = {
+                TextButton(onClick = { datePickerTarget = null }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
     }
 
     Card(
@@ -581,8 +696,7 @@ private fun RosterCard(
                     } else {
                         dayEntry.copy(isBreakfast = it)
                     }
-                    val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
-                    onUpdate(entry.copy(days = updatedDays))
+                    updateDayEntry(updatedDay)
                 }
                 MealToggleChip("Обед", dayEntry.isLunch) {
                     val updatedDay = if (isManyChildren && it) {
@@ -590,9 +704,123 @@ private fun RosterCard(
                     } else {
                         dayEntry.copy(isLunch = it)
                     }
-                    val updatedDays = entry.days.filter { d -> d.date != selectedDateStr } + updatedDay
-                    onUpdate(entry.copy(days = updatedDays))
+                    updateDayEntry(updatedDay)
                 }
+            }
+
+            val isNoMeal = !dayEntry.isBreakfast && !dayEntry.isLunch
+            if (isNoMeal) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Причина непитания",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        NoMealReasonType.EXPELLED to "Отчислен",
+                        NoMealReasonType.SICK_LEAVE to "Больничный",
+                        NoMealReasonType.OTHER to "Иное"
+                    ).forEach { (reasonType, title) ->
+                        FilterChip(
+                            selected = dayEntry.noMealReasonType == reasonType,
+                            onClick = {
+                                val withDefaults = when (reasonType) {
+                                    NoMealReasonType.SICK_LEAVE,
+                                    NoMealReasonType.OTHER -> dayEntry.copy(
+                                        noMealReasonType = reasonType,
+                                        absenceFrom = dayEntry.absenceFrom ?: selectedDateStr,
+                                        absenceTo = dayEntry.absenceTo ?: selectedDateStr,
+                                    )
+                                    NoMealReasonType.EXPELLED -> dayEntry.copy(
+                                        noMealReasonType = reasonType,
+                                        absenceFrom = null,
+                                        absenceTo = null,
+                                    )
+                                    NoMealReasonType.MISSING_ROSTER -> dayEntry
+                                }
+                                updateDayEntry(withDefaults)
+                            },
+                            label = { Text(title) },
+                            shape = PillShape
+                        )
+                    }
+                }
+
+                if (dayEntry.noMealReasonType == NoMealReasonType.SICK_LEAVE || dayEntry.noMealReasonType == NoMealReasonType.OTHER) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Период отсутствия",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { datePickerTarget = AbsenceDateTarget.FROM }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(0.dp).padding(4.dp))
+                                Text("С: ${formatIsoDateRu(dayEntry.absenceFrom, selectedDateStr)}")
+                            }
+                        }
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { datePickerTarget = AbsenceDateTarget.TO }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(0.dp).padding(4.dp))
+                                Text("По: ${formatIsoDateRu(dayEntry.absenceTo, selectedDateStr)}")
+                            }
+                        }
+                    }
+                }
+
+                if (dayEntry.noMealReasonType == NoMealReasonType.OTHER) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = dayEntry.noMealReasonText.orEmpty(),
+                        onValueChange = { value ->
+                            val updated = dayEntry.copy(noMealReasonText = value)
+                            updateDayEntry(updated)
+                        },
+                        label = { Text("Текст причины") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = dayEntry.comment.orEmpty(),
+                    onValueChange = { value ->
+                        val updated = dayEntry.copy(comment = value)
+                        updateDayEntry(updated)
+                    },
+                    label = { Text("Комментарий") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
+                )
             }
         }
     }
@@ -606,4 +834,15 @@ private fun MealToggleChip(label: String, isActive: Boolean, onToggle: (Boolean)
         label = { Text(label) },
         shape = PillShape
     )
+}
+
+private fun parseIsoDateOrNull(value: String?): LocalDate? {
+    if (value.isNullOrBlank()) return null
+    return runCatching { LocalDate.parse(value) }.getOrNull()
+}
+
+private fun formatIsoDateRu(value: String?, fallbackIso: String): String {
+    val fallback = parseIsoDateOrNull(fallbackIso)
+    val date = parseIsoDateOrNull(value) ?: fallback
+    return date?.let(::formatRuDate) ?: (value ?: fallbackIso)
 }
