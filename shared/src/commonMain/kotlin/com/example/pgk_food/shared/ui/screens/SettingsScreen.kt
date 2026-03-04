@@ -1,6 +1,7 @@
 package com.example.pgk_food.shared.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,13 +26,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +46,7 @@ import com.example.pgk_food.shared.data.remote.dto.NotificationDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.repository.NotificationRepository
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiApiAction
@@ -62,6 +61,9 @@ fun SettingsScreen(
     userId: String,
     token: String,
     roles: List<UserRole>,
+    uiScalePercent: Int,
+    onUiScalePreview: (Int) -> Unit,
+    onUiScaleCommit: (Int) -> Unit,
     uiSettingsManager: UiSettingsManager,
     notificationRepository: NotificationRepository,
     onBack: () -> Unit,
@@ -81,6 +83,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
+    var pendingUiScale by remember(uiScalePercent) { mutableStateOf(uiScalePercent.toFloat()) }
 
     fun updateHints(enabled: Boolean) {
         uiSettingsManager.setHintsOverride(userId, enabled)
@@ -173,19 +176,22 @@ fun SettingsScreen(
     LaunchedEffect(token, isCurator) {
         NotificationAutoRefreshBus.events.collect { loadNotifications() }
     }
+    LaunchedEffect(uiScalePercent) {
+        pendingUiScale = uiScalePercent.toFloat()
+    }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
@@ -226,6 +232,47 @@ fun SettingsScreen(
                                     modifier = Modifier.padding(start = 8.dp),
                                 )
                             }
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().springEntrance(35),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("Масштаб интерфейса", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Текущий масштаб: ${pendingUiScale.toInt()}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                value = pendingUiScale,
+                                onValueChange = {
+                                    val newValue = it.toInt().coerceIn(
+                                        UiSettingsManager.UI_SCALE_MIN_PERCENT,
+                                        UiSettingsManager.UI_SCALE_MAX_PERCENT
+                                    )
+                                    pendingUiScale = newValue.toFloat()
+                                    onUiScalePreview(newValue)
+                                },
+                                valueRange = UiSettingsManager.UI_SCALE_MIN_PERCENT.toFloat()..
+                                    UiSettingsManager.UI_SCALE_MAX_PERCENT.toFloat(),
+                                onValueChangeFinished = {
+                                    onUiScaleCommit(pendingUiScale.toInt())
+                                },
+                            )
+                            Text(
+                                text = "Текст и иконки масштабируются вместе для лучшей читаемости.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
@@ -312,6 +359,7 @@ fun SettingsScreen(
                     }
                 }
             }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 }

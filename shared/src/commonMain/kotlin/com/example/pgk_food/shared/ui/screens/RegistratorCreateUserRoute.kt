@@ -33,6 +33,7 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
@@ -92,45 +93,49 @@ fun RegistratorCreateUserRoute(
     LaunchedEffect(token) { loadGroups() }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            RegistratorCreateUserForm(
-                groups = groups,
-                initialGroupId = initialGroupId,
-                isSubmitting = isSubmitting,
-                showHints = showHints,
-                onDismissHints = onDismissHints,
-                contentPadding = padding,
-                onBack = onBack,
-                onSubmit = { request ->
-                    scope.launch {
-                        val result = registratorRepository.createUser(token, request)
-                        val ok = runUiAction(
-                            actionState = actionState,
-                            successMessage = "Пользователь создан",
-                            fallbackErrorMessage = "Ошибка создания пользователя",
-                            emitSuccessFeedback = false
-                        ) { result }
-                        if (ok) {
-                            result.getOrNull()?.let {
-                                credentialsDialog = UserCredentialsUi(it.login, it.passwordClearText)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                RegistratorCreateUserForm(
+                    groups = groups,
+                    initialGroupId = initialGroupId,
+                    isSubmitting = isSubmitting,
+                    showHints = showHints,
+                    onDismissHints = onDismissHints,
+                    contentPadding = PaddingValues(0.dp),
+                    onBack = onBack,
+                    onSubmit = { request ->
+                        scope.launch {
+                            val result = registratorRepository.createUser(token, request)
+                            val ok = runUiAction(
+                                actionState = actionState,
+                                successMessage = "Пользователь создан",
+                                fallbackErrorMessage = "Ошибка создания пользователя",
+                                emitSuccessFeedback = false
+                            ) { result }
+                            if (ok) {
+                                result.getOrNull()?.let {
+                                    credentialsDialog = UserCredentialsUi(it.login, it.passwordClearText)
+                                }
                             }
                         }
                     }
-                }
-            )
+                )
+            }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 

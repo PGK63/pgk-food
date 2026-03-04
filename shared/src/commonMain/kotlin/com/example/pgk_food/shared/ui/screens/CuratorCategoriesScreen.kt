@@ -24,7 +24,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,10 +43,12 @@ import com.example.pgk_food.shared.data.remote.dto.CuratorStudentRow
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
@@ -141,109 +142,119 @@ fun CuratorCategoriesScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                "Категории студентов",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.springEntrance()
-            )
-            if (showHints) {
-                Spacer(modifier = Modifier.height(8.dp))
-                HowItWorksCard(
-                    title = hintContent.title,
-                    steps = hintContent.steps,
-                    note = hintContent.note,
-                    onDismiss = onDismissHints,
-                    modifier = Modifier.springEntrance(40)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Категории студентов",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.springEntrance()
                 )
-                hintContent.inlineHints.firstOrNull()?.let { inline ->
+                if (showHints) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    InlineHint(text = inline, modifier = Modifier.springEntrance(50))
+                    HowItWorksCard(
+                        title = hintContent.title,
+                        steps = hintContent.steps,
+                        note = hintContent.note,
+                        onDismiss = onDismissHints,
+                        modifier = Modifier.springEntrance(40)
+                    )
+                    hintContent.inlineHints.firstOrNull()?.let { inline ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        InlineHint(text = inline, modifier = Modifier.springEntrance(50))
+                    }
                 }
-            }
 
-            if (groups.isNotEmpty()) {
-                OutlinedTextField(
-                    value = groupSearchQuery,
-                    onValueChange = {
-                        groupSearchQuery = it
-                        showGroupPicker = true
-                    },
-                    label = { Text("Группа") },
-                    placeholder = { Text(selectedGroupLabel) },
-                    trailingIcon = {
-                        IconButton(onClick = { showGroupPicker = true }) {
-                            Icon(Icons.Rounded.Search, contentDescription = null)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().springEntrance(60),
-                    singleLine = true
-                )
-            }
-
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (students.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (groups.isEmpty()) "У вас нет доступных групп"
-                        else if (selectedGroupId == null) "Сначала выберите группу"
-                        else "В выбранной группе нет студентов",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (groups.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = groupSearchQuery,
+                        onValueChange = {
+                            groupSearchQuery = it
+                            showGroupPicker = true
+                        },
+                        label = { Text("Группа") },
+                        placeholder = { Text(selectedGroupLabel) },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { showGroupPicker = true },
+                                modifier = Modifier.longPressHelp(
+                                    actionId = "categories.group.search",
+                                    fallbackDescription = "Поиск группы",
+                                ),
+                            ) {
+                                Icon(Icons.Rounded.Search, contentDescription = "Поиск группы")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().springEntrance(60),
+                        singleLine = true
                     )
                 }
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    itemsIndexed(students, key = { _, student -> student.userId }) { index, student ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .springEntrance((index.coerceAtMost(9) * 40) + 110),
-                            shape = MaterialTheme.shapes.large
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(student.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(student.groupName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (student.studentCategory == null) {
-                                    Text(
-                                        "Категория не назначена",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    StudentCategory.entries.forEach { category ->
-                                        FilterChip(
-                                            selected = student.studentCategory == category,
-                                            onClick = {
-                                                if (student.studentCategory == category) return@FilterChip
-                                                scope.launch {
-                                                    curatorRepository.updateStudentCategory(token, student.userId, category)
-                                                        .onSuccess {
-                                                            students = students.map {
-                                                                if (it.userId == student.userId) it.copy(studentCategory = category) else it
-                                                            }
-                                                            snackbarHostState.showSnackbar("Категория обновлена")
-                                                        }
-                                                        .onFailure {
-                                                            snackbarHostState.showSnackbar(it.userMessageOr("Ошибка обновления категории"))
-                                                        }
-                                                }
-                                            },
-                                            label = { Text(category.titleRu()) }
+
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (students.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (groups.isEmpty()) "У вас нет доступных групп"
+                            else if (selectedGroupId == null) "Сначала выберите группу"
+                            else "В выбранной группе нет студентов",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        itemsIndexed(students, key = { _, student -> student.userId }) { index, student ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .springEntrance((index.coerceAtMost(9) * 40) + 110),
+                                shape = MaterialTheme.shapes.large
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(student.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text(student.groupName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (student.studentCategory == null) {
+                                        Text(
+                                            "Категория не назначена",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
                                         )
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        StudentCategory.entries.forEach { category ->
+                                            FilterChip(
+                                                selected = student.studentCategory == category,
+                                                onClick = {
+                                                    if (student.studentCategory == category) return@FilterChip
+                                                    scope.launch {
+                                                        curatorRepository.updateStudentCategory(token, student.userId, category)
+                                                            .onSuccess {
+                                                                students = students.map {
+                                                                    if (it.userId == student.userId) it.copy(studentCategory = category) else it
+                                                                }
+                                                                snackbarHostState.showSnackbar("Категория обновлена")
+                                                            }
+                                                            .onFailure {
+                                                                snackbarHostState.showSnackbar(it.userMessageOr("Ошибка обновления категории"))
+                                                            }
+                                                    }
+                                                },
+                                                label = { Text(category.titleRu()) }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -251,6 +262,7 @@ fun CuratorCategoriesScreen(
                     }
                 }
             }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 }

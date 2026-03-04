@@ -38,7 +38,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,9 +64,11 @@ import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.StudentCategory
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
@@ -246,6 +247,10 @@ fun CuratorRosterScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { showCopyDatePicker = true }
+                            .longPressHelp(
+                                actionId = "roster.copy.date.pick",
+                                fallbackDescription = "Выбрать дату копирования",
+                            )
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -435,171 +440,187 @@ fun CuratorRosterScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
         ) {
-            if (showHints) {
-                HowItWorksCard(
-                    title = hintContent.title,
-                    steps = hintContent.steps,
-                    note = hintContent.note,
-                    onDismiss = onDismissHints,
-                    modifier = Modifier.springEntrance(10),
-                )
-                hintContent.inlineHints.firstOrNull()?.let { inline ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    InlineHint(text = inline, modifier = Modifier.springEntrance(20))
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Начните искать") },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth().springEntrance(),
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (groups.size > 1) {
-                ExposedDropdownMenuBox(
-                    modifier = Modifier.springEntrance(60),
-                    expanded = isGroupMenuExpanded,
-                    onExpandedChange = { isGroupMenuExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = groups.find { it.id == selectedGroupId }?.name.orEmpty(),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Группа") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isGroupMenuExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                if (showHints) {
+                    HowItWorksCard(
+                        title = hintContent.title,
+                        steps = hintContent.steps,
+                        note = hintContent.note,
+                        onDismiss = onDismissHints,
+                        modifier = Modifier.springEntrance(10),
                     )
-                    DropdownMenu(
+                    hintContent.inlineHints.firstOrNull()?.let { inline ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        InlineHint(text = inline, modifier = Modifier.springEntrance(20))
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Начните искать") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth().springEntrance(),
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (groups.size > 1) {
+                    ExposedDropdownMenuBox(
+                        modifier = Modifier.springEntrance(60),
                         expanded = isGroupMenuExpanded,
-                        onDismissRequest = { isGroupMenuExpanded = false }
+                        onExpandedChange = { isGroupMenuExpanded = it }
                     ) {
-                        groups.forEach { group ->
-                            DropdownMenuItem(
-                                text = { Text(group.name) },
-                                onClick = {
-                                    selectedGroupId = group.id
-                                    isGroupMenuExpanded = false
+                        OutlinedTextField(
+                            value = groups.find { it.id == selectedGroupId }?.name.orEmpty(),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Группа") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isGroupMenuExpanded) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        DropdownMenu(
+                            expanded = isGroupMenuExpanded,
+                            onDismissRequest = { isGroupMenuExpanded = false }
+                        ) {
+                            groups.forEach { group ->
+                                DropdownMenuItem(
+                                    text = { Text(group.name) },
+                                    onClick = {
+                                        selectedGroupId = group.id
+                                        isGroupMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().springEntrance(90),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = PillShape,
+                        modifier = Modifier
+                            .clickable { showDatePicker = true }
+                            .longPressHelp(
+                                actionId = "roster.date.pick",
+                                fallbackDescription = "Выбрать дату",
+                            )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Rounded.CalendarMonth,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                formatRuDate(selectedDate),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = {
+                            copyDate = plusDays(selectedDate, 1)
+                            showCopyDialog = true
+                        },
+                        modifier = Modifier.longPressHelp(
+                            actionId = "roster.copy-day",
+                            fallbackDescription = "Скопировать день",
+                        ),
+                    ) {
+                        Icon(
+                            Icons.Rounded.ContentCopy,
+                            contentDescription = "Скопировать день",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                if (isActionLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                if (groupsLoaded && groups.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text("Вы не привязаны ни к одной группе", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else if (isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        itemsIndexed(filteredEntries, key = { _, entry -> entry.studentId }) { index, entry ->
+                            RosterCard(
+                                entry = entry,
+                                selectedDateStr = selectedDate.toString(),
+                                animationDelayMs = (index.coerceAtMost(9) * 35) + 130,
+                                onUpdate = { updatedEntry ->
+                                    entries = entries.map { if (it.studentId == updatedEntry.studentId) updatedEntry else it }
                                 }
                             )
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+                    Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth().springEntrance(90),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = PillShape,
-                    modifier = Modifier.clickable { showDatePicker = true }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Rounded.CalendarMonth,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 8.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            formatRuDate(selectedDate),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                IconButton(onClick = {
-                    copyDate = plusDays(selectedDate, 1)
-                    showCopyDialog = true
-                }) {
-                    Icon(
-                        Icons.Rounded.ContentCopy,
-                        contentDescription = "Скопировать день",
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            if (isActionLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            if (groupsLoaded && groups.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Вы не привязаны ни к одной группе", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    itemsIndexed(filteredEntries, key = { _, entry -> entry.studentId }) { index, entry ->
-                        RosterCard(
-                            entry = entry,
-                            selectedDateStr = selectedDate.toString(),
-                            animationDelayMs = (index.coerceAtMost(9) * 35) + 130,
-                            onUpdate = { updatedEntry ->
-                                entries = entries.map { if (it.studentId == updatedEntry.studentId) updatedEntry else it }
+                    Button(
+                        onClick = {
+                            if (hasExpelledForSelectedDate()) {
+                                showExpelConfirm = true
+                            } else {
+                                saveSelectedDate()
                             }
-                        )
+                        },
+                        enabled = !isActionLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = PillShape
+                    ) {
+                        Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                        Text(if (isActionLoading) "Сохранение..." else "Сохранить", fontWeight = FontWeight.Bold)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        if (hasExpelledForSelectedDate()) {
-                            showExpelConfirm = true
-                        } else {
-                            saveSelectedDate()
-                        }
-                    },
-                    enabled = !isActionLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = PillShape
-                ) {
-                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                    Text(if (isActionLoading) "Сохранение..." else "Сохранить", fontWeight = FontWeight.Bold)
-                }
             }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 private fun RosterCard(
     entry: StudentRosterDto,
     selectedDateStr: String,
@@ -767,6 +788,10 @@ private fun RosterCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable { datePickerTarget = AbsenceDateTarget.FROM }
+                                .longPressHelp(
+                                    actionId = "roster.absence.from.pick",
+                                    fallbackDescription = "Выбрать дату начала отсутствия",
+                                )
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -783,6 +808,10 @@ private fun RosterCard(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable { datePickerTarget = AbsenceDateTarget.TO }
+                                .longPressHelp(
+                                    actionId = "roster.absence.to.pick",
+                                    fallbackDescription = "Выбрать дату окончания отсутствия",
+                                )
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),

@@ -66,7 +66,13 @@ fun GroupPickerDialog(
                     leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotBlank()) {
-                            IconButton(onClick = { onSearchQueryChange("") }) {
+                            IconButton(
+                                onClick = { onSearchQueryChange("") },
+                                modifier = Modifier.longPressHelp(
+                                    actionId = "search.clear",
+                                    fallbackDescription = "Очистить",
+                                ),
+                            ) {
                                 Icon(Icons.Rounded.Close, contentDescription = "Очистить")
                             }
                         }

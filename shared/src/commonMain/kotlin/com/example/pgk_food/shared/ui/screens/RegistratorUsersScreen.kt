@@ -36,11 +36,13 @@ import com.example.pgk_food.shared.data.remote.dto.*
 import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.data.session.SessionStore
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.components.UserCredentialsUi
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.SectionShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
@@ -150,11 +152,14 @@ fun RegistratorUsersScreen(
     val hasActiveFilters = filterGroupId != null || filterRole != null
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onCreateUserClick(null) },
+                modifier = Modifier.longPressHelp(
+                    actionId = "users.create",
+                    fallbackDescription = "Создать пользователя",
+                ),
                 shape = MaterialTheme.shapes.large,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -164,172 +169,195 @@ fun RegistratorUsersScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
-            if (showHints) {
-                HowItWorksCard(
-                    title = hintContent.title,
-                    steps = hintContent.steps,
-                    note = hintContent.note,
-                    onDismiss = onDismissHints,
-                    modifier = Modifier.springEntrance(10),
-                )
-                hintContent.inlineHints.firstOrNull()?.let { inline ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    InlineHint(text = inline, modifier = Modifier.springEntrance(15))
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Search bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Начните искать") },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Очистить")
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().springEntrance(),
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Filter chips row
-            FlowRow(
-                modifier = Modifier.fillMaxWidth().springEntrance(60),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
             ) {
-                FilterChip(
-                    selected = filterGroupId != null,
-                    onClick = { showFilterSheet = true },
-                    label = {
-                        Text(
-                            if (filterGroupId != null) groups.find { it.id == filterGroupId }?.name ?: "Группа"
-                            else "Группа"
-                        )
-                    },
-                    leadingIcon = {
-                        if (filterGroupId != null) {
-                            Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    },
-                    shape = MaterialTheme.shapes.small
-                )
-                FilterChip(
-                    selected = filterRole != null,
-                    onClick = { showFilterSheet = true },
-                    label = { Text(filterRole?.titleRu() ?: "Роль") },
-                    leadingIcon = {
-                        if (filterRole != null) {
-                            Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    },
-                    shape = MaterialTheme.shapes.small
-                )
-                if (hasActiveFilters) {
-                    IconButton(
-                        onClick = { filterGroupId = null; filterRoleRaw = null },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Сбросить фильтры", modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            if (isActionLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (filteredUsers.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Rounded.SearchOff,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                if (showHints) {
+                    HowItWorksCard(
+                        title = hintContent.title,
+                        steps = hintContent.steps,
+                        note = hintContent.note,
+                        onDismiss = onDismissHints,
+                        modifier = Modifier.springEntrance(10),
+                    )
+                    hintContent.inlineHints.firstOrNull()?.let { inline ->
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        InlineHint(text = inline, modifier = Modifier.springEntrance(15))
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
-                ) {
-                    groupedUsers.forEachIndexed { groupIndex, (groupName, groupUsers) ->
-                        val groupDelay = 120 + (groupIndex.coerceAtMost(9) * 45)
-                        // Group header
-                        item {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 12.dp, bottom = 4.dp)
-                                    .springEntrance(groupDelay),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+
+                // Search bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Начните искать") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.longPressHelp(
+                                    actionId = "search.clear",
+                                    fallbackDescription = "Очистить",
+                                ),
                             ) {
-                                Text(
-                                    text = groupName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                IconButton(onClick = { onCreateUserClick(groupUsers.firstOrNull()?.groupId) }) {
-                                    Icon(
-                                        Icons.Rounded.Add,
-                                        contentDescription = "Добавить в группу",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                                Icon(Icons.Rounded.Close, contentDescription = "Очистить")
                             }
                         }
-                        // User items
-                        itemsIndexed(groupUsers, key = { _, user -> user.userId }) { userIndex, user ->
-                            UserRow(
-                                user = user,
-                                groupName = groups.find { it.id == user.groupId }?.name,
-                                animationDelayMs = groupDelay + ((userIndex.coerceAtMost(5) + 1) * 30),
-                                onClick = { selectedUser = user },
-                                onSettingsClick = { selectedUser = user },
-                                onDeleteClick = {
-                                    scope.launch {
-                                        val ok = runUiAction(
-                                            actionState = actionState,
-                                            successMessage = "Пользователь удален",
-                                            fallbackErrorMessage = "Ошибка удаления пользователя",
-                                        ) {
-                                            registratorRepository.deleteUser(token, user.userId)
-                                        }
-                                        if (ok) loadData()
+                    },
+                    modifier = Modifier.fillMaxWidth().springEntrance(),
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Filter chips row
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().springEntrance(60),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = filterGroupId != null,
+                        onClick = { showFilterSheet = true },
+                        label = {
+                            Text(
+                                if (filterGroupId != null) groups.find { it.id == filterGroupId }?.name ?: "Группа"
+                                else "Группа"
+                            )
+                        },
+                        leadingIcon = {
+                            if (filterGroupId != null) {
+                                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        },
+                        shape = MaterialTheme.shapes.small
+                    )
+                    FilterChip(
+                        selected = filterRole != null,
+                        onClick = { showFilterSheet = true },
+                        label = { Text(filterRole?.titleRu() ?: "Роль") },
+                        leadingIcon = {
+                            if (filterRole != null) {
+                                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        },
+                        shape = MaterialTheme.shapes.small
+                    )
+                    if (hasActiveFilters) {
+                        IconButton(
+                            onClick = { filterGroupId = null; filterRoleRaw = null },
+                            modifier = Modifier
+                                .size(32.dp)
+                                .longPressHelp(
+                                    actionId = "users.filter.reset",
+                                    fallbackDescription = "Сбросить фильтры",
+                                )
+                        ) {
+                            Icon(Icons.Rounded.Close, contentDescription = "Сбросить фильтры", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                if (isActionLoading) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (filteredUsers.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Rounded.SearchOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        groupedUsers.forEachIndexed { groupIndex, (groupName, groupUsers) ->
+                            val groupDelay = 120 + (groupIndex.coerceAtMost(9) * 45)
+                            // Group header
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 12.dp, bottom = 4.dp)
+                                        .springEntrance(groupDelay),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = groupName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    IconButton(
+                                        onClick = { onCreateUserClick(groupUsers.firstOrNull()?.groupId) },
+                                        modifier = Modifier.longPressHelp(
+                                            actionId = "users.group.quick-create",
+                                            fallbackDescription = "Добавить в группу",
+                                        ),
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.Add,
+                                            contentDescription = "Добавить в группу",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                 }
-                            )
+                            }
+                            // User items
+                            itemsIndexed(groupUsers, key = { _, user -> user.userId }) { userIndex, user ->
+                                UserRow(
+                                    user = user,
+                                    groupName = groups.find { it.id == user.groupId }?.name,
+                                    animationDelayMs = groupDelay + ((userIndex.coerceAtMost(5) + 1) * 30),
+                                    onClick = { selectedUser = user },
+                                    onSettingsClick = { selectedUser = user },
+                                    onDeleteClick = {
+                                        scope.launch {
+                                            val ok = runUiAction(
+                                                actionState = actionState,
+                                                successMessage = "Пользователь удален",
+                                                fallbackErrorMessage = "Ошибка удаления пользователя",
+                                            ) {
+                                                registratorRepository.deleteUser(token, user.userId)
+                                            }
+                                            if (ok) loadData()
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 
@@ -504,10 +532,22 @@ private fun UserRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onSettingsClick) {
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.longPressHelp(
+                    actionId = "users.row.edit",
+                    fallbackDescription = "Настройки",
+                ),
+            ) {
                 Icon(Icons.Rounded.Settings, contentDescription = "Настройки", modifier = Modifier.size(22.dp))
             }
-            IconButton(onClick = onDeleteClick) {
+            IconButton(
+                onClick = onDeleteClick,
+                modifier = Modifier.longPressHelp(
+                    actionId = "users.row.delete",
+                    fallbackDescription = "Удалить",
+                ),
+            ) {
                 Icon(Icons.Rounded.Delete, contentDescription = "Удалить", modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -535,9 +575,9 @@ private fun FilterBottomSheet(
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
                 Text(
                     "Фильтры",
                     style = MaterialTheme.typography.titleLarge,
@@ -648,7 +688,14 @@ private fun UserDetailSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = onDismiss, enabled = !isProcessing) {
+                IconButton(
+                    onClick = onDismiss,
+                    enabled = !isProcessing,
+                    modifier = Modifier.longPressHelp(
+                        actionId = "dialog.close",
+                        fallbackDescription = "Закрыть",
+                    ),
+                ) {
                     Icon(Icons.Rounded.Close, contentDescription = "Закрыть")
                 }
             }

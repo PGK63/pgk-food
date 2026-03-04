@@ -29,7 +29,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -59,10 +58,12 @@ import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.platform.FileSaveRequest
 import com.example.pgk_food.shared.platform.rememberFileSaveLauncher
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
@@ -267,13 +268,17 @@ fun AdminReportsScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
             if (showHints) {
                 item {
                     HowItWorksCard(
@@ -321,9 +326,13 @@ fun AdminReportsScreen(
                                 trailingIcon = {
                                     IconButton(
                                         onClick = { showGroupPicker = true },
-                                        enabled = !isGroupsLoading
+                                        enabled = !isGroupsLoading,
+                                        modifier = Modifier.longPressHelp(
+                                            actionId = "reports.group.pick",
+                                            fallbackDescription = "Поиск группы",
+                                        ),
                                     ) {
-                                        Icon(Icons.Rounded.Search, contentDescription = null)
+                                        Icon(Icons.Rounded.Search, contentDescription = "Поиск группы")
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -557,6 +566,8 @@ fun AdminReportsScreen(
                     }
                 }
             }
+            }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 }

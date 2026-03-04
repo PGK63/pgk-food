@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.data.remote.dto.LoginRequest
 import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.platformName
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.GlassSurface
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
@@ -172,7 +173,13 @@ fun LoginScreen(authRepository: AuthRepository) {
                             visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null) },
                             trailingIcon = {
-                                IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                IconButton(
+                                    onClick = { isPasswordVisible = !isPasswordVisible },
+                                    modifier = Modifier.longPressHelp(
+                                        actionId = "password.visibility",
+                                        fallbackDescription = "Показать или скрыть пароль",
+                                    ),
+                                ) {
                                     Icon(
                                         imageVector = if (isPasswordVisible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
                                         contentDescription = null

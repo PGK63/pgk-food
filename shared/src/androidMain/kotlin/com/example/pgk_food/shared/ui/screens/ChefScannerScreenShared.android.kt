@@ -54,7 +54,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -85,6 +84,8 @@ import androidx.core.content.ContextCompat
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
@@ -150,7 +151,6 @@ actual fun ChefScannerScreenShared(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Сканер питания", style = MaterialTheme.typography.titleMedium) },
@@ -160,12 +160,24 @@ actual fun ChefScannerScreenShared(
                             badge = { Badge { Text(unsyncedCount.toString()) } },
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
-                            IconButton(onClick = { viewModel.syncTransactions() }) {
+                            IconButton(
+                                onClick = { viewModel.syncTransactions() },
+                                modifier = Modifier.longPressHelp(
+                                    actionId = "scanner.sync",
+                                    fallbackDescription = "Синхронизировать",
+                                ),
+                            ) {
                                 Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
                             }
                         }
                     }
-                    IconButton(onClick = { viewModel.downloadData() }) {
+                    IconButton(
+                        onClick = { viewModel.downloadData() },
+                        modifier = Modifier.longPressHelp(
+                            actionId = "scanner.download",
+                            fallbackDescription = "Скачать данные",
+                        ),
+                    ) {
                         Icon(Icons.Default.CloudDownload, contentDescription = "Скачать данные")
                     }
                 }
@@ -362,10 +374,11 @@ actual fun ChefScannerScreenShared(
                             }
                             if (scanResponse.errorMessage != null) {
                                 Text(scanResponse.errorMessage, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
-                }
+            }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
+        }
+    }
+}
 
                 Spacer(modifier = Modifier.height(controlsSpacer))
 

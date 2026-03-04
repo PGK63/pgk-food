@@ -25,7 +25,50 @@ enum class HintScreenKey {
     ADMIN_REPORTS,
 }
 
-class UiSettingsManager {
+interface UiSettingsStore {
+    fun contains(store: String, key: String): Boolean
+    fun getString(store: String, key: String, default: String): String
+    fun putString(store: String, key: String, value: String)
+    fun getBoolean(store: String, key: String, default: Boolean): Boolean
+    fun putBoolean(store: String, key: String, value: Boolean)
+    fun getLong(store: String, key: String, default: Long): Long
+    fun putLong(store: String, key: String, value: Long)
+    fun remove(store: String, key: String)
+}
+
+object PlatformUiSettingsStore : UiSettingsStore {
+    override fun contains(store: String, key: String): Boolean =
+        PlatformKeyValueStore.contains(store, key)
+
+    override fun getString(store: String, key: String, default: String): String =
+        PlatformKeyValueStore.getString(store, key, default)
+
+    override fun putString(store: String, key: String, value: String) {
+        PlatformKeyValueStore.putString(store, key, value)
+    }
+
+    override fun getBoolean(store: String, key: String, default: Boolean): Boolean =
+        PlatformKeyValueStore.getBoolean(store, key, default)
+
+    override fun putBoolean(store: String, key: String, value: Boolean) {
+        PlatformKeyValueStore.putBoolean(store, key, value)
+    }
+
+    override fun getLong(store: String, key: String, default: Long): Long =
+        PlatformKeyValueStore.getLong(store, key, default)
+
+    override fun putLong(store: String, key: String, value: Long) {
+        PlatformKeyValueStore.putLong(store, key, value)
+    }
+
+    override fun remove(store: String, key: String) {
+        PlatformKeyValueStore.remove(store, key)
+    }
+}
+
+class UiSettingsManager(
+    private val store: UiSettingsStore = PlatformUiSettingsStore,
+) {
     fun shouldShowHints(
         userId: String?,
         nowMillis: Long = currentTimeMillis(),
@@ -40,8 +83,8 @@ class UiSettingsManager {
 
     fun setHintsOverride(userId: String?, enabled: Boolean) {
         val safeUserId = safeUserId(userId)
-        PlatformKeyValueStore.putBoolean(PREFS_NAME, hintsOverrideKey(safeUserId), enabled)
-        PlatformKeyValueStore.putBoolean(PREFS_NAME, legacyHintsEnabledKey(safeUserId), enabled)
+        store.putBoolean(PREFS_NAME, hintsOverrideKey(safeUserId), enabled)
+        store.putBoolean(PREFS_NAME, legacyHintsEnabledKey(safeUserId), enabled)
         if (enabled) {
             clearAllScreenHints(userId)
         }
@@ -57,43 +100,55 @@ class UiSettingsManager {
     ): Boolean {
         val globalVisible = shouldShowHints(userId, nowMillis)
         val safeUserId = safeUserId(userId)
-        val isScreenHidden = PlatformKeyValueStore.getBoolean(PREFS_NAME, hiddenScreenKey(safeUserId, screen), false)
+        val isScreenHidden = store.getBoolean(PREFS_NAME, hiddenScreenKey(safeUserId, screen), false)
         return HintVisibilityPolicy.resolveScreen(globalVisible, isScreenHidden)
     }
 
     fun hideScreenHints(userId: String?, screen: HintScreenKey) {
         val safeUserId = safeUserId(userId)
-        PlatformKeyValueStore.putBoolean(PREFS_NAME, hiddenScreenKey(safeUserId, screen), true)
+        store.putBoolean(PREFS_NAME, hiddenScreenKey(safeUserId, screen), true)
     }
 
     fun clearScreenHints(userId: String?, screen: HintScreenKey) {
         val safeUserId = safeUserId(userId)
-        PlatformKeyValueStore.remove(PREFS_NAME, hiddenScreenKey(safeUserId, screen))
+        store.remove(PREFS_NAME, hiddenScreenKey(safeUserId, screen))
     }
 
     fun clearAllScreenHints(userId: String?) {
         val safeUserId = safeUserId(userId)
         HintScreenKey.values().forEach { screen ->
-            PlatformKeyValueStore.remove(PREFS_NAME, hiddenScreenKey(safeUserId, screen))
+            store.remove(PREFS_NAME, hiddenScreenKey(safeUserId, screen))
         }
     }
 
+    fun getUiScalePercent(): Int {
+        val rawValue = store.getLong(PREFS_NAME, UI_SCALE_PERCENT_KEY, UI_SCALE_DEFAULT_PERCENT.toLong())
+            .toInt()
+        return UiScalePolicy.clamp(rawValue)
+    }
+
+    fun setUiScalePercent(percent: Int) {
+        store.putLong(PREFS_NAME, UI_SCALE_PERCENT_KEY, UiScalePolicy.clamp(percent).toLong())
+    }
+
+    fun clampUiScalePercent(percent: Int): Int = UiScalePolicy.clamp(percent)
+
     private fun ensureHintsFirstSeenAt(safeUserId: String, nowMillis: Long): Long {
         val key = hintsFirstSeenAtKey(safeUserId)
-        val existing = PlatformKeyValueStore.getLong(PREFS_NAME, key, -1L)
+        val existing = store.getLong(PREFS_NAME, key, -1L)
         if (existing > 0L) return existing
-        PlatformKeyValueStore.putLong(PREFS_NAME, key, nowMillis)
+        store.putLong(PREFS_NAME, key, nowMillis)
         return nowMillis
     }
 
     private fun readHintsOverride(safeUserId: String): Boolean? {
         val overrideKey = hintsOverrideKey(safeUserId)
-        if (PlatformKeyValueStore.contains(PREFS_NAME, overrideKey)) {
-            return PlatformKeyValueStore.getBoolean(PREFS_NAME, overrideKey, true)
+        if (store.contains(PREFS_NAME, overrideKey)) {
+            return store.getBoolean(PREFS_NAME, overrideKey, true)
         }
         val legacyKey = legacyHintsEnabledKey(safeUserId)
-        return if (PlatformKeyValueStore.contains(PREFS_NAME, legacyKey)) {
-            PlatformKeyValueStore.getBoolean(PREFS_NAME, legacyKey, true)
+        return if (store.contains(PREFS_NAME, legacyKey)) {
+            store.getBoolean(PREFS_NAME, legacyKey, true)
         } else {
             null
         }
@@ -107,7 +162,20 @@ class UiSettingsManager {
         "hints_hidden_screen:$safeUserId:${screen.name}"
 
     companion object {
+        const val UI_SCALE_MIN_PERCENT: Int = 85
+        const val UI_SCALE_MAX_PERCENT: Int = 130
+        const val UI_SCALE_DEFAULT_PERCENT: Int = 100
         private const val PREFS_NAME = "ui_settings"
+        private const val UI_SCALE_PERCENT_KEY = "ui_scale_percent"
+    }
+}
+
+internal object UiScalePolicy {
+    fun clamp(percent: Int): Int {
+        return percent.coerceIn(
+            minimumValue = UiSettingsManager.UI_SCALE_MIN_PERCENT,
+            maximumValue = UiSettingsManager.UI_SCALE_MAX_PERCENT,
+        )
     }
 }
 

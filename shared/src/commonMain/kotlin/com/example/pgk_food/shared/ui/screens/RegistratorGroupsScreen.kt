@@ -26,9 +26,11 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.UserDto
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
@@ -271,11 +273,14 @@ fun RegistratorGroupsScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddGroupDialog = true },
+                modifier = Modifier.longPressHelp(
+                    actionId = "groups.create",
+                    fallbackDescription = "Добавить группу",
+                ),
                 shape = MaterialTheme.shapes.large,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -284,7 +289,8 @@ fun RegistratorGroupsScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Text(
                 text = "Управление группами",
                 style = MaterialTheme.typography.headlineMedium,
@@ -302,7 +308,13 @@ fun RegistratorGroupsScreen(
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
+                        IconButton(
+                            onClick = { searchQuery = "" },
+                            modifier = Modifier.longPressHelp(
+                                actionId = "search.clear",
+                                fallbackDescription = "Очистить",
+                            ),
+                        ) {
                             Icon(Icons.Rounded.Close, contentDescription = "Очистить")
                         }
                     }
@@ -417,14 +429,27 @@ fun RegistratorGroupsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                                         verticalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
-                                        IconButton(onClick = { showAssignMemberDialog = group.id to "CURATOR" }) {
+                                        IconButton(
+                                            onClick = { showAssignMemberDialog = group.id to "CURATOR" },
+                                            modifier = Modifier.longPressHelp(
+                                                actionId = "groups.assign.curator",
+                                                fallbackDescription = "Назначить куратора",
+                                            ),
+                                        ) {
                                             Icon(Icons.Rounded.Person, contentDescription = "Назначить куратора", modifier = Modifier.size(22.dp))
                                         }
-                                        IconButton(onClick = { showTransferGroupDialog = group }) {
+                                        IconButton(
+                                            onClick = { showTransferGroupDialog = group },
+                                            modifier = Modifier.longPressHelp(
+                                                actionId = "groups.transfer",
+                                                fallbackDescription = "Перевести/переименовать",
+                                            ),
+                                        ) {
                                             Icon(Icons.Rounded.Edit, contentDescription = "Перевести/переименовать", modifier = Modifier.size(22.dp))
                                         }
                                         if (group.curators.isNotEmpty()) {
-                                            IconButton(onClick = { 
+                                            IconButton(
+                                                onClick = {
                                                 scope.launch {
                                                     val ok = runUiAction(
                                                         actionState = actionState,
@@ -445,7 +470,12 @@ fun RegistratorGroupsScreen(
                                                     }
                                                     if (ok) refreshUiAfterMutation(group.id)
                                                 }
-                                            }) {
+                                            },
+                                                modifier = Modifier.longPressHelp(
+                                                    actionId = "groups.unassign.curator",
+                                                    fallbackDescription = "Снять куратора",
+                                                ),
+                                            ) {
                                                 Icon(
                                                     Icons.Rounded.PersonOff, 
                                                     contentDescription = "Снять куратора",
@@ -454,7 +484,13 @@ fun RegistratorGroupsScreen(
                                                 )
                                             }
                                         }
-                                        IconButton(onClick = { showDeleteGroupDialog = group }) {
+                                        IconButton(
+                                            onClick = { showDeleteGroupDialog = group },
+                                            modifier = Modifier.longPressHelp(
+                                                actionId = "groups.delete",
+                                                fallbackDescription = "Удалить группу",
+                                            ),
+                                        ) {
                                             Icon(
                                                 Icons.Rounded.Delete,
                                                 contentDescription = "Удалить группу",
@@ -485,20 +521,26 @@ fun RegistratorGroupsScreen(
                                                     maxLines = 2,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
-                                                IconButton(onClick = {
-                                                    scope.launch {
-                                                        val ok = runUiAction(
-                                                            actionState = actionState,
-                                                            successMessage = "Студент убран из группы",
-                                                            fallbackErrorMessage = "Ошибка удаления студента из группы",
-                                                        ) {
-                                                            registratorRepository.removeStudentFromGroup(token, student.userId)
+                                                IconButton(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            val ok = runUiAction(
+                                                                actionState = actionState,
+                                                                successMessage = "Студент убран из группы",
+                                                                fallbackErrorMessage = "Ошибка удаления студента из группы",
+                                                            ) {
+                                                                registratorRepository.removeStudentFromGroup(token, student.userId)
+                                                            }
+                                                            if (ok) {
+                                                                refreshUiAfterMutation(group.id)
+                                                            }
                                                         }
-                                                        if (ok) {
-                                                            refreshUiAfterMutation(group.id)
-                                                        }
-                                                    }
-                                                }) {
+                                                    },
+                                                    modifier = Modifier.longPressHelp(
+                                                        actionId = "groups.member.remove",
+                                                        fallbackDescription = "Убрать из группы",
+                                                    ),
+                                                ) {
                                                     Icon(Icons.Rounded.Delete, contentDescription = "Убрать из группы", modifier = Modifier.size(20.dp))
                                                 }
                                             }
@@ -519,7 +561,9 @@ fun RegistratorGroupsScreen(
                     }
                 }
             }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
+    }
     }
 
     if (showAddGroupDialog) {
@@ -740,7 +784,13 @@ fun RegistratorGroupsScreen(
                         leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                         trailingIcon = {
                             if (memberSearchQuery.isNotBlank()) {
-                                IconButton(onClick = { memberSearchQuery = "" }) {
+                                IconButton(
+                                    onClick = { memberSearchQuery = "" },
+                                    modifier = Modifier.longPressHelp(
+                                        actionId = "search.clear",
+                                        fallbackDescription = "Очистить",
+                                    ),
+                                ) {
                                     Icon(Icons.Rounded.Close, contentDescription = "Очистить")
                                 }
                             }
@@ -887,7 +937,11 @@ fun RegistratorGroupsScreen(
                                                             }
                                                             if (ok) refreshUiAfterMutation(groupId)
                                                         }
-                                                    }
+                                                    },
+                                                    modifier = Modifier.longPressHelp(
+                                                        actionId = "groups.unassign.curator",
+                                                        fallbackDescription = "Снять куратора",
+                                                    ),
                                                 ) {
                                                     Icon(
                                                         Icons.Rounded.PersonOff,

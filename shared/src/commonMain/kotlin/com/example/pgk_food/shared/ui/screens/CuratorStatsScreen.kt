@@ -49,6 +49,7 @@ import com.example.pgk_food.shared.data.remote.dto.StudentMealStatus
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.TagShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
@@ -208,7 +209,12 @@ fun CuratorStatsScreen(
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = PillShape,
-            modifier = Modifier.clickable { showDatePicker = true }
+            modifier = Modifier
+                .clickable { showDatePicker = true }
+                .longPressHelp(
+                    actionId = "stats.date.pick",
+                    fallbackDescription = "Выбрать дату",
+                )
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),

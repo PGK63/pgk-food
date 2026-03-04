@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "575576044577",
+    "project_id": "pgkfood",
+    "storage_bucket": "pgkfood.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:575576044577:android:284a5bfe11e7ffde681f60",
+        "android_client_info": {
+          "package_name": "com.example.pgk_food"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfM6f4XD_TJg_JU8S_pjphFjJmrMuWD8k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

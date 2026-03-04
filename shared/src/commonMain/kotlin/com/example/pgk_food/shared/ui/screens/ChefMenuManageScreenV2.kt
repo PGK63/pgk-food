@@ -41,7 +41,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,9 +63,11 @@ import com.example.pgk_food.shared.data.repository.ChefRepository
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.model.MenuMealTypeUi
 import com.example.pgk_food.shared.platform.rememberCsvImportLauncher
+import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.state.UiActionState
 import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
@@ -235,7 +236,6 @@ fun ChefMenuManageScreenV2(
     val sortedItems = remember(menuItems) { sortMenuItemsForUi(menuItems) }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -275,7 +275,13 @@ fun ChefMenuManageScreenV2(
                         Text("Дата меню", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showDatePicker = true }
+                                .longPressHelp(
+                                    actionId = "menu.date.pick",
+                                    fallbackDescription = "Выбрать дату меню",
+                                ),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
@@ -352,7 +358,11 @@ fun ChefMenuManageScreenV2(
                                                     if (ok) loadMenu()
                                                 }
                                             },
-                                            enabled = !isActionLoading
+                                            enabled = !isActionLoading,
+                                            modifier = Modifier.longPressHelp(
+                                                actionId = "menu.item.delete",
+                                                fallbackDescription = "Удалить",
+                                            ),
                                         ) {
                                             Icon(Icons.Rounded.DeleteOutline, contentDescription = "Удалить")
                                         }
@@ -369,12 +379,19 @@ fun ChefMenuManageScreenV2(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = MaterialTheme.shapes.large,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp)
+                    .longPressHelp(
+                        actionId = "menu.add.item",
+                        fallbackDescription = "Добавить блюдо",
+                    ),
             ) {
                 Icon(Icons.Rounded.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Добавить блюдо")
             }
+            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 
@@ -416,7 +433,15 @@ fun ChefMenuManageScreenV2(
                 Column {
                     Text("Выберите дату назначения")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth().clickable { showCopyDatePicker = true }) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showCopyDatePicker = true }
+                            .longPressHelp(
+                                actionId = "menu.copy.date.pick",
+                                fallbackDescription = "Выбрать дату копирования",
+                            )
+                    ) {
                         Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(formatRuDate(copyDate))

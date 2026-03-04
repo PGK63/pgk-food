@@ -17,29 +17,29 @@ import kotlinx.coroutines.launch
 
 object AppMotion {
     val gentleSpring = spring<Float>(
-        dampingRatio = Spring.DampingRatioMediumBouncy,
-        stiffness = Spring.StiffnessMedium,
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow,
     )
 
     val bouncySpring = spring<Float>(
-        dampingRatio = Spring.DampingRatioMediumBouncy,
-        stiffness = Spring.StiffnessMediumLow,
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow,
     )
 
     val snappySpring = spring<Float>(
         dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = Spring.StiffnessHigh,
+        stiffness = Spring.StiffnessMedium,
     )
 
     val softSpring = spring<Float>(
         dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = Spring.StiffnessLow,
+        stiffness = Spring.StiffnessVeryLow,
     )
 }
 
 fun Modifier.springEntrance(delayMs: Int = 0): Modifier = composed {
     val alphaAnim = remember { Animatable(0f) }
-    val offsetY = remember { Animatable(40f) }
+    val offsetY = remember { Animatable(20f) }
 
     LaunchedEffect(Unit) {
         if (delayMs > 0) delay(delayMs.toLong())
@@ -60,9 +60,9 @@ fun Modifier.springScale(onClick: () -> Unit): Modifier = composed {
 
     LaunchedEffect(isPressed) {
         if (isPressed) {
-            scale.animateTo(0.94f, AppMotion.snappySpring)
+            scale.animateTo(0.97f, AppMotion.snappySpring)
         } else {
-            scale.animateTo(1f, AppMotion.bouncySpring)
+            scale.animateTo(1f, AppMotion.softSpring)
         }
     }
 

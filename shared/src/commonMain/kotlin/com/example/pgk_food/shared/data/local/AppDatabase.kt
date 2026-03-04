@@ -45,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun offlineCouponDao(): OfflineCouponDao
 }
 
-@Suppress("KotlinNoActualForExpect")
+@Suppress("NO_ACTUAL_FOR_EXPECT", "KotlinNoActualForExpect")
 expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
     override fun initialize(): AppDatabase
 }

@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -26,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -44,11 +47,13 @@ import com.example.pgk_food.shared.runtime.MainLoopSnapshot
 import com.example.pgk_food.shared.runtime.MainLoopStateStore
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
+import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
 import com.example.pgk_food.shared.util.HintScreenKey
 import com.example.pgk_food.shared.util.NetworkMonitor
+import com.example.pgk_food.shared.util.UiSettingsManager
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
@@ -112,22 +117,22 @@ private enum class NavDirection {
 private fun navContentTransition(direction: NavDirection): ContentTransform {
     return if (direction == NavDirection.Forward) {
         (slideInHorizontally(
-            animationSpec = tween(260),
-            initialOffsetX = { width -> width / 3 },
+            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+            initialOffsetX = { width -> width / 4 },
         ) + fadeIn(animationSpec = tween(220))).togetherWith(
             slideOutHorizontally(
-                animationSpec = tween(260),
-                targetOffsetX = { width -> -width / 4 },
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                targetOffsetX = { width -> -width / 5 },
             ) + fadeOut(animationSpec = tween(180))
         )
     } else {
         (slideInHorizontally(
-            animationSpec = tween(260),
-            initialOffsetX = { width -> -width / 3 },
+            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+            initialOffsetX = { width -> -width / 4 },
         ) + fadeIn(animationSpec = tween(220))).togetherWith(
             slideOutHorizontally(
-                animationSpec = tween(260),
-                targetOffsetX = { width -> width / 4 },
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                targetOffsetX = { width -> width / 5 },
             ) + fadeOut(animationSpec = tween(180))
         )
     }
@@ -137,11 +142,14 @@ private fun navContentTransition(direction: NavDirection): ContentTransform {
 @Composable
 fun MainScreenShared(
     session: UserSession,
+    uiSettingsManager: UiSettingsManager,
+    uiScalePercent: Int,
+    onUiScalePreview: (Int) -> Unit,
+    onUiScaleCommit: (Int) -> Unit,
     onLogout: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val notificationRepository = remember { NotificationRepository() }
-    val uiSettingsManager = remember { com.example.pgk_food.shared.util.UiSettingsManager() }
     val mainLoopStateStore = remember { MainLoopStateStore() }
     val authRepository = remember { AuthRepository() }
     val studentRepository = remember { StudentRepository() }
@@ -271,6 +279,12 @@ fun MainScreenShared(
         hintsVersion += 1
     }
     val density = LocalDensity.current
+    var edgeSwipeProgress by remember(session.userId) { mutableFloatStateOf(0f) }
+    val animatedEdgeSwipeProgress by animateFloatAsState(
+        targetValue = edgeSwipeProgress,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "edge-swipe-progress",
+    )
     val edgeSwipeModifier = if (isIos && canPop) {
         Modifier.pointerInput(canPop, currentSubScreen, backStack) {
             val edgeWidthPx = with(density) { 32.dp.toPx() }
@@ -281,21 +295,27 @@ fun MainScreenShared(
                 onDragStart = { offset ->
                     startedFromEdge = offset.x <= edgeWidthPx
                     accumulatedDrag = 0f
+                    if (!startedFromEdge) edgeSwipeProgress = 0f
                 },
                 onHorizontalDrag = { change, dragAmount ->
                     if (!startedFromEdge) return@detectHorizontalDragGestures
                     if (dragAmount <= 0f) return@detectHorizontalDragGestures
                     accumulatedDrag += dragAmount
+                    edgeSwipeProgress = (accumulatedDrag / popThresholdPx).coerceIn(0f, 1f)
                     change.consume()
                 },
                 onDragEnd = {
                     if (startedFromEdge && accumulatedDrag >= popThresholdPx) {
+                        edgeSwipeProgress = 0f
                         popScreen()
+                    } else {
+                        edgeSwipeProgress = 0f
                     }
                     startedFromEdge = false
                     accumulatedDrag = 0f
                 },
                 onDragCancel = {
+                    edgeSwipeProgress = 0f
                     startedFromEdge = false
                     accumulatedDrag = 0f
                 },
@@ -304,6 +324,10 @@ fun MainScreenShared(
     } else {
         Modifier
     }
+    LaunchedEffect(isIos, canPop) {
+        if (!isIos || !canPop) edgeSwipeProgress = 0f
+    }
+    val edgeSwipeOffsetPx = with(density) { 22.dp.toPx() }
 
     PlatformBackHandler(enabled = true) {
         if (canPop) {
@@ -344,11 +368,23 @@ fun MainScreenShared(
                 },
                 navigationIcon = {
                     if (canPop) {
-                        IconButton(onClick = { popScreen() }) {
+                        IconButton(
+                            onClick = { popScreen() },
+                            modifier = Modifier.longPressHelp(
+                                actionId = "nav.back",
+                                fallbackDescription = "Назад",
+                            ),
+                        ) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
                         }
                     } else {
-                        IconButton(onClick = { navigateTo("settings") }) {
+                        IconButton(
+                            onClick = { navigateTo("settings") },
+                            modifier = Modifier.longPressHelp(
+                                actionId = "nav.settings",
+                                fallbackDescription = "Настройки",
+                            ),
+                        ) {
                             Icon(Icons.Default.Settings, contentDescription = "Настройки")
                         }
                     }
@@ -360,6 +396,10 @@ fun MainScreenShared(
                             modifier = Modifier
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
+                                .longPressHelp(
+                                    actionId = "session.logout",
+                                    fallbackDescription = "Выход",
+                                )
                         ) {
                             Icon(
                                 Icons.Default.ExitToApp,
@@ -379,6 +419,9 @@ fun MainScreenShared(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .then(edgeSwipeModifier)
+                .graphicsLayer {
+                    translationX = animatedEdgeSwipeProgress * edgeSwipeOffsetPx
+                }
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (currentSubScreen == "dashboard") {
@@ -412,6 +455,9 @@ fun MainScreenShared(
                                 userId = session.userId,
                                 token = session.token,
                                 roles = session.roles,
+                                uiScalePercent = uiScalePercent,
+                                onUiScalePreview = onUiScalePreview,
+                                onUiScaleCommit = onUiScaleCommit,
                                 uiSettingsManager = uiSettingsManager,
                                 notificationRepository = notificationRepository,
                                 onBack = { popScreen() }
