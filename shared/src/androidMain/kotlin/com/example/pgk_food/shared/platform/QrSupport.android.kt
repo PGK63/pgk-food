@@ -5,8 +5,11 @@ import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -103,15 +106,20 @@ actual fun PlatformQrCodeImage(content: String, modifier: Modifier, sizePx: Int)
             BarcodeFormat.QR_CODE,
             sizePx,
             sizePx,
-            mapOf(EncodeHintType.MARGIN to 2),
+            mapOf(EncodeHintType.MARGIN to 0),
         )
-        val bitmap = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.RGB_565)
-        for (x in 0 until sizePx) {
-            for (y in 0 until sizePx) {
+        val rect = bitMatrix.enclosingRectangle ?: intArrayOf(0, 0, sizePx, sizePx)
+        val left = rect[0]
+        val top = rect[1]
+        val width = rect[2].coerceAtLeast(1)
+        val height = rect[3].coerceAtLeast(1)
+        val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.RGB_565)
+        for (x in 0 until width) {
+            for (y in 0 until height) {
                 bitmap.setPixel(
                     x,
                     y,
-                    if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE,
+                    if (bitMatrix[left + x, top + y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE,
                 )
             }
         }
@@ -121,5 +129,8 @@ actual fun PlatformQrCodeImage(content: String, modifier: Modifier, sizePx: Int)
         bitmap = bitmap.asImageBitmap(),
         contentDescription = "QR Code",
         modifier = modifier,
+        alignment = Alignment.Center,
+        contentScale = ContentScale.Fit,
+        filterQuality = FilterQuality.None,
     )
 }

@@ -376,12 +376,15 @@ fun MainScreenShared(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
                     AnimatedContent(
                         targetState = currentSubScreen,
                         transitionSpec = { navContentTransition(navDirection) },
                         label = "main-shell-content",
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) { targetSubScreen ->
                         if (targetSubScreen == "settings") {
                             SettingsScreen(
