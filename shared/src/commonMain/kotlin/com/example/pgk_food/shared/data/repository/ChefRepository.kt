@@ -7,10 +7,10 @@ import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
 import com.example.pgk_food.shared.data.remote.dto.QrPayload
 import com.example.pgk_food.shared.data.remote.dto.QrValidationRequest
 import com.example.pgk_food.shared.data.remote.dto.QrValidationResponse
+import com.example.pgk_food.shared.data.remote.dto.QrOfflineSyncItem
 import com.example.pgk_food.shared.data.remote.dto.StudentKeyDto
 import com.example.pgk_food.shared.data.remote.dto.StudentPermissionDto
 import com.example.pgk_food.shared.data.remote.dto.SyncResponse
-import com.example.pgk_food.shared.data.remote.dto.TransactionSyncItem
 import com.example.pgk_food.shared.data.local.SharedDatabase
 import com.example.pgk_food.shared.data.local.entity.OfflineTransactionEntity
 import com.example.pgk_food.shared.data.local.entity.PermissionCacheEntity
@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 
@@ -191,7 +192,7 @@ class ChefRepository {
         }
 
         val permission = SharedDatabase.instance.permissionCacheDao()
-            .getPermission(payload.userId, currentDateIsoString())
+            .getPermission(payload.userId, dateIsoStringFromEpochSeconds(payload.timestamp))
         val isAllowed = when (payload.mealType.uppercase()) {
             "BREAKFAST" -> permission?.breakfast ?: false
             "LUNCH" -> permission?.lunch ?: false
@@ -221,11 +222,12 @@ class ChefRepository {
             )
         }
 
-        val dayStart = (com.example.pgk_food.shared.platform.currentTimeMillis() / 86_400_000L) * 86_400_000L
-        val duplicates = transactionDao.findByStudentAndMealTodayAnyStatus(
+        val (dayStartEpochSec, dayEndEpochSec) = businessDayEpochRange(payload.timestamp)
+        val duplicates = transactionDao.findByStudentAndMealForBusinessDayAnyStatus(
             studentId = payload.userId,
             mealType = payload.mealType,
-            dayStart = dayStart,
+            dayStartEpochSec = dayStartEpochSec,
+            dayEndEpochSec = dayEndEpochSec,
         )
         if (duplicates.isNotEmpty()) {
             return invalidLocalResponseAndRecord(
@@ -446,18 +448,19 @@ class ChefRepository {
     suspend fun syncOfflineTransactions(token: String): Result<SyncResponse> = safeResultApiCall {
         val transactionDao = SharedDatabase.instance.transactionDao()
         val unsynced = transactionDao.getUnsyncedTransactions()
-        if (unsynced.isEmpty()) return@safeResultApiCall SyncResponse(0, emptyList())
+        if (unsynced.isEmpty()) return@safeResultApiCall SyncResponse(0, 0, emptyList())
 
         val items = unsynced.map {
-            TransactionSyncItem(
-                studentId = it.studentId,
+            QrOfflineSyncItem(
+                userId = it.studentId,
+                timestamp = it.timestamp,
                 mealType = it.mealType,
-                transactionHash = it.transactionHash,
-                timestampEpochSec = it.timestamp,
+                nonce = it.nonce,
+                signature = it.signature,
             )
         }
 
-        val response: SyncResponse = SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/transactions/batch")) {
+        val response: SyncResponse = SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/qr/sync")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(items)
@@ -482,20 +485,16 @@ class ChefRepository {
     ): List<Int> {
         val cappedSuccessCount = response.successCount.coerceIn(0, unsynced.size)
         if (cappedSuccessCount == 0) return emptyList()
-        if (response.processed.isNotEmpty()) {
-            val unsyncedByHash = unsynced.associateBy { it.transactionHash }
-            val ids = response.processed.asSequence()
-                .filter { it.status == "SUCCESS" || it.status == "IDEMPOTENT" }
-                .mapNotNull { processed ->
-                    val hash = processed.transactionHash ?: return@mapNotNull null
-                    unsyncedByHash[hash]?.id
-                }
-                .toSet()
+        val failedHashes = response.errors.asSequence()
+            .mapNotNull { it.transactionHash }
+            .toSet()
+        if (failedHashes.isNotEmpty()) {
+            return unsynced.asSequence()
+                .filterNot { it.transactionHash in failedHashes }
+                .map { it.id }
+                .take(cappedSuccessCount)
                 .toList()
-            return ids.take(cappedSuccessCount)
         }
-
-        // Legacy fallback for older server contracts without per-item statuses.
         return unsynced.take(cappedSuccessCount).map { it.id }
     }
 
@@ -522,11 +521,26 @@ private fun ScannedQrEntity.toDomain() = SharedScannedQrRecord(
 
 private fun currentDateIsoString(): String {
     val dt = Instant.fromEpochMilliseconds(com.example.pgk_food.shared.platform.currentTimeMillis())
-        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .toLocalDateTime(BUSINESS_TIME_ZONE)
     val y = dt.year.toString().padStart(4, '0')
     val m = dt.monthNumber.toString().padStart(2, '0')
     val d = dt.dayOfMonth.toString().padStart(2, '0')
     return "$y-$m-$d"
+}
+
+internal fun dateIsoStringFromEpochSeconds(timestampEpochSec: Long): String {
+    val dt = Instant.fromEpochSeconds(timestampEpochSec).toLocalDateTime(BUSINESS_TIME_ZONE)
+    val y = dt.year.toString().padStart(4, '0')
+    val m = dt.monthNumber.toString().padStart(2, '0')
+    val d = dt.dayOfMonth.toString().padStart(2, '0')
+    return "$y-$m-$d"
+}
+
+internal fun businessDayEpochRange(timestampEpochSec: Long): Pair<Long, Long> {
+    val businessDate = Instant.fromEpochSeconds(timestampEpochSec).toLocalDateTime(BUSINESS_TIME_ZONE).date
+    val dayStart = businessDate.atStartOfDayIn(BUSINESS_TIME_ZONE).epochSeconds
+    val dayEnd = dayStart + 86_400L
+    return dayStart to dayEnd
 }
 
 private fun deterministicFallbackTransactionHash(payload: QrPayload): String {
@@ -541,3 +555,5 @@ private fun buildTransactionHash(payload: QrPayload): String {
         nonce = payload.nonce,
     ).ifBlank { deterministicFallbackTransactionHash(payload) }
 }
+
+private val BUSINESS_TIME_ZONE: TimeZone = TimeZone.of("Europe/Samara")

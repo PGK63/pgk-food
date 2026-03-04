@@ -4,12 +4,17 @@ import com.example.pgk_food.shared.core.network.ApiResult
 import com.example.pgk_food.shared.core.network.safeApiCall
 import com.example.pgk_food.shared.data.remote.dto.MarkReadBatchRequest
 import com.example.pgk_food.shared.data.remote.dto.NotificationPageDto
+import com.example.pgk_food.shared.data.remote.dto.PushSettingsDto
+import com.example.pgk_food.shared.data.remote.dto.PushTokenRegisterRequest
+import com.example.pgk_food.shared.data.remote.dto.PushTokenUnregisterRequest
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.remote.dto.UnreadCountDto
+import com.example.pgk_food.shared.data.remote.dto.UpdatePushSettingsRequest
 import com.example.pgk_food.shared.network.SharedNetworkModule
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.patch
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -64,6 +69,55 @@ class NotificationRepository {
         return safeApiCall {
             SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/notifications/roster-deadline")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
+            }.body()
+        }
+    }
+
+    suspend fun registerPushToken(
+        token: String,
+        request: PushTokenRegisterRequest,
+    ): ApiResult<Unit> {
+        return safeApiCall {
+            SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/notifications/push/register")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+            Unit
+        }
+    }
+
+    suspend fun unregisterPushToken(
+        token: String,
+        pushToken: String,
+    ): ApiResult<Unit> {
+        return safeApiCall {
+            SharedNetworkModule.client.post(SharedNetworkModule.getUrl("/api/v1/notifications/push/unregister")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(PushTokenUnregisterRequest(token = pushToken))
+            }
+            Unit
+        }
+    }
+
+    suspend fun getPushSettings(token: String): ApiResult<PushSettingsDto> {
+        return safeApiCall {
+            SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/notifications/push/settings")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+            }.body()
+        }
+    }
+
+    suspend fun updatePushSettings(
+        token: String,
+        pushEnabled: Boolean,
+    ): ApiResult<PushSettingsDto> {
+        return safeApiCall {
+            SharedNetworkModule.client.patch(SharedNetworkModule.getUrl("/api/v1/notifications/push/settings")) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(UpdatePushSettingsRequest(pushEnabled = pushEnabled))
             }.body()
         }
     }

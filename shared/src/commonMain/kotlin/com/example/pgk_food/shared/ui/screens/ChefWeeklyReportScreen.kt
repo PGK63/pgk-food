@@ -30,8 +30,12 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.data.remote.dto.ChefWeeklyReportDto
 import com.example.pgk_food.shared.data.repository.ChefRepository
 import com.example.pgk_food.shared.ui.util.formatRuDate
+import com.example.pgk_food.shared.ui.util.formatRuDateTime
+import com.example.pgk_food.shared.ui.util.mondayOfWeek
+import com.example.pgk_food.shared.ui.util.nextWeekStart
+import com.example.pgk_food.shared.ui.util.nowSamara
+import com.example.pgk_food.shared.ui.util.parseIsoDateTimeOrNull
 import com.example.pgk_food.shared.ui.util.plusDays
-import com.example.pgk_food.shared.ui.util.todayLocalDate
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -41,10 +45,10 @@ fun ChefWeeklyReportScreen(
     chefRepository: ChefRepository,
 ) {
     val scope = rememberCoroutineScope()
-    val today = remember { todayLocalDate() }
+    val today = remember { nowSamara().date }
     val currentMonday = remember(today) { mondayOfWeek(today) }
 
-    var weekStart by remember { mutableStateOf(currentMonday) }
+    var weekStart by remember { mutableStateOf(nextWeekStart(today)) }
     var report by remember { mutableStateOf<ChefWeeklyReportDto?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf<String?>(null) }
@@ -82,7 +86,9 @@ fun ChefWeeklyReportScreen(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                TextButton(onClick = { weekStart = plusDays(weekStart, 7) }) { Text("След. неделя →") }
+                TextButton(onClick = { weekStart = plusDays(weekStart, 7) }) {
+                    Text("След. неделя →")
+                }
             }
         }
 
@@ -119,12 +125,35 @@ fun ChefWeeklyReportScreen(
                         Text("Завтрак+Обед: ${data.totalBothCount}")
                         Text(
                             if (data.confirmed) {
-                                "Подтверждено: ${data.confirmedAt ?: "да"}"
+                                "Подтверждено: ${formatIsoDateTimeForUi(data.confirmedAt) ?: "да"}"
                             } else {
                                 "Не подтверждено"
                             }
                         )
                         if (!data.confirmed) {
+                            val windowStart = formatIsoDateTimeForUi(data.confirmWindowStart)
+                            val windowEnd = formatIsoDateTimeForUi(data.confirmWindowEnd)
+                            val windowText = if (windowStart != null && windowEnd != null) {
+                                "Окно подтверждения: $windowStart - $windowEnd"
+                            } else {
+                                null
+                            }
+                            val hintText = data.confirmWindowHint
+                                ?: "Подтверждение доступно с пятницы 12:00 до понедельника 00:00."
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                hintText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (!windowText.isNullOrBlank()) {
+                                Text(
+                                    windowText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             Spacer(modifier = Modifier.height(6.dp))
                             Button(onClick = {
                                 scope.launch {
@@ -134,8 +163,16 @@ fun ChefWeeklyReportScreen(
                                             statusText = it.message ?: "Ошибка подтверждения отчета"
                                         }
                                 }
-                            }) {
+                            }, enabled = data.canConfirmNow) {
                                 Text("Подтвердить просмотр")
+                            }
+                            if (!data.canConfirmNow) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Подтверждение сейчас недоступно.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -145,7 +182,8 @@ fun ChefWeeklyReportScreen(
             items(data.days, key = { it.date }) { day ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(day.date, fontWeight = FontWeight.Bold)
+                        val dateLabel = runCatching { formatRuDate(LocalDate.parse(day.date)) }.getOrElse { day.date }
+                        Text(dateLabel, fontWeight = FontWeight.Bold)
                         Text("Завтрак: ${day.breakfastCount}")
                         Text("Обед: ${day.lunchCount}")
                         Text("Завтрак+Обед: ${day.bothCount}")
@@ -156,7 +194,6 @@ fun ChefWeeklyReportScreen(
     }
 }
 
-private fun mondayOfWeek(date: LocalDate): LocalDate {
-    val shift = date.dayOfWeek.ordinal
-    return plusDays(date, -shift)
+private fun formatIsoDateTimeForUi(raw: String?): String? {
+    return parseIsoDateTimeOrNull(raw)?.let(::formatRuDateTime)
 }

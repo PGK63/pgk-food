@@ -65,11 +65,11 @@ export function setup() {
   const chefAuth = login(CHEF_LOGIN, CHEF_PASSWORD);
   check(chefAuth.res, {
     "chef login status is 200": (r) => r.status === 200,
-    "chef token exists": () => !!chefAuth.body?.token,
+    "chef token exists": () => !!(chefAuth.body && chefAuth.body.token),
   });
 
   const setupData = {
-    chefToken: chefAuth.body?.token || "",
+    chefToken: (chefAuth.body && chefAuth.body.token) || "",
     qrUserId: QR_USER_ID_ENV || "",
     syncStudentId: SYNC_STUDENT_ID_ENV || "",
     studentPrivateKey: "",
@@ -83,13 +83,13 @@ export function setup() {
     const studentAuth = login(STUDENT_LOGIN, STUDENT_PASSWORD);
     check(studentAuth.res, {
       "student login status is 200": (r) => r.status === 200,
-      "student token exists": () => !!studentAuth.body?.token,
-      "student private key exists": () => !!studentAuth.body?.privateKey,
-      "student user id exists": () => !!studentAuth.body?.userId,
+      "student token exists": () => !!(studentAuth.body && studentAuth.body.token),
+      "student private key exists": () => !!(studentAuth.body && studentAuth.body.privateKey),
+      "student user id exists": () => !!(studentAuth.body && studentAuth.body.userId),
     });
-    setupData.qrUserId = setupData.qrUserId || studentAuth.body?.userId || "";
-    setupData.syncStudentId = setupData.syncStudentId || studentAuth.body?.userId || "";
-    setupData.studentPrivateKey = studentAuth.body?.privateKey || "";
+    setupData.qrUserId = setupData.qrUserId || (studentAuth.body && studentAuth.body.userId) || "";
+    setupData.syncStudentId = setupData.syncStudentId || (studentAuth.body && studentAuth.body.userId) || "";
+    setupData.studentPrivateKey = (studentAuth.body && studentAuth.body.privateKey) || "";
   } else {
     if (!FALLBACK_QR_SIGNATURE) {
       throw new Error("Set K6_QR_SIGNATURE when K6_DISABLE_DYNAMIC_SIGN=true.");

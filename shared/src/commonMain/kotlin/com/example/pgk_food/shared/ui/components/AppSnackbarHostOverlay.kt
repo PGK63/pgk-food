@@ -3,8 +3,8 @@ package com.example.pgk_food.shared.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -32,12 +32,12 @@ fun AppSnackbarHostOverlay(
 
     Box(
         modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
+        contentAlignment = Alignment.BottomCenter,
     ) {
         SnackbarHost(
             hostState = hostState,
             modifier = Modifier
-                .statusBarsPadding()
+                .navigationBarsPadding()
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp)
                 .widthIn(max = 720.dp),

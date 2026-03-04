@@ -1,0 +1,27 @@
+[android-cold-start-check] 2026-03-04T22:30:22+04:00
+Success
+Performing Streamed Install
+Success
+Starting: Intent { cmp=com.example.pgk_food/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.example.pgk_food/.MainActivity
+TotalTime: 2044
+WaitTime: 2064
+Complete
+[top-activity]
+6:    topResumedActivity=ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}
+7:    * Hist  #0: ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}
+11:      Intent { flg=0x10000000 xflg=0x5 cmp=com.example.pgk_food/.MainActivity }
+14:      mActivityComponent=com.example.pgk_food/.MainActivity
+118:    Resumed: ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}
+120:  ResumedActivity: ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}
+128:  deepestLastOrientationSource=ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}
+132:  mCurrentFocus=Window{770df9a u0 com.example.pgk_food/com.example.pgk_food.MainActivity}
+133:  mFocusedApp=ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}
+207:        * ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}
+254:    mSystemBarColorApps={ActivityRecord{256694914 u0 com.example.pgk_food/.MainActivity t260}}
+319:        source=ActivityRecord{39225160 u0 com.example.pgk_food/.MainActivity t221} SCREEN_ORIENTATION_UNSPECIFIED
+325:        source=ActivityRecord{39225160 u0 com.example.pgk_food/.MainActivity t221} SCREEN_ORIENTATION_UNSPECIFIED
+331:        source=ActivityRecord{39225160 u0 com.example.pgk_food/.MainActivity t221} SCREEN_ORIENTATION_UNSPECIFIED
+[permission-dialog-grep]

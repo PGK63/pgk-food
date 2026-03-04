@@ -7,6 +7,7 @@ data class MenuItemDto(
     val id: String,
     val date: String,
     val name: String,
+    val location: String,
     val description: String? = null
 )
 
@@ -14,6 +15,7 @@ data class MenuItemDto(
 data class CreateMenuItemRequest(
     val date: String,
     val name: String,
+    val location: String,
     val description: String
 )
 
@@ -48,29 +50,26 @@ data class StudentPermissionDto(
 )
 
 @Serializable
-data class TransactionSyncItem(
-    val studentId: String,
+data class QrOfflineSyncItem(
+    val userId: String,
+    val timestamp: Long,
     val mealType: String,
-    val transactionHash: String,
-    @Deprecated("Use timestampEpochSec")
-    val timestamp: String? = null,
-    val timestampEpochSec: Long? = null,
+    val nonce: String,
+    val signature: String,
 )
 
 @Serializable
 data class SyncResponse(
     val successCount: Int,
-    val errors: List<String>,
-    val processed: List<SyncProcessedItem> = emptyList(),
+    val failedCount: Int,
+    val errors: List<SyncError>,
 )
 
 @Serializable
-data class SyncProcessedItem(
+data class SyncError(
+    val userId: String,
+    val reason: String,
     val transactionHash: String? = null,
-    val studentId: String? = null,
-    val status: String,
-    val code: String? = null,
-    val message: String? = null,
 )
 
 @Serializable
@@ -90,4 +89,8 @@ data class ChefWeeklyReportDto(
     val totalBothCount: Int,
     val confirmed: Boolean,
     val confirmedAt: String? = null,
+    val canConfirmNow: Boolean = false,
+    val confirmWindowStart: String? = null,
+    val confirmWindowEnd: String? = null,
+    val confirmWindowHint: String? = null,
 )

@@ -27,8 +27,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,10 +39,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.CreateMenuItemRequest
@@ -63,7 +60,8 @@ import com.example.pgk_food.shared.data.repository.ChefRepository
 import com.example.pgk_food.shared.data.repository.StudentRepository
 import com.example.pgk_food.shared.model.MenuMealTypeUi
 import com.example.pgk_food.shared.platform.rememberCsvImportLauncher
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.AppDatePickerDialog
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
@@ -80,11 +78,7 @@ import com.example.pgk_food.shared.util.MenuCsvParser
 import com.example.pgk_food.shared.util.MenuMealTypeCodec
 import com.example.pgk_food.shared.util.sortMenuItemsForUi
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.toLocalDateTime
 
 private data class CsvImportReport(
     val importedCount: Int,
@@ -103,12 +97,15 @@ fun ChefMenuManageScreenV2(
 ) {
     val studentRepository = remember { StudentRepository() }
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
 
     var selectedDate by remember { mutableStateOf(todayLocalDate()) }
     var menuItems by remember { mutableStateOf<List<MenuItemDto>>(emptyList()) }
+    var locations by remember { mutableStateOf<List<String>>(emptyList()) }
+    var selectedLocationFilter by remember { mutableStateOf<String?>(null) }
+    var isLocationMenuExpanded by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -126,10 +123,17 @@ fun ChefMenuManageScreenV2(
     fun loadMenu() {
         scope.launch {
             isLoading = true
-            val result = studentRepository.getMenu(token, selectedDate.toString())
+            studentRepository.getMenuLocations(token, selectedDate.toString())
+                .onSuccess { loaded ->
+                    locations = loaded.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+                    if (selectedLocationFilter != null && selectedLocationFilter !in locations) {
+                        selectedLocationFilter = null
+                    }
+                }
+            val result = studentRepository.getMenu(token, selectedDate.toString(), selectedLocationFilter)
             menuItems = result.getOrDefault(emptyList())
             if (result.isFailure) {
-                snackbarHostState.showSnackbar(
+                snackbarDispatcher.show(
                     result.exceptionOrNull()?.userMessageOr("Не удалось загрузить меню") ?: "Не удалось загрузить меню"
                 )
             }
@@ -137,14 +141,15 @@ fun ChefMenuManageScreenV2(
         }
     }
 
-    LaunchedEffect(selectedDate) { loadMenu() }
+    LaunchedEffect(selectedDate, selectedLocationFilter) { loadMenu() }
 
-    suspend fun importCsv(fileBytes: ByteArray): Result<CsvImportReport> {
+    suspend fun importCsv(fileBytes: ByteArray, location: String): Result<CsvImportReport> {
         val parseResult = MenuCsvParser.parse(fileBytes, selectedDate)
         val requests = parseResult.rows.map { row ->
             CreateMenuItemRequest(
                 date = row.date.toString(),
                 name = row.name,
+                location = location,
                 description = MenuMealTypeCodec.encode(row.mealType, row.description),
             )
         }
@@ -177,8 +182,14 @@ fun ChefMenuManageScreenV2(
     val launchCsvImport = rememberCsvImportLauncher { bytes ->
         scope.launch {
             if (bytes == null) {
-                snackbarHostState.showSnackbar("Импорт CSV недоступен на этой платформе")
+                snackbarDispatcher.show("Импорт CSV недоступен на этой платформе")
             } else {
+                val importLocation = selectedLocationFilter
+                    ?: locations.firstOrNull()
+                if (importLocation.isNullOrBlank()) {
+                    snackbarDispatcher.show("Сначала выберите локацию для импорта")
+                    return@launch
+                }
                 var report: CsvImportReport? = null
                 val ok = runUiAction(
                     actionState = actionState,
@@ -186,52 +197,34 @@ fun ChefMenuManageScreenV2(
                     fallbackErrorMessage = "Ошибка импорта CSV",
                     emitSuccessFeedback = false
                 ) {
-                    importCsv(bytes).onSuccess { report = it }
+                    importCsv(bytes, importLocation).onSuccess { report = it }
                 }
                 report?.let { importReport = it }
                 if (ok) {
                     loadMenu()
                     if (report?.failedCount ?: 0 > 0) {
-                        snackbarHostState.showSnackbar("Импорт завершен с ошибками")
+                        snackbarDispatcher.show("Импорт завершен с ошибками")
                     } else {
-                        snackbarHostState.showSnackbar("Импорт завершен успешно")
+                        snackbarDispatcher.show("Импорт завершен успешно")
                     }
                 }
             }
         }
     }
 
-    if (showDatePicker) {
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds())
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let {
-                        selectedDate = Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    }
-                    showDatePicker = false
-                }) { Text("ОК") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Отмена") } },
-        ) { DatePicker(state = pickerState) }
-    }
+    AppDatePickerDialog(
+        visible = showDatePicker,
+        initialDate = selectedDate,
+        onDismiss = { showDatePicker = false },
+        onDateSelected = { selectedDate = it },
+    )
 
-    if (showCopyDatePicker) {
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = copyDate.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds())
-        DatePickerDialog(
-            onDismissRequest = { showCopyDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let {
-                        copyDate = Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    }
-                    showCopyDatePicker = false
-                }) { Text("ОК") }
-            },
-            dismissButton = { TextButton(onClick = { showCopyDatePicker = false }) { Text("Отмена") } },
-        ) { DatePicker(state = pickerState) }
-    }
+    AppDatePickerDialog(
+        visible = showCopyDatePicker,
+        initialDate = copyDate,
+        onDismiss = { showCopyDatePicker = false },
+        onDateSelected = { copyDate = it },
+    )
 
     val sortedItems = remember(menuItems) { sortMenuItemsForUi(menuItems) }
 
@@ -289,6 +282,43 @@ fun ChefMenuManageScreenV2(
                             Text(formatRuDate(selectedDate))
                         }
                         Spacer(modifier = Modifier.height(10.dp))
+                        Text("Локация", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = isLocationMenuExpanded,
+                            onExpandedChange = { isLocationMenuExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = selectedLocationFilter ?: "Все",
+                                onValueChange = {},
+                                readOnly = true,
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isLocationMenuExpanded) },
+                                singleLine = true,
+                            )
+                            DropdownMenu(
+                                expanded = isLocationMenuExpanded,
+                                onDismissRequest = { isLocationMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Все") },
+                                    onClick = {
+                                        selectedLocationFilter = null
+                                        isLocationMenuExpanded = false
+                                    }
+                                )
+                                locations.forEach { location ->
+                                    DropdownMenuItem(
+                                        text = { Text(location) },
+                                        onClick = {
+                                            selectedLocationFilter = location
+                                            isLocationMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { copyDate = plusDays(selectedDate, 1); showCopyDialog = true },
@@ -339,10 +369,23 @@ fun ChefMenuManageScreenV2(
                                         Icon(Icons.Rounded.RestaurantMenu, contentDescription = null)
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                item.name,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
                                             AssistChip(onClick = {}, enabled = false, label = { Text(decoded.mealType.titleRu) })
                                             if (decoded.description.isNotBlank()) {
                                                 Text(decoded.description, style = MaterialTheme.typography.bodySmall)
+                                            }
+                                            if (selectedLocationFilter == null) {
+                                                Text(
+                                                    item.location,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
                                             }
                                         }
                                         IconButton(
@@ -391,16 +434,17 @@ fun ChefMenuManageScreenV2(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Добавить блюдо")
             }
-            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 
     if (showCreateDialog) {
         CreateMenuItemDialogV2(
             selectedDate = selectedDate,
+            knownLocations = locations,
+            initialLocation = selectedLocationFilter,
             isSubmitting = isActionLoading,
             onDismiss = { showCreateDialog = false },
-            onCreate = { date, name, description, mealType ->
+            onCreate = { date, name, location, description, mealType ->
                 scope.launch {
                     val ok = runUiAction(
                         actionState = actionState,
@@ -412,6 +456,7 @@ fun ChefMenuManageScreenV2(
                             request = CreateMenuItemRequest(
                                 date = date.toString(),
                                 name = name,
+                                location = location,
                                 description = MenuMealTypeCodec.encode(mealType, description),
                             )
                         )
@@ -453,7 +498,7 @@ fun ChefMenuManageScreenV2(
                     onClick = {
                         scope.launch {
                             if (menuItems.isEmpty()) {
-                                snackbarHostState.showSnackbar("Меню пустое, копировать нечего")
+                                snackbarDispatcher.show("Меню пустое, копировать нечего")
                                 showCopyDialog = false
                                 return@launch
                             }
@@ -466,7 +511,12 @@ fun ChefMenuManageScreenV2(
                                 menuItems.forEach { item ->
                                     val result = chefRepository.addMenuItem(
                                         token,
-                                        CreateMenuItemRequest(copyDate.toString(), item.name, item.description.orEmpty())
+                                        CreateMenuItemRequest(
+                                            date = copyDate.toString(),
+                                            name = item.name,
+                                            location = item.location,
+                                            description = item.description.orEmpty()
+                                        )
                                     )
                                     if (result.isFailure) {
                                         hasErrors = true
@@ -519,32 +569,27 @@ fun ChefMenuManageScreenV2(
 @Composable
 private fun CreateMenuItemDialogV2(
     selectedDate: LocalDate,
+    knownLocations: List<String>,
+    initialLocation: String?,
     isSubmitting: Boolean,
     onDismiss: () -> Unit,
-    onCreate: (LocalDate, String, String, MenuMealTypeUi) -> Unit,
+    onCreate: (LocalDate, String, String, String, MenuMealTypeUi) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+    var location by remember(initialLocation) { mutableStateOf(initialLocation.orEmpty()) }
     var description by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(selectedDate) }
     var mealType by remember { mutableStateOf<MenuMealTypeUi?>(null) }
     var datePickerVisible by remember { mutableStateOf(false) }
     var mealTypeExpanded by remember { mutableStateOf(false) }
+    var locationExpanded by remember { mutableStateOf(false) }
 
-    if (datePickerVisible) {
-        val pickerState = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds())
-        DatePickerDialog(
-            onDismissRequest = { datePickerVisible = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let {
-                        date = Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    }
-                    datePickerVisible = false
-                }) { Text("ОК") }
-            },
-            dismissButton = { TextButton(onClick = { datePickerVisible = false }) { Text("Отмена") } },
-        ) { DatePicker(state = pickerState) }
-    }
+    AppDatePickerDialog(
+        visible = datePickerVisible,
+        initialDate = date,
+        onDismiss = { datePickerVisible = false },
+        onDateSelected = { date = it },
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -565,6 +610,32 @@ private fun CreateMenuItemDialogV2(
                     enabled = !isSubmitting,
                     singleLine = true
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                ExposedDropdownMenuBox(
+                    expanded = locationExpanded,
+                    onExpandedChange = { if (!isSubmitting) locationExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = location,
+                        onValueChange = { location = it },
+                        label = { Text("Локация") },
+                        enabled = !isSubmitting,
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = locationExpanded) },
+                        singleLine = true,
+                    )
+                    ExposedDropdownMenu(expanded = locationExpanded, onDismissRequest = { locationExpanded = false }) {
+                        knownLocations.forEach { known ->
+                            DropdownMenuItem(
+                                text = { Text(known) },
+                                onClick = {
+                                    location = known
+                                    locationExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(onClick = { datePickerVisible = true }, enabled = !isSubmitting) { Text("Дата: ${formatRuDate(date)}") }
                 ExposedDropdownMenuBox(expanded = mealTypeExpanded, onExpandedChange = { if (!isSubmitting) mealTypeExpanded = it }) {
@@ -595,9 +666,9 @@ private fun CreateMenuItemDialogV2(
             Button(
                 onClick = {
                     val selectedMealType = mealType ?: return@Button
-                    onCreate(date, name, description, selectedMealType)
+                    onCreate(date, name.trim(), location.trim(), description, selectedMealType)
                 },
-                enabled = name.isNotBlank() && mealType != null && !isSubmitting,
+                enabled = name.isNotBlank() && location.isNotBlank() && mealType != null && !isSubmitting,
             ) {
                 Text(if (isSubmitting) "Сохранение..." else "Сохранить")
             }

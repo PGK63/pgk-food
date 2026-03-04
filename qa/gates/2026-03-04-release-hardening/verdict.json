@@ -2,20 +2,21 @@
   "go_no_go": "PENDING",
   "date": "2026-03-04",
   "build_refs": {
-    "root_head": "dd5dbe08d39fea85dcc87950916301c6a81beedf",
-    "backend_head": "0214e4448c3ab3893936c09af3d47b0af63d4d45"
+    "root_head": "5f10ca069192ea5b278d1cb66f2c9671cd5a5ea3",
+    "backend_head": "d877875cb65cc20df69054a77bc1361ac5a1771c"
   },
   "failed_scenarios": [
-    "K6_RELEASE_HARDENING_NOT_EXECUTED",
+    "K6_RELEASE_HARDENING_CREDENTIALS_MISSING",
     "IOS_SIMULATOR_EVIDENCE_MISSING",
     "IOS_REAL_DEVICE_EVIDENCE_MISSING",
     "CROSS_PLATFORM_QR_MANUAL_EVIDENCE_MISSING"
   ],
   "sev12_open_count": 0,
+  "android_smoke_evidence": true,
   "ios_mac_evidence": false,
   "ios_device_evidence": false,
   "blockers": [
-    "Install k6 and attach k6 threshold summary for qa/load/k6/release-hardening.js",
+    "Run qa/load/k6/release-hardening.js with valid K6_CHEF_LOGIN/K6_CHEF_PASSWORD and K6_STUDENT_LOGIN/K6_STUDENT_PASSWORD; attach threshold summary log",
     "Attach iOS simulator evidence",
     "Attach iOS real-device evidence",
     "Attach cross-platform QR (Android<->iOS) manual evidence"

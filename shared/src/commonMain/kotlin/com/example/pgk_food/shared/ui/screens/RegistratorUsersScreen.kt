@@ -36,7 +36,7 @@ import com.example.pgk_food.shared.data.remote.dto.*
 import com.example.pgk_food.shared.data.repository.AuthRepository
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.data.session.SessionStore
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
@@ -83,7 +83,7 @@ fun RegistratorUsersScreen(
     var isLoading by remember { mutableStateOf(true) }
     val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val clipboardManager = LocalClipboardManager.current
     val hintContent = remember { HintCatalog.content(HintScreenKey.REGISTRATOR_USERS) }
 
@@ -113,7 +113,7 @@ fun RegistratorUsersScreen(
             val groupsResult = registratorRepository.getGroups(token)
             groups = groupsResult.getOrDefault(emptyList())
             if (usersResult.isFailure || groupsResult.isFailure) {
-                snackbarHostState.showSnackbar("Не удалось обновить данные пользователей")
+                snackbarDispatcher.show("Не удалось обновить данные пользователей")
             }
             isLoading = false
         }
@@ -357,7 +357,6 @@ fun RegistratorUsersScreen(
                     }
                 }
             }
-            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 
@@ -395,7 +394,7 @@ fun RegistratorUsersScreen(
                             clipboardManager.setText(
                                 AnnotatedString("Логин: ${reset.login}\nПароль: ${reset.passwordClearText}")
                             )
-                            snackbarHostState.showSnackbar("Логин и новый пароль скопированы")
+                            snackbarDispatcher.show("Логин и новый пароль скопированы")
                             selectedUser = null
                         }
                     }
@@ -438,7 +437,7 @@ fun RegistratorUsersScreen(
                         if (activeUserId != null && activeUserId == updatedUserId) {
                             val refreshResult = authRepository.refreshCurrentSession(token)
                             if (refreshResult.isFailure) {
-                                snackbarHostState.showSnackbar("Роли сохранены, но не удалось обновить текущую сессию")
+                                snackbarDispatcher.show("Роли сохранены, но не удалось обновить текущую сессию")
                             }
                         }
                         loadData()
@@ -487,7 +486,7 @@ fun RegistratorUsersScreen(
             credentials = result,
             onDismiss = { credentialsDialog = null },
             onCopiedAndDismissed = {
-                scope.launch { snackbarHostState.showSnackbar("Данные скопированы") }
+                scope.launch { snackbarDispatcher.show("Данные скопированы") }
                 credentialsDialog = null
             }
         )
@@ -504,13 +503,29 @@ private fun UserRow(
     onSettingsClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
+    val isExpelled = user.accountStatus == AccountStatus.FROZEN_EXPELLED
+    val detailParts = mutableListOf(
+        user.roles.joinToString(", ") { it.titleRu() },
+        groupName ?: "Без группы",
+    )
+    if (isExpelled) {
+        detailParts += user.accountStatus.titleRu()
+    }
+    detailParts += user.login
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .springEntrance(animationDelayMs)
             .clickable { onClick() },
         shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isExpelled) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -523,11 +538,11 @@ private fun UserRow(
                 Text(
                     text = "${user.surname} ${user.name} ${user.fatherName ?: ""}".trim(),
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = if (isExpelled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = user.roles.joinToString(", ") { it.titleRu() } +
-                        " • ${groupName ?: "Без группы"} • ${user.accountStatus.titleRu()} • @${user.login}",
+                    text = detailParts.joinToString(" • "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -570,7 +585,8 @@ private fun FilterBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = SectionShape
+        shape = SectionShape,
+        dragHandle = null,
     ) {
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
             Row(
@@ -673,13 +689,14 @@ private fun UserDetailSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showRolesDialog by remember(user.userId) { mutableStateOf(false) }
-    var showFreezeConfirm by remember(user.userId) { mutableStateOf(false) }
     var showUnfreezeConfirm by remember(user.userId) { mutableStateOf(false) }
+    val isExpelled = user.accountStatus == AccountStatus.FROZEN_EXPELLED
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = SectionShape
+        shape = SectionShape,
+        dragHandle = null,
     ) {
         Column(
             modifier = Modifier
@@ -736,29 +753,28 @@ private fun UserDetailSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Surface(
-                color = if (user.accountStatus == AccountStatus.FROZEN_EXPELLED) {
-                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
-                } else {
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
-                },
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            if (isExpelled) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Статус: ", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        user.accountStatus.titleRu(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Куратор пометил к отчислению",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            user.accountStatus.titleRu(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Роли:", style = MaterialTheme.typography.bodyMedium)
@@ -786,63 +802,48 @@ private fun UserDetailSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
-                onClick = onCopyCredentials,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isProcessing,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                Text("Сбросить пароль\nи скопировать", fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = onResetPassword,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isProcessing,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                Text("Сменить пароль", fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = { showRolesDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isProcessing && user.accountStatus == AccountStatus.ACTIVE,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                Text("Изменить роли", fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (user.accountStatus == AccountStatus.ACTIVE) {
+            if (!isExpelled) {
                 Button(
-                    onClick = { showFreezeConfirm = true },
+                    onClick = onCopyCredentials,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isProcessing,
                     shape = MaterialTheme.shapes.medium,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
-                    Text("Отчислить (заморозить)", fontWeight = FontWeight.Bold)
+                    Text("Сбросить пароль\nи скопировать", fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onResetPassword,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isProcessing,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text("Сменить пароль", fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { showRolesDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isProcessing,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text("Изменить роли", fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -876,26 +877,6 @@ private fun UserDetailSheet(
                 Text("Удалить пользователя", fontWeight = FontWeight.Bold)
             }
         }
-    }
-
-    if (showFreezeConfirm) {
-        AlertDialog(
-            onDismissRequest = { showFreezeConfirm = false },
-            title = { Text("Подтвердите отчисление") },
-            text = { Text("Пользователь будет заморожен и не сможет пользоваться системой.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showFreezeConfirm = false
-                        onUpdateLifecycle(AccountStatus.FROZEN_EXPELLED)
-                    },
-                    enabled = !isProcessing
-                ) { Text("Отчислить") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showFreezeConfirm = false }) { Text("Отмена") }
-            }
-        )
     }
 
     if (showUnfreezeConfirm) {

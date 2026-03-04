@@ -18,3 +18,26 @@ data class UnreadCountDto(
 data class MarkReadBatchRequest(
     val ids: List<Long>
 )
+
+@Serializable
+data class PushTokenRegisterRequest(
+    val token: String,
+    val platform: String,
+    val appVersion: String? = null,
+    val locale: String? = null,
+)
+
+@Serializable
+data class PushTokenUnregisterRequest(
+    val token: String,
+)
+
+@Serializable
+data class PushSettingsDto(
+    val pushEnabled: Boolean,
+)
+
+@Serializable
+data class UpdatePushSettingsRequest(
+    val pushEnabled: Boolean,
+)

@@ -3,6 +3,8 @@ package com.example.pgk_food.shared.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,8 +22,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,12 +29,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,7 +56,8 @@ import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.platform.FileSaveRequest
 import com.example.pgk_food.shared.platform.rememberFileSaveLauncher
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.AppDatePickerDialog
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
@@ -73,12 +72,8 @@ import com.example.pgk_food.shared.ui.util.minusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
 import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.toLocalDateTime
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AdminReportsScreen(
     token: String,
@@ -112,7 +107,7 @@ fun AdminReportsScreen(
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
     val scope = rememberCoroutineScope()
@@ -124,7 +119,7 @@ fun AdminReportsScreen(
                 message.isNullOrBlank() -> "Не удалось сохранить файл"
                 else -> message
             }
-            snackbarHostState.showSnackbar(snack)
+            snackbarDispatcher.show(snack)
         }
     }
 
@@ -159,7 +154,7 @@ fun AdminReportsScreen(
                 }
                 .onFailure {
                     selectedGroupId = null
-                    snackbarHostState.showSnackbar(it.userMessageOr("Не удалось загрузить список групп"))
+                    snackbarDispatcher.show(it.userMessageOr("Не удалось загрузить список групп"))
                 }
             isGroupsLoading = false
         }
@@ -168,14 +163,14 @@ fun AdminReportsScreen(
     fun load() {
         scope.launch {
             if (endDate < startDate) {
-                snackbarHostState.showSnackbar("Дата окончания раньше даты начала")
+                snackbarDispatcher.show("Дата окончания раньше даты начала")
                 return@launch
             }
             isLoading = true
             if (showFraudTab && selectedTab == 1) {
                 adminRepository.getFraudReports(token, startDate.toString(), endDate.toString())
                     .onSuccess { fraudRows = it }
-                    .onFailure { snackbarHostState.showSnackbar(it.userMessageOr("Ошибка загрузки подозрений")) }
+                    .onFailure { snackbarDispatcher.show(it.userMessageOr("Ошибка загрузки подозрений")) }
             } else {
                 adminRepository.getConsumptionReport(
                     token = token,
@@ -184,7 +179,7 @@ fun AdminReportsScreen(
                     groupId = selectedGroupId,
                     assignedByRole = "ALL",
                 ).onSuccess { rows = it }
-                    .onFailure { snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка загрузки отчета")) }
+                    .onFailure { snackbarDispatcher.show(it.detailedUserMessageOr("Ошибка загрузки отчета")) }
                 adminRepository.getConsumptionSummary(
                     token = token,
                     startDate = startDate.toString(),
@@ -192,7 +187,7 @@ fun AdminReportsScreen(
                     groupId = selectedGroupId,
                     assignedByRole = "ALL",
                 ).onSuccess { summary = it }
-                    .onFailure { snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка загрузки сводки")) }
+                    .onFailure { snackbarDispatcher.show(it.detailedUserMessageOr("Ошибка загрузки сводки")) }
             }
             isLoading = false
         }
@@ -205,45 +200,19 @@ fun AdminReportsScreen(
         load()
     }
 
-    if (showStartPicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = startDate.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showStartPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let {
-                        startDate = Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    }
-                    showStartPicker = false
-                }) { Text("ОК") }
-            },
-            dismissButton = { TextButton(onClick = { showStartPicker = false }) { Text("Отмена") } },
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
+    AppDatePickerDialog(
+        visible = showStartPicker,
+        initialDate = startDate,
+        onDismiss = { showStartPicker = false },
+        onDateSelected = { startDate = it },
+    )
 
-    if (showEndPicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = endDate.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showEndPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let {
-                        endDate = Instant.fromEpochMilliseconds(it).toLocalDateTime(TimeZone.currentSystemDefault()).date
-                    }
-                    showEndPicker = false
-                }) { Text("ОК") }
-            },
-            dismissButton = { TextButton(onClick = { showEndPicker = false }) { Text("Отмена") } },
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
+    AppDatePickerDialog(
+        visible = showEndPicker,
+        initialDate = endDate,
+        onDismiss = { showEndPicker = false },
+        onDateSelected = { endDate = it },
+    )
 
     if (showGroupPicker) {
         GroupPickerDialog(
@@ -310,8 +279,8 @@ fun AdminReportsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
                             Spacer(modifier = Modifier.height(0.dp).weight(1f))
-                            TextButton(onClick = { showStartPicker = true }) { Text("С: ${formatRuDate(startDate)}") }
-                            TextButton(onClick = { showEndPicker = true }) { Text("ПО: ${formatRuDate(endDate)}") }
+                            TextButton(onClick = { showStartPicker = true }) { Text("С даты: ${formatRuDate(startDate)}") }
+                            TextButton(onClick = { showEndPicker = true }) { Text("По дату: ${formatRuDate(endDate)}") }
                         }
 
                         if (!showFraudTab || selectedTab == 0) {
@@ -405,13 +374,13 @@ fun AdminReportsScreen(
                                     modifier = Modifier.padding(14.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Text("Сводка 3 единиц", fontWeight = FontWeight.Bold)
+                                    Text("Сводка", fontWeight = FontWeight.Bold)
                                     Text(
                                         "Итого: Завтрак ${summaryData.totalBreakfastCount} • Обед ${summaryData.totalLunchCount} • Завтрак+Обед ${summaryData.totalBothCount}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
-                                        "Строк с MISSING_ROSTER: ${summaryData.missingRosterRowsCount}",
+                                        "Строк с причиной «Куратор не заполнил табель»: ${summaryData.missingRosterRowsCount}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -477,7 +446,7 @@ fun AdminReportsScreen(
                                                 )
                                             )
                                         }.onFailure {
-                                            snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка экспорта CSV"))
+                                            snackbarDispatcher.show(it.detailedUserMessageOr("Ошибка экспорта CSV"))
                                         }
                                     }
                                 },
@@ -506,7 +475,7 @@ fun AdminReportsScreen(
                                                 )
                                             )
                                         }.onFailure {
-                                            snackbarHostState.showSnackbar(it.detailedUserMessageOr("Ошибка экспорта PDF"))
+                                            snackbarDispatcher.show(it.detailedUserMessageOr("Ошибка экспорта PDF"))
                                         }
                                     }
                                 },
@@ -547,17 +516,18 @@ fun AdminReportsScreen(
                                         }
                                     )
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     MealStatusBadge(
                                         label = "Завтрак",
                                         used = row.breakfastUsed,
-                                        transactionId = row.breakfastTransactionId,
                                         scannedByName = row.breakfastScannedByName
                                     )
                                     MealStatusBadge(
                                         label = "Обед",
                                         used = row.lunchUsed,
-                                        transactionId = row.lunchTransactionId,
                                         scannedByName = row.lunchScannedByName
                                     )
                                 }
@@ -567,7 +537,6 @@ fun AdminReportsScreen(
                 }
             }
             }
-            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 }
@@ -603,7 +572,6 @@ private fun FraudReportItem(
 private fun MealStatusBadge(
     label: String,
     used: Boolean,
-    transactionId: Int?,
     scannedByName: String?
 ) {
     val color = if (used) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
@@ -615,11 +583,6 @@ private fun MealStatusBadge(
                 color = textColor,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "Tx: ${transactionId ?: "-"}",
-                color = textColor,
-                style = MaterialTheme.typography.labelSmall
             )
             Text(
                 text = "Сканировал: ${scannedByName ?: "-"}",

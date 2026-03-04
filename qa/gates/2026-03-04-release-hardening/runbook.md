@@ -24,6 +24,7 @@ Save logs to:
 
 ```bash
 mkdir -p qa/gates/2026-03-04-release-hardening/logs
+# if k6 is not in PATH in this workspace, use ./.tools/k6
 k6 run qa/load/k6/release-hardening.js \
   -e K6_BASE_URL=http://localhost:8080 \
   -e K6_CHEF_LOGIN=<chef_login> \

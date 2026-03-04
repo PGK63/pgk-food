@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pgk_food.shared.platform.PlatformBackHandler
 import com.example.pgk_food.shared.platformName
+import com.example.pgk_food.shared.data.remote.dto.ChefWeeklyReportDto
 import com.example.pgk_food.shared.data.remote.dto.RosterDeadlineNotificationDto
 import com.example.pgk_food.shared.data.repository.*
 import com.example.pgk_food.shared.data.session.UserSession
@@ -49,10 +50,15 @@ import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.ui.util.formatRuDateTime
+import com.example.pgk_food.shared.ui.util.nextWeekStart
+import com.example.pgk_food.shared.ui.util.nowSamara
+import com.example.pgk_food.shared.ui.util.parseIsoDateTimeOrNull
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.StudentViewModel
 import com.example.pgk_food.shared.util.HintScreenKey
 import com.example.pgk_food.shared.util.NetworkMonitor
+import com.example.pgk_food.shared.util.PushRouteCoordinator
 import com.example.pgk_food.shared.util.UiSettingsManager
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
@@ -109,6 +115,32 @@ private fun parseRoleOrNull(raw: String?): UserRole? {
     return runCatching { UserRole.valueOf(raw) }.getOrNull()
 }
 
+private fun mapPushRouteToScreen(route: String): String? {
+    return when (route.trim().lowercase()) {
+        "dashboard" -> "dashboard"
+        "settings" -> "settings"
+        "roster" -> "roster"
+        "scanner" -> "scanner"
+        "weekly_report", "weekly-report", "weeklyreport" -> "weekly_report"
+        "stats", "statistics" -> "stats"
+        "reports" -> "reports"
+        "menu_manage", "menu-manage" -> "menu_manage"
+        "menu" -> "menu"
+        else -> null
+    }
+}
+
+private fun resolveRoleForTargetScreen(
+    currentRole: UserRole?,
+    roles: List<UserRole>,
+    screen: String,
+): UserRole? {
+    if (screenAllowedForRole(currentRole, screen)) {
+        return currentRole ?: roles.firstOrNull()
+    }
+    return roles.firstOrNull { screenAllowedForRole(it, screen) } ?: currentRole ?: roles.firstOrNull()
+}
+
 private enum class NavDirection {
     Forward,
     Backward,
@@ -144,7 +176,6 @@ fun MainScreenShared(
     session: UserSession,
     uiSettingsManager: UiSettingsManager,
     uiScalePercent: Int,
-    onUiScalePreview: (Int) -> Unit,
     onUiScaleCommit: (Int) -> Unit,
     onLogout: () -> Unit
 ) {
@@ -177,6 +208,7 @@ fun MainScreenShared(
     var hintsVersion by remember(session.userId) { mutableIntStateOf(0) }
     var isSnapshotRestored by remember(session.userId) { mutableStateOf(false) }
     val isIos = platformName() == "iOS"
+    val pendingPushRoute by PushRouteCoordinator.pendingRoute.collectAsState()
 
     fun navigateTo(subScreen: String) {
         if (subScreen == currentSubScreen) return
@@ -232,6 +264,29 @@ fun MainScreenShared(
             currentSubScreen = safeSubScreen
             backStack = emptyList()
         }
+    }
+
+    LaunchedEffect(pendingPushRoute, selectedRole, roles, isSnapshotRestored) {
+        if (!isSnapshotRestored) return@LaunchedEffect
+        val incomingRoute = pendingPushRoute ?: return@LaunchedEffect
+        val targetScreen = mapPushRouteToScreen(incomingRoute)
+        if (targetScreen == null) {
+            PushRouteCoordinator.consume(incomingRoute)
+            return@LaunchedEffect
+        }
+
+        val targetRole = resolveRoleForTargetScreen(
+            currentRole = selectedRole ?: roles.firstOrNull(),
+            roles = roles,
+            screen = targetScreen,
+        )
+        if (targetRole != selectedRole) {
+            selectedRole = targetRole
+        }
+        navDirection = NavDirection.Forward
+        backStack = emptyList()
+        currentSubScreen = resolveSubScreenForRole(targetRole, targetScreen)
+        PushRouteCoordinator.consume(incomingRoute)
     }
 
     LaunchedEffect(
@@ -456,7 +511,6 @@ fun MainScreenShared(
                                 token = session.token,
                                 roles = session.roles,
                                 uiScalePercent = uiScalePercent,
-                                onUiScalePreview = onUiScalePreview,
                                 onUiScaleCommit = onUiScaleCommit,
                                 uiSettingsManager = uiSettingsManager,
                                 notificationRepository = notificationRepository,
@@ -655,6 +709,8 @@ fun ChefFlowShared(
 ) {
     when (currentSubScreen) {
         "dashboard" -> ChefDashboardShared(
+            token = session.token,
+            chefRepository = chefRepository,
             onScannerClick = { onNavigate("scanner") },
             onMenuManageClick = { onNavigate("menu_manage") },
             onStatsClick = { onNavigate("stats") },
@@ -687,6 +743,8 @@ fun ChefFlowShared(
             chefRepository = chefRepository,
         )
         else -> ChefDashboardShared(
+            token = session.token,
+            chefRepository = chefRepository,
             onScannerClick = { onNavigate("scanner") },
             onMenuManageClick = { onNavigate("menu_manage") },
             onStatsClick = { onNavigate("stats") },
@@ -1002,6 +1060,8 @@ private fun AdaptiveTwoButtonRowShared(
 
 @Composable
 fun ChefDashboardShared(
+    token: String,
+    chefRepository: ChefRepository,
     onScannerClick: () -> Unit,
     onMenuManageClick: () -> Unit,
     onStatsClick: () -> Unit,
@@ -1009,6 +1069,14 @@ fun ChefDashboardShared(
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
 ) {
+    val nextWeek = remember { nextWeekStart(nowSamara().date) }
+    var weeklyReport by remember(token) { mutableStateOf<ChefWeeklyReportDto?>(null) }
+
+    LaunchedEffect(token, nextWeek) {
+        chefRepository.getWeeklyReport(token, nextWeek.toString())
+            .onSuccess { weeklyReport = it }
+    }
+
     DashboardLayoutShared("Кабинет Повара") {
         ScreenHintBlock(
             screen = HintScreenKey.CHEF_DASHBOARD,
@@ -1017,6 +1085,43 @@ fun ChefDashboardShared(
         )
         if (showHints) {
             Spacer(Modifier.height(12.dp))
+        }
+        weeklyReport?.let { report ->
+            if (!report.confirmed) {
+                val deadlineText = parseIsoDateTimeOrNull(report.confirmWindowEnd)?.let(::formatRuDateTime)
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (report.canConfirmNow) {
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        }
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Подтверждение недельного отчета", fontWeight = FontWeight.Bold)
+                        Text(
+                            report.confirmWindowHint?.ifBlank { null }
+                                ?: "Подтверждение доступно с пятницы 12:00 до понедельника 00:00.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (!deadlineText.isNullOrBlank()) {
+                            Text(
+                                "Подтвердить до: $deadlineText",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Button(
+                            onClick = onWeeklyReportClick,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (report.canConfirmNow) "Открыть подтверждение" else "Проверить окно подтверждения")
+                        }
+                    }
+                }
+            }
         }
         DashboardButtonShared(
             text = "Сканер QR",
@@ -1221,11 +1326,15 @@ fun CuratorDashboardShared(
                     data.needsReminder -> "НУЖНО ЗАПОЛНИТЬ ТАБЕЛЬ"
                     else -> "Уведомление"
                 }
+                val deadlineHuman = data.deadlineHuman ?: data.deadlineDate
                 val body = when {
-                    data.needsReminder && data.cutoffDateTime != null && data.daysUntilDeadline != null -> "Заполните табель на неделю ${data.weekStart ?: "-"} до ${data.cutoffDateTime} (через ${data.daysUntilDeadline} дн.)."
-                    data.needsReminder && data.cutoffDateTime != null -> "Заполните табель на неделю ${data.weekStart ?: "-"} до ${data.cutoffDateTime}."
-                    data.needsReminder -> "Заполните табель на следующую неделю."
-                    !data.reason.isNullOrBlank() -> data.reason ?: ""
+                    !data.actionHint.isNullOrBlank() -> data.actionHint.orEmpty()
+                    data.needsReminder && data.daysUntilDeadline != null && !deadlineHuman.isNullOrBlank() ->
+                        "Заполните табель на неделю ${data.weekStart ?: "-"} ${deadlineHuman} (через ${data.daysUntilDeadline} дн.)."
+                    data.needsReminder && !deadlineHuman.isNullOrBlank() ->
+                        "Заполните табель на неделю ${data.weekStart ?: "-"} ${deadlineHuman}."
+                    data.needsReminder -> "Заполните табель на следующую неделю до пятницы 12:00."
+                    !data.reason.isNullOrBlank() -> data.reason.orEmpty()
                     else -> ""
                 }
                 Card(
@@ -1251,6 +1360,13 @@ fun CuratorDashboardShared(
                         }
                         if (body.isNotBlank()) {
                             Spacer(Modifier.height(8.dp)); Text(body)
+                        }
+                        if (body.isNotBlank() && !deadlineHuman.isNullOrBlank() && !body.contains(deadlineHuman)) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Дедлайн: $deadlineHuman",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
                     }
                 }

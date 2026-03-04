@@ -3,12 +3,16 @@ package com.example.pgk_food.shared.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -18,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.MenuItemDto
@@ -43,6 +49,7 @@ import com.example.pgk_food.shared.util.MenuMealTypeCodec
 import com.example.pgk_food.shared.util.sortMenuItemsForUi
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MenuScreenV2(
     token: String,
@@ -52,6 +59,8 @@ fun MenuScreenV2(
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var items by remember { mutableStateOf<List<MenuItemDto>>(emptyList()) }
+    var locations by remember { mutableStateOf<List<String>>(emptyList()) }
+    var selectedLocation by remember { mutableStateOf<String?>(null) }
     var errorText by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val hintContent = remember { HintCatalog.content(HintScreenKey.STUDENT_MENU) }
@@ -61,18 +70,27 @@ fun MenuScreenV2(
         return api?.userMessage?.ifBlank { default } ?: message ?: default
     }
 
-    fun loadMenu() {
+    fun loadMenu(loadLocations: Boolean = false) {
         scope.launch {
             isLoading = true
             errorText = null
-            studentRepository.getMenu(token)
+            if (loadLocations) {
+                studentRepository.getMenuLocations(token)
+                    .onSuccess { loaded ->
+                        locations = loaded.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+                        if (selectedLocation != null && selectedLocation !in locations) {
+                            selectedLocation = null
+                        }
+                    }
+            }
+            studentRepository.getMenu(token, location = selectedLocation)
                 .onSuccess { items = it }
                 .onFailure { errorText = it.userMessageOr("Не удалось загрузить меню") }
             isLoading = false
         }
     }
 
-    LaunchedEffect(Unit) { loadMenu() }
+    LaunchedEffect(Unit) { loadMenu(loadLocations = true) }
 
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -119,6 +137,38 @@ fun MenuScreenV2(
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
+            if (locations.isNotEmpty()) {
+                Text(
+                    "Столовая",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedLocation == null,
+                        onClick = {
+                            selectedLocation = null
+                            loadMenu()
+                        },
+                        label = { Text("Все") }
+                    )
+                    locations.forEach { location ->
+                        FilterChip(
+                            selected = selectedLocation == location,
+                            onClick = {
+                                selectedLocation = location
+                                loadMenu()
+                            },
+                            label = { Text(location) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
         if (sortedItems.isEmpty()) {
@@ -132,14 +182,28 @@ fun MenuScreenV2(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Icon(Icons.Rounded.Restaurant, contentDescription = null)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Restaurant, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                item.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         AssistChip(onClick = {}, enabled = false, label = { Text(decoded.mealType.titleRu) })
                         if (decoded.description.isNotBlank()) {
                             Text(decoded.description, style = MaterialTheme.typography.bodySmall)
                         }
-                        Text(item.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (selectedLocation == null) {
+                            Text(
+                                item.location,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

@@ -26,8 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -38,13 +36,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,7 +60,8 @@ import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.StudentCategory
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.AppDatePickerDialog
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
@@ -74,16 +71,17 @@ import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.ui.util.firstEditableRosterDate
 import com.example.pgk_food.shared.ui.util.formatRuDate
+import com.example.pgk_food.shared.ui.util.isRosterDateEditable
+import com.example.pgk_food.shared.ui.util.isRosterDateReadable
+import com.example.pgk_food.shared.ui.util.nextEditableRosterDateFrom
+import com.example.pgk_food.shared.ui.util.nowSamara
 import com.example.pgk_food.shared.ui.util.plusDays
-import com.example.pgk_food.shared.ui.util.todayLocalDate
 import com.example.pgk_food.shared.util.HintScreenKey
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.toLocalDateTime
 
 private fun normalizeManyChildrenEntry(entry: StudentRosterDto): StudentRosterDto {
     if (entry.studentCategory != StudentCategory.MANY_CHILDREN) return entry
@@ -108,12 +106,22 @@ fun CuratorRosterScreen(
     onDismissHints: () -> Unit = {},
     onNavigateToCategories: () -> Unit,
 ) {
-    val today = remember { todayLocalDate() }
+    var businessNow by remember { mutableStateOf(nowSamara()) }
+    val initialEditableDate = remember(businessNow) { firstEditableRosterDate(businessNow) }
+    val isDateReadable: (LocalDate) -> Boolean = remember(businessNow) {
+        { date -> isRosterDateReadable(date, businessNow) }
+    }
+    val isDateEditable: (LocalDate) -> Boolean = remember(businessNow) {
+        { date -> isRosterDateEditable(date, businessNow) }
+    }
 
-    var selectedDate by remember { mutableStateOf(today) }
+    var selectedDate by remember { mutableStateOf(initialEditableDate) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    var copyDate by remember { mutableStateOf(plusDays(today, 1)) }
+    var copyDate by remember {
+        mutableStateOf(nextEditableRosterDateFrom(plusDays(initialEditableDate, 1), businessNow))
+    }
+    val isSelectedDateEditable = remember(selectedDate, businessNow) { isDateEditable(selectedDate) }
     var showCopyDialog by remember { mutableStateOf(false) }
     var showCopyDatePicker by remember { mutableStateOf(false) }
     var isCopying by remember { mutableStateOf(false) }
@@ -128,7 +136,7 @@ fun CuratorRosterScreen(
     var showExpelConfirm by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
     val hintContent = remember { HintCatalog.content(HintScreenKey.CURATOR_ROSTER) }
@@ -146,7 +154,7 @@ fun CuratorRosterScreen(
                 selectedGroupId = groups.firstOrNull()?.id
             }
             if (result.isFailure) {
-                snackbarHostState.showSnackbar(
+                snackbarDispatcher.show(
                     result.exceptionOrNull()?.userMessageOr("Не удалось загрузить группы") ?: "Не удалось загрузить группы"
                 )
             }
@@ -169,7 +177,7 @@ fun CuratorRosterScreen(
             )
             entries = result.getOrDefault(emptyList()).map(::normalizeManyChildrenEntry)
             if (result.isFailure) {
-                snackbarHostState.showSnackbar(
+                snackbarDispatcher.show(
                     result.exceptionOrNull()?.userMessageOr("Не удалось загрузить табель") ?: "Не удалось загрузить табель"
                 )
             }
@@ -177,60 +185,39 @@ fun CuratorRosterScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            businessNow = nowSamara()
+        }
+    }
     LaunchedEffect(Unit) { loadGroups() }
+    LaunchedEffect(selectedDate, businessNow) {
+        if (!isDateEditable(copyDate)) {
+            copyDate = nextEditableRosterDateFrom(plusDays(selectedDate, 1), businessNow)
+        }
+    }
     LaunchedEffect(selectedDate, selectedGroupId, groupsLoaded) {
         if (groupsLoaded) {
             loadRoster()
         }
     }
 
-    if (showDatePicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let {
-                        selectedDate = Instant.fromEpochMilliseconds(it)
-                            .toLocalDateTime(TimeZone.currentSystemDefault())
-                            .date
-                    }
-                    showDatePicker = false
-                }) { Text("ОК") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Отмена") }
-            }
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
+    AppDatePickerDialog(
+        visible = showDatePicker,
+        initialDate = selectedDate,
+        onDismiss = { showDatePicker = false },
+        onDateSelected = { selectedDate = it },
+        isDateSelectable = isDateReadable,
+    )
 
-    if (showCopyDatePicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = copyDate.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showCopyDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let {
-                        copyDate = Instant.fromEpochMilliseconds(it)
-                            .toLocalDateTime(TimeZone.currentSystemDefault())
-                            .date
-                    }
-                    showCopyDatePicker = false
-                }) { Text("ОК") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCopyDatePicker = false }) { Text("Отмена") }
-            }
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
+    AppDatePickerDialog(
+        visible = showCopyDatePicker,
+        initialDate = copyDate,
+        onDismiss = { showCopyDatePicker = false },
+        onDateSelected = { copyDate = it },
+        isDateSelectable = isDateEditable,
+    )
 
     if (showCopyDialog) {
         AlertDialog(
@@ -306,14 +293,14 @@ fun CuratorRosterScreen(
                             isCopying = false
                             showCopyDialog = false
                             if (success) {
-                                snackbarHostState.showSnackbar("Успешно скопировано на ${formatRuDate(copyDate)}")
+                                snackbarDispatcher.show("Успешно скопировано на ${formatRuDate(copyDate)}")
                             } else {
                                 val error = actionState.value as? UiActionState.Error
                                 if (error?.code == "STUDENT_CATEGORY_REQUIRED") {
-                                    snackbarHostState.showSnackbar(error.userMessage)
+                                    snackbarDispatcher.show(error.userMessage)
                                     onNavigateToCategories()
                                 } else {
-                                    snackbarHostState.showSnackbar("Копирование завершилось с ошибками")
+                                    snackbarDispatcher.show("Копирование завершилось с ошибками")
                                 }
                             }
                         }
@@ -360,9 +347,13 @@ fun CuratorRosterScreen(
 
     fun saveSelectedDate() {
         scope.launch {
+            if (!isDateEditable(selectedDate)) {
+                snackbarDispatcher.show("После пятницы 12:00 следующая неделя доступна только для просмотра.")
+                return@launch
+            }
             val invalidRangeStudent = invalidAbsenceRangeStudentForSelectedDate()
             if (invalidRangeStudent != null) {
-                snackbarHostState.showSnackbar(
+                snackbarDispatcher.show(
                     "Период отсутствия заполнен неверно: у $invalidRangeStudent дата \"По\" раньше даты \"С\"."
                 )
                 return@launch
@@ -404,14 +395,14 @@ fun CuratorRosterScreen(
                 }
             }
             if (success) {
-                snackbarHostState.showSnackbar("Сохранено")
+                snackbarDispatcher.show("Сохранено")
             } else {
                 val error = actionState.value as? UiActionState.Error
                 if (error?.code == "STUDENT_CATEGORY_REQUIRED") {
-                    snackbarHostState.showSnackbar(error.userMessage)
+                    snackbarDispatcher.show(error.userMessage)
                     onNavigateToCategories()
                 } else {
-                    snackbarHostState.showSnackbar("Ошибка сохранения некоторых записей")
+                    snackbarDispatcher.show("Ошибка сохранения некоторых записей")
                 }
             }
         }
@@ -548,9 +539,10 @@ fun CuratorRosterScreen(
 
                     IconButton(
                         onClick = {
-                            copyDate = plusDays(selectedDate, 1)
+                            copyDate = nextEditableRosterDateFrom(plusDays(selectedDate, 1), businessNow)
                             showCopyDialog = true
                         },
+                        enabled = !isActionLoading && isSelectedDateEditable,
                         modifier = Modifier.longPressHelp(
                             actionId = "roster.copy-day",
                             fallbackDescription = "Скопировать день",
@@ -587,6 +579,8 @@ fun CuratorRosterScreen(
                             RosterCard(
                                 entry = entry,
                                 selectedDateStr = selectedDate.toString(),
+                                isDateSelectable = isDateEditable,
+                                editable = isSelectedDateEditable,
                                 animationDelayMs = (index.coerceAtMost(9) * 35) + 130,
                                 onUpdate = { updatedEntry ->
                                     entries = entries.map { if (it.studentId == updatedEntry.studentId) updatedEntry else it }
@@ -596,6 +590,14 @@ fun CuratorRosterScreen(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
+                    if (!isSelectedDateEditable) {
+                        Text(
+                            "Только чтение: после пятницы 12:00 следующая неделя доступна только для просмотра.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
                     Button(
                         onClick = {
@@ -605,7 +607,7 @@ fun CuratorRosterScreen(
                                 saveSelectedDate()
                             }
                         },
-                        enabled = !isActionLoading,
+                        enabled = !isActionLoading && isSelectedDateEditable,
                         modifier = Modifier.fillMaxWidth(),
                         shape = PillShape
                     ) {
@@ -614,7 +616,6 @@ fun CuratorRosterScreen(
                     }
                 }
             }
-            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 }
@@ -624,6 +625,8 @@ fun CuratorRosterScreen(
 private fun RosterCard(
     entry: StudentRosterDto,
     selectedDateStr: String,
+    isDateSelectable: (LocalDate) -> Boolean,
+    editable: Boolean,
     animationDelayMs: Int = 0,
     onUpdate: (StudentRosterDto) -> Unit
 ) {
@@ -647,42 +650,29 @@ private fun RosterCard(
     }
 
     val openDatePickerTarget = datePickerTarget
-    if (openDatePickerTarget != null) {
-        val initialDate = when (openDatePickerTarget) {
-            AbsenceDateTarget.FROM -> parseIsoDateOrNull(dayEntry.absenceFrom) ?: parseIsoDateOrNull(selectedDateStr)
-            AbsenceDateTarget.TO -> parseIsoDateOrNull(dayEntry.absenceTo) ?: parseIsoDateOrNull(selectedDateStr)
-        }
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialDate
-                ?.atStartOfDayIn(TimeZone.currentSystemDefault())
-                ?.toEpochMilliseconds()
-        )
+    val initialDate = when (openDatePickerTarget) {
+        AbsenceDateTarget.FROM -> parseIsoDateOrNull(dayEntry.absenceFrom) ?: parseIsoDateOrNull(selectedDateStr)
+        AbsenceDateTarget.TO -> parseIsoDateOrNull(dayEntry.absenceTo) ?: parseIsoDateOrNull(selectedDateStr)
+        null -> parseIsoDateOrNull(selectedDateStr)
+    } ?: runCatching { LocalDate.parse(selectedDateStr) }.getOrElse { plusDays(nowSamara().date, 7) }
 
-        DatePickerDialog(
-            onDismissRequest = { datePickerTarget = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        val pickedDate = Instant.fromEpochMilliseconds(millis)
-                            .toLocalDateTime(TimeZone.currentSystemDefault())
-                            .date
-                            .toString()
-                        val updated = when (openDatePickerTarget) {
-                            AbsenceDateTarget.FROM -> dayEntry.copy(absenceFrom = pickedDate)
-                            AbsenceDateTarget.TO -> dayEntry.copy(absenceTo = pickedDate)
-                        }
-                        updateDayEntry(updated)
-                    }
-                    datePickerTarget = null
-                }) { Text("ОК") }
-            },
-            dismissButton = {
-                TextButton(onClick = { datePickerTarget = null }) { Text("Отмена") }
+    AppDatePickerDialog(
+        visible = openDatePickerTarget != null && editable,
+        initialDate = initialDate,
+        onDismiss = { datePickerTarget = null },
+        onDateSelected = { pickedDate ->
+            val pickedIso = pickedDate.toString()
+            val updated = when (openDatePickerTarget) {
+                AbsenceDateTarget.FROM -> dayEntry.copy(absenceFrom = pickedIso)
+                AbsenceDateTarget.TO -> dayEntry.copy(absenceTo = pickedIso)
+                null -> dayEntry
             }
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
+            if (openDatePickerTarget != null) {
+                updateDayEntry(updated)
+            }
+        },
+        isDateSelectable = isDateSelectable,
+    )
 
     Card(
         modifier = Modifier.fillMaxWidth().springEntrance(animationDelayMs),
@@ -711,7 +701,7 @@ private fun RosterCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                MealToggleChip("Завтрак", dayEntry.isBreakfast) {
+                MealToggleChip("Завтрак", dayEntry.isBreakfast, enabled = editable) {
                     val updatedDay = if (isManyChildren && it) {
                         dayEntry.copy(isBreakfast = true, isLunch = false)
                     } else {
@@ -719,7 +709,7 @@ private fun RosterCard(
                     }
                     updateDayEntry(updatedDay)
                 }
-                MealToggleChip("Обед", dayEntry.isLunch) {
+                MealToggleChip("Обед", dayEntry.isLunch, enabled = editable) {
                     val updatedDay = if (isManyChildren && it) {
                         dayEntry.copy(isBreakfast = false, isLunch = true)
                     } else {
@@ -750,6 +740,7 @@ private fun RosterCard(
                     ).forEach { (reasonType, title) ->
                         FilterChip(
                             selected = dayEntry.noMealReasonType == reasonType,
+                            enabled = editable,
                             onClick = {
                                 val withDefaults = when (reasonType) {
                                     NoMealReasonType.SICK_LEAVE,
@@ -787,7 +778,7 @@ private fun RosterCard(
                             shape = MaterialTheme.shapes.medium,
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { datePickerTarget = AbsenceDateTarget.FROM }
+                                .clickable(enabled = editable) { datePickerTarget = AbsenceDateTarget.FROM }
                                 .longPressHelp(
                                     actionId = "roster.absence.from.pick",
                                     fallbackDescription = "Выбрать дату начала отсутствия",
@@ -807,7 +798,7 @@ private fun RosterCard(
                             shape = MaterialTheme.shapes.medium,
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { datePickerTarget = AbsenceDateTarget.TO }
+                                .clickable(enabled = editable) { datePickerTarget = AbsenceDateTarget.TO }
                                 .longPressHelp(
                                     actionId = "roster.absence.to.pick",
                                     fallbackDescription = "Выбрать дату окончания отсутствия",
@@ -833,6 +824,7 @@ private fun RosterCard(
                             val updated = dayEntry.copy(noMealReasonText = value)
                             updateDayEntry(updated)
                         },
+                        enabled = editable,
                         label = { Text("Текст причины") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = false,
@@ -846,6 +838,7 @@ private fun RosterCard(
                         val updated = dayEntry.copy(comment = value)
                         updateDayEntry(updated)
                     },
+                    enabled = editable,
                     label = { Text("Комментарий") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = false,
@@ -856,9 +849,10 @@ private fun RosterCard(
 }
 
 @Composable
-private fun MealToggleChip(label: String, isActive: Boolean, onToggle: (Boolean) -> Unit) {
+private fun MealToggleChip(label: String, isActive: Boolean, enabled: Boolean, onToggle: (Boolean) -> Unit) {
     FilterChip(
         selected = isActive,
+        enabled = enabled,
         onClick = { onToggle(!isActive) },
         label = { Text(label) },
         shape = PillShape

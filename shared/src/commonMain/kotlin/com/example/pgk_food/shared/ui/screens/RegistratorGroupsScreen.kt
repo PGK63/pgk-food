@@ -26,7 +26,7 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.remote.dto.UserDto
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.model.UserRole
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
@@ -70,7 +70,11 @@ fun RegistratorGroupsScreen(
     onDismissHints: () -> Unit = {}
 ) {
     var groups by remember { mutableStateOf<List<GroupDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isGroupsLoading by remember { mutableStateOf(true) }
+    var isStudentsLoading by remember { mutableStateOf(false) }
+    var isAllUsersLoading by remember { mutableStateOf(false) }
+    var groupsLoadError by remember { mutableStateOf<String?>(null) }
+    var hasGroupsLoadedOnce by remember { mutableStateOf(false) }
     var showAddGroupDialog by remember { mutableStateOf(false) }
     var newGroupName by remember { mutableStateOf("") }
     var showDeleteGroupDialog by remember { mutableStateOf<GroupDto?>(null) }
@@ -88,7 +92,7 @@ fun RegistratorGroupsScreen(
     var searchQuery by remember { mutableStateOf("") }
     
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
     val hintContent = remember { HintCatalog.content(HintScreenKey.REGISTRATOR_GROUPS) }
@@ -110,37 +114,50 @@ fun RegistratorGroupsScreen(
     }
 
     suspend fun refreshGroups(showLoader: Boolean = true) {
-        if (showLoader) isLoading = true
+        if (showLoader) isGroupsLoading = true
         val result = registratorRepository.getGroups(token)
-        groups = result.getOrDefault(emptyList())
+        result.onSuccess {
+            groups = it
+            groupsLoadError = null
+        }
         val existingGroupIds = groups.map { it.id }.toSet()
         groupStudents = groupStudents.filterKeys { it in existingGroupIds }
         if (expandedGroupId != null && expandedGroupId !in existingGroupIds) {
             expandedGroupId = null
         }
         if (result.isFailure) {
-            snackbarHostState.showSnackbar("Не удалось обновить список групп")
+            val message = result.exceptionOrNull()?.userMessageOr("Не удалось обновить список групп")
+                ?: "Не удалось обновить список групп"
+            if (groups.isEmpty()) {
+                groupsLoadError = message
+            }
+            snackbarDispatcher.show(message)
         }
-        if (showLoader) isLoading = false
+        hasGroupsLoadedOnce = true
+        if (showLoader) isGroupsLoading = false
     }
 
     suspend fun loadStudents(groupId: Int, force: Boolean = false) {
         if (!force && groupStudents.containsKey(groupId)) return
+        isStudentsLoading = true
         val result = registratorRepository.getUsers(token, groupId)
         val students = result.getOrDefault(emptyList())
         groupStudents = groupStudents + (groupId to students)
         if (result.isFailure) {
-            snackbarHostState.showSnackbar("Не удалось загрузить студентов группы")
+            snackbarDispatcher.show("Не удалось загрузить студентов группы")
         }
+        isStudentsLoading = false
     }
 
     suspend fun loadAllUsers(force: Boolean = false) {
         if (!force && allUsers.isNotEmpty()) return
+        isAllUsersLoading = true
         val result = registratorRepository.getUsers(token)
         allUsers = result.getOrDefault(emptyList())
         if (result.isFailure) {
-            snackbarHostState.showSnackbar("Не удалось загрузить список пользователей")
+            snackbarDispatcher.show("Не удалось загрузить список пользователей")
         }
+        isAllUsersLoading = false
     }
 
     suspend fun refreshUiAfterMutation(vararg groupIds: Int) {
@@ -153,7 +170,7 @@ fun RegistratorGroupsScreen(
         actionState.value = UiActionState.Loading
         val newGroupNameValue = normalizeGroupName(targetName)
         if (newGroupNameValue.isEmpty()) {
-            snackbarHostState.showSnackbar("Введите новое название группы")
+            snackbarDispatcher.show("Введите новое название группы")
             actionState.value = UiActionState.Idle
             return
         }
@@ -161,7 +178,7 @@ fun RegistratorGroupsScreen(
             it.id != group.id && normalizeGroupName(it.name).equals(newGroupNameValue, ignoreCase = true)
         }
         if (localDuplicate) {
-            snackbarHostState.showSnackbar("Группа с таким названием уже существует")
+            snackbarDispatcher.show("Группа с таким названием уже существует")
             actionState.value = UiActionState.Idle
             return
         }
@@ -179,7 +196,7 @@ fun RegistratorGroupsScreen(
             }
         }
         if (transferError != null) {
-            snackbarHostState.showSnackbar(transferError!!)
+            snackbarDispatcher.show(transferError!!)
             actionState.value = UiActionState.Idle
             return
         }
@@ -192,7 +209,7 @@ fun RegistratorGroupsScreen(
             .maxByOrNull { it.id }
 
         if (newGroup == null) {
-            snackbarHostState.showSnackbar("Новая группа создана, но не найдена в списке")
+            snackbarDispatcher.show("Новая группа создана, но не найдена в списке")
             actionState.value = UiActionState.Idle
             return
         }
@@ -253,9 +270,9 @@ fun RegistratorGroupsScreen(
             } else {
                 "$transferError Откат выполнен частично: ${rollbackErrors.joinToString("; ")}"
             }
-            snackbarHostState.showSnackbar(message)
+            snackbarDispatcher.show(message)
         } else {
-            snackbarHostState.showSnackbar("Группа успешно переведена/переименована")
+            snackbarDispatcher.show("Группа успешно переведена/переименована")
         }
 
         refreshUiAfterMutation(group.id, newGroup.id)
@@ -335,6 +352,10 @@ fun RegistratorGroupsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
+            if (isGroupsLoading && hasGroupsLoadedOnce) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
             if (showHints) {
                 Spacer(modifier = Modifier.height(8.dp))
                 HowItWorksCard(
@@ -353,9 +374,26 @@ fun RegistratorGroupsScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            if (isLoading) {
+            if (isGroupsLoading && !hasGroupsLoadedOnce) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
+                }
+            } else if (groupsLoadError != null && groups.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Rounded.SearchOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(groupsLoadError!!, color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { scope.launch { refreshGroups(showLoader = true) } }) {
+                            Text("Повторить")
+                        }
+                    }
                 }
             } else if (filteredGroups.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -367,7 +405,10 @@ fun RegistratorGroupsScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (searchQuery.isBlank()) "Группы пока не созданы" else "Ничего не найдено",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             } else {
@@ -506,7 +547,9 @@ fun RegistratorGroupsScreen(
                                     Text("Студенты:", style = MaterialTheme.typography.titleMedium)
                                     
                                     val students = groupStudents[group.id] ?: emptyList()
-                                    if (students.isEmpty()) {
+                                    if (isStudentsLoading && expandedGroupId == group.id) {
+                                        Text("Загрузка студентов...", style = MaterialTheme.typography.bodyMedium)
+                                    } else if (students.isEmpty()) {
                                         Text("Нет студентов", style = MaterialTheme.typography.bodyMedium)
                                     } else {
                                         students.forEach { student ->
@@ -561,7 +604,6 @@ fun RegistratorGroupsScreen(
                     }
                 }
             }
-            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
     }
@@ -600,11 +642,11 @@ fun RegistratorGroupsScreen(
                 TextButton(onClick = {
                     scope.launch {
                         if (normalizedNewGroupName.isBlank()) {
-                            snackbarHostState.showSnackbar("Введите название группы")
+                            snackbarDispatcher.show("Введите название группы")
                             return@launch
                         }
                         if (hasDuplicateGroupName) {
-                            snackbarHostState.showSnackbar("Группа с таким названием уже существует")
+                            snackbarDispatcher.show("Группа с таким названием уже существует")
                             return@launch
                         }
                         val result = registratorRepository.createGroup(token, normalizedNewGroupName)
@@ -620,7 +662,7 @@ fun RegistratorGroupsScreen(
                             showAddGroupDialog = false
                             refreshUiAfterMutation()
                         } else if (result.exceptionOrNull().apiCodeOrNull() == "ACCESS_DENIED") {
-                            snackbarHostState.showSnackbar("Нет доступа к созданию группы. Выполните повторный вход.")
+                            snackbarDispatcher.show("Нет доступа к созданию группы. Выполните повторный вход.")
                         }
                     }
                 }, enabled = !isActionLoading && normalizedNewGroupName.isNotBlank() && !hasDuplicateGroupName) {
@@ -961,7 +1003,16 @@ fun RegistratorGroupsScreen(
                                         modifier = Modifier.padding(vertical = 8.dp)
                                     )
                                 }
-                                if (selectableUsers.isEmpty()) {
+                                if (isAllUsersLoading) {
+                                    item {
+                                        Text(
+                                            text = "Загрузка пользователей...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(vertical = 12.dp)
+                                        )
+                                    }
+                                } else if (selectableUsers.isEmpty()) {
                                     item {
                                         Text(
                                             text = "Ничего не найдено",
@@ -989,6 +1040,15 @@ fun RegistratorGroupsScreen(
                                             }
                                         )
                                     }
+                                }
+                            } else if (isAllUsersLoading) {
+                                item {
+                                    Text(
+                                        text = "Загрузка пользователей...",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(vertical = 12.dp)
+                                    )
                                 }
                             } else if (selectableUsers.isEmpty()) {
                                 item {

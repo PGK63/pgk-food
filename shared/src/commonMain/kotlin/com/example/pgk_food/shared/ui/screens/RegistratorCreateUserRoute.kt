@@ -33,7 +33,7 @@ import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.RegistratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.UserRole
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.CredentialsDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
@@ -70,7 +70,7 @@ fun RegistratorCreateUserRoute(
     onUserCreated: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isSubmitting = actionState.value.isLoading
 
@@ -84,7 +84,7 @@ fun RegistratorCreateUserRoute(
             val groupsResult = registratorRepository.getGroups(token)
             groups = groupsResult.getOrDefault(emptyList())
             if (groupsResult.isFailure) {
-                snackbarHostState.showSnackbar("Не удалось загрузить группы")
+                snackbarDispatcher.show("Не удалось загрузить группы")
             }
             isLoading = false
         }
@@ -135,7 +135,6 @@ fun RegistratorCreateUserRoute(
                     }
                 )
             }
-            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 
@@ -147,7 +146,7 @@ fun RegistratorCreateUserRoute(
                 onUserCreated()
             },
             onCopiedAndDismissed = {
-                scope.launch { snackbarHostState.showSnackbar("Данные скопированы") }
+                scope.launch { snackbarDispatcher.show("Данные скопированы") }
                 credentialsDialog = null
                 onUserCreated()
             }
@@ -179,10 +178,15 @@ private fun RegistratorCreateUserForm(
     var expandedGroup by remember { mutableStateOf(false) }
     var selectedStudentCategory by remember { mutableStateOf<StudentCategory?>(null) }
     val hintContent = remember { HintCatalog.content(HintScreenKey.REGISTRATOR_USER_CREATE) }
+    val requiresGroup = UserRole.STUDENT in selectedRoles || UserRole.CURATOR in selectedRoles
+    val requiresCategory = UserRole.STUDENT in selectedRoles
     val canSubmit = !isSubmitting &&
         name.isNotBlank() &&
         surname.isNotBlank() &&
-        selectedRoles.isNotEmpty()
+        fatherName.isNotBlank() &&
+        selectedRoles.isNotEmpty() &&
+        (!requiresGroup || selectedGroupId != null) &&
+        (!requiresCategory || selectedStudentCategory != null)
 
     LaunchedEffect(Unit) {
         surnameRequester.requestFocus()
@@ -356,12 +360,6 @@ private fun RegistratorCreateUserForm(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(
-                    selected = selectedStudentCategory == null,
-                    onClick = { selectedStudentCategory = null },
-                    label = { Text("Без категории") },
-                    shape = MaterialTheme.shapes.small
-                )
                 StudentCategory.entries.forEach { category ->
                     FilterChip(
                         selected = selectedStudentCategory == category,
@@ -392,7 +390,7 @@ private fun RegistratorCreateUserForm(
                             roles = selectedRoles.toList(),
                             name = name,
                             surname = surname,
-                            fatherName = fatherName.ifBlank { "-" },
+                            fatherName = fatherName,
                             groupId = selectedGroupId,
                             studentCategory = if (UserRole.STUDENT in selectedRoles) selectedStudentCategory else null
                         )

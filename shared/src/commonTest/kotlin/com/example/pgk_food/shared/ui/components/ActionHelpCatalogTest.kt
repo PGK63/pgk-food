@@ -11,7 +11,7 @@ class ActionHelpCatalogTest {
             fallbackDescription = "Удалить группу",
         )
         assertEquals(
-            "Удаляет группу после проверки, что студенты перенесены.",
+            "Удалить группу.",
             resolved,
         )
     }

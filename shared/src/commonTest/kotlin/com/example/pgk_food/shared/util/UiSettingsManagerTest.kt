@@ -21,8 +21,36 @@ class UiSettingsManagerTest {
         manager.setUiScalePercent(200)
         assertEquals(UiSettingsManager.UI_SCALE_MAX_PERCENT, manager.getUiScalePercent())
 
-        manager.setUiScalePercent(112)
-        assertEquals(112, manager.getUiScalePercent())
+        manager.setUiScalePercent(108)
+        assertEquals(108, manager.getUiScalePercent())
+    }
+
+    @Test
+    fun uiScale_slider_mapping_has_anchor_102_to_100_percent() {
+        val manager = UiSettingsManager(store = FakeUiSettingsStore())
+
+        assertEquals(
+            100,
+            manager.sliderPositionToPercent(UiSettingsManager.UI_SCALE_SLIDER_ANCHOR)
+        )
+        assertEquals(
+            UiSettingsManager.UI_SCALE_SLIDER_ANCHOR,
+            manager.percentToSliderPosition(100)
+        )
+    }
+
+    @Test
+    fun uiScale_slider_mapping_clamps_bounds() {
+        val manager = UiSettingsManager(store = FakeUiSettingsStore())
+
+        assertEquals(
+            UiSettingsManager.UI_SCALE_MIN_PERCENT,
+            manager.sliderPositionToPercent(UiSettingsManager.UI_SCALE_SLIDER_MIN)
+        )
+        assertEquals(
+            UiSettingsManager.UI_SCALE_MAX_PERCENT,
+            manager.sliderPositionToPercent(UiSettingsManager.UI_SCALE_SLIDER_MAX)
+        )
     }
 }
 

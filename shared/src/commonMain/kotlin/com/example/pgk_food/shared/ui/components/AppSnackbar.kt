@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -70,5 +71,15 @@ fun AppSnackbar(
                 )
             }
         }
+    }
+}
+
+interface AppSnackbarDispatcher {
+    suspend fun show(message: String, actionLabel: String? = null)
+}
+
+val LocalAppSnackbarDispatcher = staticCompositionLocalOf<AppSnackbarDispatcher> {
+    object : AppSnackbarDispatcher {
+        override suspend fun show(message: String, actionLabel: String?) = Unit
     }
 }

@@ -30,7 +30,9 @@ import com.example.pgk_food.shared.model.UserRole
 import com.example.pgk_food.shared.runtime.DailySyncOrchestrator
 import com.example.pgk_food.shared.runtime.MainLoopStateStore
 import com.example.pgk_food.shared.runtime.appForegroundEvents
+import com.example.pgk_food.shared.ui.components.AppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.screens.LoginScreen
 import com.example.pgk_food.shared.ui.screens.MainScreenShared
 import com.example.pgk_food.shared.ui.screens.SplashScreen
@@ -57,12 +59,19 @@ fun PgkSharedApp() {
     val mainLoopStateStore = remember { MainLoopStateStore() }
     val uiSettingsManager = remember { UiSettingsManager() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = remember(snackbarHostState) {
+        object : AppSnackbarDispatcher {
+            override suspend fun show(message: String, actionLabel: String?) {
+                snackbarHostState.showSnackbar(message, actionLabel)
+            }
+        }
+    }
     var uiScalePercent by remember { mutableIntStateOf(uiSettingsManager.getUiScalePercent()) }
 
     val session by SessionStore.session.collectAsState()
     val isRestored by SessionStore.isRestored.collectAsState()
     val baseDensity = LocalDensity.current
-    val scaleMultiplier = (uiScalePercent / 100f).coerceIn(0.85f, 1.3f)
+    val scaleMultiplier = (uiScalePercent / 100f).coerceIn(0.85f, 1.15f)
     val scaledDensity = remember(baseDensity, uiScalePercent) {
         Density(
             density = baseDensity.density * scaleMultiplier,
@@ -110,7 +119,10 @@ fun PgkSharedApp() {
     }
 
     MaterialTheme {
-        CompositionLocalProvider(LocalDensity provides scaledDensity) {
+        CompositionLocalProvider(
+            LocalDensity provides scaledDensity,
+            LocalAppSnackbarDispatcher provides snackbarDispatcher,
+        ) {
             Scaffold(
                 contentWindowInsets = WindowInsets(0, 0, 0, 0)
             ) { padding ->
@@ -129,9 +141,6 @@ fun PgkSharedApp() {
                                 session = session!!,
                                 uiSettingsManager = uiSettingsManager,
                                 uiScalePercent = uiScalePercent,
-                                onUiScalePreview = { candidate ->
-                                    uiScalePercent = uiSettingsManager.clampUiScalePercent(candidate)
-                                },
                                 onUiScaleCommit = { candidate ->
                                     val clamped = uiSettingsManager.clampUiScalePercent(candidate)
                                     uiScalePercent = clamped

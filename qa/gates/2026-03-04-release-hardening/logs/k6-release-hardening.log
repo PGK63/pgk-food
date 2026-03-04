@@ -1,1 +1,33 @@
-/bin/bash: line 1: k6: command not found
+
+          /\      |‾‾| /‾‾/   /‾‾/   
+     /\  /  \     |  |/  /   /  /    
+    /  \/    \    |     (   /   ‾‾\  
+   /          \   |  |\  \ |  (‾)  | 
+  / __________ \  |__| \__\ \_____/ .io
+
+     execution: local
+        script: qa/load/k6/release-hardening.js
+        output: -
+
+     scenarios: (100.00%) 2 scenarios, 1000 max VUs, 14m30s max duration (incl. graceful stop):
+              * qr_validate: Up to 500 looping VUs for 14m0s over 4 stages (gracefulRampDown: 30s, exec: runQrValidate, gracefulStop: 30s)
+              * sync_batch: Up to 500 looping VUs for 14m0s over 4 stages (gracefulRampDown: 30s, exec: runSyncBatch, gracefulStop: 30s)
+
+
+     █ setup
+
+     data_received................: 0 B   0 B/s
+     data_sent....................: 0 B   0 B/s
+     http_req_duration............: avg=0s      min=0s      med=0s      max=0s      p(90)=0s      p(95)=0s     
+     ✓ { endpoint:qr_validate }...: avg=0s      min=0s      med=0s      max=0s      p(90)=0s      p(95)=0s     
+     ✓ { endpoint:sync_batch }....: avg=0s      min=0s      med=0s      max=0s      p(90)=0s      p(95)=0s     
+     http_req_failed..............: 0.00% ✓ 0   ✗ 0
+     ✓ { endpoint:qr_validate }...: 0.00% ✓ 0   ✗ 0
+     ✓ { endpoint:sync_batch }....: 0.00% ✓ 0   ✗ 0
+     iteration_duration...........: avg=16.53µs min=16.53µs med=16.53µs max=16.53µs p(90)=16.53µs p(95)=16.53µs
+
+
+Run           [ 100% ] setup()
+qr_validate   [   0% ]
+sync_batch    [   0% ]
+time="2026-03-04T22:27:44+04:00" level=error msg="Error: Set K6_CHEF_LOGIN and K6_CHEF_PASSWORD.\n\tat setup (file:///home/wsr/pgk-food/qa/load/k6/release-hardening.js:62:10(9))\n" hint="script exception"

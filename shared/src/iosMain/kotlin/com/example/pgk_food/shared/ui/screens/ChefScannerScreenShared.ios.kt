@@ -46,10 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -76,6 +73,7 @@ import com.example.pgk_food.shared.ui.components.InlineHint
 import com.example.pgk_food.shared.ui.theme.HeroCardShape
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.viewmodels.ChefViewModel
 import com.example.pgk_food.shared.ui.viewmodels.ScanState
 import com.example.pgk_food.shared.ui.viewmodels.SyncState
@@ -126,7 +124,7 @@ actual fun ChefScannerScreenShared(
     var scannerError by remember { mutableStateOf<String?>(null) }
     var torchEnabled by remember { mutableStateOf(false) }
     var scanResetKey by remember { mutableIntStateOf(0) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val hintContent = remember { HintCatalog.content(HintScreenKey.CHEF_SCANNER) }
 
     LaunchedEffect(Unit) {
@@ -151,12 +149,12 @@ actual fun ChefScannerScreenShared(
     LaunchedEffect(syncState) {
         when (val state = syncState) {
             is SyncState.Success -> {
-                snackbarHostState.showSnackbar(state.message)
+                snackbarDispatcher.show(state.message)
                 viewModel.resetSyncState()
             }
 
             is SyncState.Error -> {
-                snackbarHostState.showSnackbar(state.message)
+                snackbarDispatcher.show(state.message)
                 viewModel.resetSyncState()
             }
 
@@ -164,29 +162,7 @@ actual fun ChefScannerScreenShared(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Сканер питания", style = MaterialTheme.typography.titleMedium) },
-                actions = {
-                    if (unsyncedCount > 0) {
-                        BadgedBox(
-                            badge = { Badge { Text(unsyncedCount.toString()) } },
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            IconButton(onClick = { viewModel.syncTransactions() }) {
-                                Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
-                            }
-                        }
-                    }
-                    IconButton(onClick = { viewModel.downloadData() }) {
-                        Icon(Icons.Default.CloudDownload, contentDescription = "Скачать данные")
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    Scaffold { padding ->
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -242,11 +218,32 @@ actual fun ChefScannerScreenShared(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                IconButton(onClick = { torchEnabled = !torchEnabled }) {
-                    Icon(
-                        if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                        contentDescription = null
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (unsyncedCount > 0) {
+                        BadgedBox(
+                            badge = { Badge { Text(unsyncedCount.toString()) } }
+                        ) {
+                            IconButton(onClick = { viewModel.syncTransactions() }) {
+                                Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
+                            }
+                        }
+                    } else {
+                        IconButton(onClick = { viewModel.syncTransactions() }) {
+                            Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
+                        }
+                    }
+                    IconButton(onClick = { viewModel.downloadData() }) {
+                        Icon(Icons.Default.CloudDownload, contentDescription = "Скачать данные")
+                    }
+                    IconButton(onClick = { torchEnabled = !torchEnabled }) {
+                        Icon(
+                            if (torchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                            contentDescription = if (torchEnabled) "Выключить фонарь" else "Включить фонарь"
+                        )
+                    }
                 }
             }
 

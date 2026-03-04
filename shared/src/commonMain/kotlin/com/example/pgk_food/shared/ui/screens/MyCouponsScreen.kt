@@ -30,7 +30,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.repository.MealsTodayResponse
 import com.example.pgk_food.shared.data.repository.StudentRepository
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
@@ -99,7 +98,7 @@ fun MyCouponsScreen(
     var isOfflineMode by remember { mutableStateOf(false) }
     var loadRequestVersion by remember { mutableStateOf(0) }
     val downloadState by viewModel.downloadKeysState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val scope = rememberCoroutineScope()
     val hintContent = remember { HintCatalog.content(HintScreenKey.STUDENT_COUPONS) }
 
@@ -124,7 +123,7 @@ fun MyCouponsScreen(
             )
             isLoading = false
             if (cachedMeals == null) {
-                snackbarHostState.showSnackbar("Кэш талонов не найден, показаны локальные значения")
+                snackbarDispatcher.show("Кэш талонов не найден, показаны локальные значения")
             }
             return
         }
@@ -150,7 +149,7 @@ fun MyCouponsScreen(
                 pendingError = it.userMessageOr("Не удалось загрузить талоны")
             }
         if (requestVersion != loadRequestVersion) return
-        pendingError?.let { snackbarHostState.showSnackbar(it) }
+        pendingError?.let { snackbarDispatcher.show(it) }
         if (requestVersion != loadRequestVersion) return
         isLoading = false
     }
@@ -162,12 +161,12 @@ fun MyCouponsScreen(
     LaunchedEffect(downloadState) {
         when (val state = downloadState) {
             is DownloadKeysState.Success -> {
-                snackbarHostState.showSnackbar("Оффлайн-ключи загружены")
+                snackbarDispatcher.show("Оффлайн-ключи загружены")
                 viewModel.resetDownloadKeysState()
             }
 
             is DownloadKeysState.Error -> {
-                snackbarHostState.showSnackbar("Ошибка ключей [${state.code}]: ${state.message}")
+                snackbarDispatcher.show("Ошибка ключей [${state.code}]: ${state.message}")
                 viewModel.resetDownloadKeysState()
             }
 
@@ -213,18 +212,6 @@ fun MyCouponsScreen(
             ) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Твои талоны",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.springEntrance(),
-                    )
-                    Text(
-                        text = "Выбери талон, чтобы показать QR-код",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
                     if (showHints) {
                         Spacer(modifier = Modifier.height(8.dp))
                         HowItWorksCard(
@@ -331,7 +318,7 @@ fun MyCouponsScreen(
                                         CouponStatus.AVAILABLE -> onCouponClick(coupon.type)
                                         CouponStatus.UNKNOWN -> {
                                             scope.launch {
-                                                snackbarHostState.showSnackbar(
+                                                snackbarDispatcher.show(
                                                     "Статус не проверен, открываем QR по сохраненным данным"
                                                 )
                                             }
@@ -349,8 +336,6 @@ fun MyCouponsScreen(
                 }
             }
         }
-
-        AppSnackbarHostOverlay(hostState = snackbarHostState)
     }
 }
 

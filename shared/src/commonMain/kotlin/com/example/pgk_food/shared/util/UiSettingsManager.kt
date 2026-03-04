@@ -2,6 +2,7 @@ package com.example.pgk_food.shared.util
 
 import com.example.pgk_food.shared.platform.PlatformKeyValueStore
 import com.example.pgk_food.shared.platform.currentTimeMillis
+import kotlin.math.roundToInt
 
 enum class HintScreenKey {
     STUDENT_DASHBOARD,
@@ -133,6 +134,10 @@ class UiSettingsManager(
 
     fun clampUiScalePercent(percent: Int): Int = UiScalePolicy.clamp(percent)
 
+    fun sliderPositionToPercent(position: Int): Int = UiScalePolicy.sliderToPercent(position)
+
+    fun percentToSliderPosition(percent: Int): Int = UiScalePolicy.percentToSlider(percent)
+
     private fun ensureHintsFirstSeenAt(safeUserId: String, nowMillis: Long): Long {
         val key = hintsFirstSeenAtKey(safeUserId)
         val existing = store.getLong(PREFS_NAME, key, -1L)
@@ -163,18 +168,64 @@ class UiSettingsManager(
 
     companion object {
         const val UI_SCALE_MIN_PERCENT: Int = 85
-        const val UI_SCALE_MAX_PERCENT: Int = 130
+        const val UI_SCALE_MAX_PERCENT: Int = 115
         const val UI_SCALE_DEFAULT_PERCENT: Int = 100
+        const val UI_SCALE_SLIDER_MIN: Int = 98
+        const val UI_SCALE_SLIDER_ANCHOR: Int = 102
+        const val UI_SCALE_SLIDER_MAX: Int = 115
         private const val PREFS_NAME = "ui_settings"
         private const val UI_SCALE_PERCENT_KEY = "ui_scale_percent"
     }
 }
 
 internal object UiScalePolicy {
+    private const val PercentAtAnchor = UiSettingsManager.UI_SCALE_DEFAULT_PERCENT
+    private const val PercentAtSliderMin = UiSettingsManager.UI_SCALE_MIN_PERCENT
+    private const val PercentAtSliderMax = UiSettingsManager.UI_SCALE_MAX_PERCENT
+
     fun clamp(percent: Int): Int {
         return percent.coerceIn(
             minimumValue = UiSettingsManager.UI_SCALE_MIN_PERCENT,
             maximumValue = UiSettingsManager.UI_SCALE_MAX_PERCENT,
+        )
+    }
+
+    fun sliderToPercent(position: Int): Int {
+        val clamped = position.coerceIn(
+            UiSettingsManager.UI_SCALE_SLIDER_MIN,
+            UiSettingsManager.UI_SCALE_SLIDER_MAX
+        )
+        if (clamped <= UiSettingsManager.UI_SCALE_SLIDER_ANCHOR) {
+            val progress = (clamped - UiSettingsManager.UI_SCALE_SLIDER_MIN).toFloat() /
+                (UiSettingsManager.UI_SCALE_SLIDER_ANCHOR - UiSettingsManager.UI_SCALE_SLIDER_MIN).toFloat()
+            val value = PercentAtSliderMin + progress * (PercentAtAnchor - PercentAtSliderMin)
+            return clamp(value.roundToInt())
+        }
+        val progress = (clamped - UiSettingsManager.UI_SCALE_SLIDER_ANCHOR).toFloat() /
+            (UiSettingsManager.UI_SCALE_SLIDER_MAX - UiSettingsManager.UI_SCALE_SLIDER_ANCHOR).toFloat()
+        val value = PercentAtAnchor + progress * (PercentAtSliderMax - PercentAtAnchor)
+        return clamp(value.roundToInt())
+    }
+
+    fun percentToSlider(percent: Int): Int {
+        val clampedPercent = clamp(percent)
+        if (clampedPercent <= PercentAtAnchor) {
+            val progress = (clampedPercent - PercentAtSliderMin).toFloat() /
+                (PercentAtAnchor - PercentAtSliderMin).toFloat()
+            val value = UiSettingsManager.UI_SCALE_SLIDER_MIN +
+                progress * (UiSettingsManager.UI_SCALE_SLIDER_ANCHOR - UiSettingsManager.UI_SCALE_SLIDER_MIN)
+            return value.roundToInt().coerceIn(
+                UiSettingsManager.UI_SCALE_SLIDER_MIN,
+                UiSettingsManager.UI_SCALE_SLIDER_MAX,
+            )
+        }
+        val progress = (clampedPercent - PercentAtAnchor).toFloat() /
+            (PercentAtSliderMax - PercentAtAnchor).toFloat()
+        val value = UiSettingsManager.UI_SCALE_SLIDER_ANCHOR +
+            progress * (UiSettingsManager.UI_SCALE_SLIDER_MAX - UiSettingsManager.UI_SCALE_SLIDER_ANCHOR)
+        return value.roundToInt().coerceIn(
+            UiSettingsManager.UI_SCALE_SLIDER_MIN,
+            UiSettingsManager.UI_SCALE_SLIDER_MAX,
         )
     }
 }

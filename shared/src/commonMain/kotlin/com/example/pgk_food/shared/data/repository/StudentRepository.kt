@@ -78,8 +78,20 @@ class StudentRepository {
         )
     }
 
-    suspend fun getMenu(token: String, date: String? = null): Result<List<MenuItemDto>> = safeResultApiCall {
+    suspend fun getMenu(
+        token: String,
+        date: String? = null,
+        location: String? = null,
+    ): Result<List<MenuItemDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/menu")) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            if (date != null) url.parameters.append("date", date)
+            if (!location.isNullOrBlank()) url.parameters.append("location", location)
+        }.body()
+    }
+
+    suspend fun getMenuLocations(token: String, date: String? = null): Result<List<String>> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/menu/locations")) {
             header(HttpHeaders.Authorization, "Bearer $token")
             if (date != null) url.parameters.append("date", date)
         }.body()

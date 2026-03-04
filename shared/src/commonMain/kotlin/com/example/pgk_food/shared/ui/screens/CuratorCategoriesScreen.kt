@@ -21,10 +21,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,11 +43,11 @@ import com.example.pgk_food.shared.data.remote.dto.CuratorStudentRow
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.model.StudentCategory
-import com.example.pgk_food.shared.ui.components.AppSnackbarHostOverlay
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
 import com.example.pgk_food.shared.ui.components.HowItWorksCard
 import com.example.pgk_food.shared.ui.components.InlineHint
+import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.longPressHelp
 import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.util.HintScreenKey
@@ -73,8 +73,9 @@ fun CuratorCategoriesScreen(
     var isLoading by remember { mutableStateOf(true) }
     var showGroupPicker by remember { mutableStateOf(false) }
     var groupSearchQuery by remember { mutableStateOf("") }
+    var updatingStudentId by remember { mutableStateOf<String?>(null) }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarDispatcher = LocalAppSnackbarDispatcher.current
     val scope = rememberCoroutineScope()
     val hintContent = remember { HintCatalog.content(HintScreenKey.CURATOR_CATEGORIES) }
 
@@ -94,7 +95,7 @@ fun CuratorCategoriesScreen(
                 else -> selectedGroupId
             }
             if (result.isFailure) {
-                snackbarHostState.showSnackbar(result.exceptionOrNull()?.userMessageOr("Не удалось загрузить группы") ?: "Не удалось загрузить группы")
+                snackbarDispatcher.show(result.exceptionOrNull()?.userMessageOr("Не удалось загрузить группы") ?: "Не удалось загрузить группы")
             }
         }
     }
@@ -105,7 +106,7 @@ fun CuratorCategoriesScreen(
             val result = curatorRepository.listMyStudents(token, selectedGroupId)
             students = result.getOrDefault(emptyList())
             if (result.isFailure) {
-                snackbarHostState.showSnackbar(result.exceptionOrNull()?.userMessageOr("Не удалось загрузить студентов") ?: "Не удалось загрузить студентов")
+                snackbarDispatcher.show(result.exceptionOrNull()?.userMessageOr("Не удалось загрузить студентов") ?: "Не удалось загрузить студентов")
             }
             isLoading = false
         }
@@ -156,7 +157,7 @@ fun CuratorCategoriesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    "Категории студентов",
+                    "Категории",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.springEntrance()
@@ -201,6 +202,10 @@ fun CuratorCategoriesScreen(
                     )
                 }
 
+                if (updatingStudentId != null) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+
                 if (isLoading) {
                     Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
@@ -237,19 +242,21 @@ fun CuratorCategoriesScreen(
                                         StudentCategory.entries.forEach { category ->
                                             FilterChip(
                                                 selected = student.studentCategory == category,
+                                                enabled = updatingStudentId == null,
                                                 onClick = {
+                                                    if (updatingStudentId != null) return@FilterChip
                                                     if (student.studentCategory == category) return@FilterChip
                                                     scope.launch {
+                                                        updatingStudentId = student.userId
                                                         curatorRepository.updateStudentCategory(token, student.userId, category)
                                                             .onSuccess {
-                                                                students = students.map {
-                                                                    if (it.userId == student.userId) it.copy(studentCategory = category) else it
-                                                                }
-                                                                snackbarHostState.showSnackbar("Категория обновлена")
+                                                                loadStudents()
+                                                                snackbarDispatcher.show("Категория обновлена")
                                                             }
                                                             .onFailure {
-                                                                snackbarHostState.showSnackbar(it.userMessageOr("Ошибка обновления категории"))
+                                                                snackbarDispatcher.show(it.userMessageOr("Ошибка обновления категории"))
                                                             }
+                                                        updatingStudentId = null
                                                     }
                                                 },
                                                 label = { Text(category.titleRu()) }
@@ -262,7 +269,6 @@ fun CuratorCategoriesScreen(
                     }
                 }
             }
-            AppSnackbarHostOverlay(hostState = snackbarHostState)
         }
     }
 }

@@ -13,4 +13,6 @@ data class RosterDeadlineNotificationDto(
     val isSubmitted: Boolean = false,
     val isLocked: Boolean = false,
     val severity: String? = null,
+    val deadlineHuman: String? = null,
+    val actionHint: String? = null,
 )

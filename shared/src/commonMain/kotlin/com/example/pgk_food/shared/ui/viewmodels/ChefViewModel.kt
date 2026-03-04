@@ -86,14 +86,17 @@ class ChefViewModel(
         val normalizedQrData = qrData.trim()
         val now = currentTimeMillis()
         val cached = recentScanCache
-        if (
-            normalizedQrData.isNotEmpty() &&
-            cached != null &&
-            cached.qrContentNormalized == normalizedQrData &&
-            now >= cached.tsMillis &&
-            now - cached.tsMillis <= RECENT_SCAN_WINDOW_MS
+        if (shouldFastRejectDuplicateScan(
+                normalizedQrData = normalizedQrData,
+                cachedQrContent = cached?.qrContentNormalized,
+                cachedWasValid = cached?.response?.isValid == true,
+                cachedTsMillis = cached?.tsMillis,
+                nowMillis = now,
+                windowMillis = RECENT_SCAN_WINDOW_MS,
+            )
         ) {
-            val duplicateResponse = cached.response.copy(
+            val cachedResponse = cached?.response ?: return
+            val duplicateResponse = cachedResponse.copy(
                 isValid = false,
                 errorMessage = "Уже питался сегодня",
                 errorCode = "ALREADY_EATEN",
@@ -188,4 +191,20 @@ class ChefViewModel(
     fun resetSyncState() {
         _syncState.value = SyncState.Idle
     }
+}
+
+internal fun shouldFastRejectDuplicateScan(
+    normalizedQrData: String,
+    cachedQrContent: String?,
+    cachedWasValid: Boolean,
+    cachedTsMillis: Long?,
+    nowMillis: Long,
+    windowMillis: Long = 30_000L,
+): Boolean {
+    if (normalizedQrData.isEmpty()) return false
+    if (!cachedWasValid) return false
+    if (cachedQrContent == null || cachedTsMillis == null) return false
+    if (cachedQrContent != normalizedQrData) return false
+    if (nowMillis < cachedTsMillis) return false
+    return nowMillis - cachedTsMillis <= windowMillis
 }
