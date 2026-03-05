@@ -192,9 +192,7 @@ private fun RegistratorCreateUserForm(
         surnameRequester.requestFocus()
     }
     LaunchedEffect(initialGroupId) {
-        if (initialGroupId != null && selectedGroupId == null) {
-            selectedGroupId = initialGroupId
-        }
+        initialGroupId?.let { selectedGroupId = it }
     }
 
     Column(

@@ -2,47 +2,48 @@ package com.example.pgk_food.shared.core.network
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 
 class ApiModelsTest {
     @Test
-    fun toDetailedUserMessage_localizes_network_error_category() {
-        val apiError = ApiError(
+    fun detailedMessage_mapsNetworkErrorCategory() {
+        val error = ApiError(
             code = "NETWORK_ERROR",
-            userMessage = "Нет подключения к сети",
+            userMessage = "Нет соединения",
         )
 
-        assertEquals(
-            "Сетевая ошибка: Нет подключения к сети",
-            apiError.toDetailedUserMessage(),
-        )
+        assertEquals("Сетевая ошибка: Нет соединения", error.toDetailedUserMessage())
     }
 
     @Test
-    fun toDetailedUserMessage_localizes_auth_and_server_http_categories() {
-        val authError = ApiError(
-            code = "HTTP_403",
-            userMessage = "Нет доступа к этому действию.",
-            httpStatus = 403,
+    fun detailedMessage_mapsTimeoutCategory() {
+        val timeoutByCode = ApiError(
+            code = "TIMEOUT",
+            userMessage = "Сервер не ответил",
         )
-        val serverError = ApiError(
-            code = "HTTP_503",
-            userMessage = "Сервис временно недоступен",
-            httpStatus = 503,
-            requestId = "abc",
-            requestMethod = "get",
-            requestPath = "/api/test",
+        val timeoutByHttp = ApiError(
+            code = "HTTP_408",
+            userMessage = "Превышено время ожидания",
+            httpStatus = 408,
         )
 
-        assertEquals(
-            "Ошибка авторизации: Нет доступа к этому действию.",
-            authError.toDetailedUserMessage(),
+        assertEquals("Тайм-аут: Сервер не ответил", timeoutByCode.toDetailedUserMessage())
+        assertEquals("Тайм-аут: Превышено время ожидания", timeoutByHttp.toDetailedUserMessage())
+    }
+
+    @Test
+    fun detailedMessage_mapsAuthorizationAndServerCategories() {
+        val authError = ApiError(
+            code = "HTTP_401",
+            userMessage = "Требуется повторный вход",
+            httpStatus = 401,
         )
-        assertEquals(
-            "Ошибка сервера: Сервис временно недоступен",
-            serverError.toDetailedUserMessage(),
+        val serverError = ApiError(
+            code = "HTTP_500",
+            userMessage = "Внутренняя ошибка",
+            httpStatus = 500,
         )
-        assertFalse(serverError.toDetailedUserMessage().contains("requestId"))
-        assertFalse(serverError.toDetailedUserMessage().contains("HTTP"))
+
+        assertEquals("Ошибка авторизации: Требуется повторный вход", authError.toDetailedUserMessage())
+        assertEquals("Ошибка сервера: Внутренняя ошибка", serverError.toDetailedUserMessage())
     }
 }

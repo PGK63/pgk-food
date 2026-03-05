@@ -135,7 +135,7 @@ fun RegistratorUsersScreen(
     }
 
     // Group users by groupId
-    val groupedUsers: List<Pair<String, List<UserDto>>> = remember(filteredUsers, groups) {
+    val groupedUsers: List<Triple<Int?, String, List<UserDto>>> = remember(filteredUsers, groups) {
         val groupMap = groups.associateBy { it.id }
         filteredUsers
             .groupBy { user -> user.groupId }
@@ -145,7 +145,7 @@ fun RegistratorUsersScreen(
                 val groupId = entry.key
                 val usersList = entry.value
                 val groupName = if (groupId != null) groupMap[groupId]?.name ?: "Группа $groupId" else "Без группы"
-                groupName to usersList
+                Triple(groupId, groupName, usersList)
             }
     }
 
@@ -298,7 +298,7 @@ fun RegistratorUsersScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         contentPadding = PaddingValues(bottom = 80.dp)
                     ) {
-                        groupedUsers.forEachIndexed { groupIndex, (groupName, groupUsers) ->
+                        groupedUsers.forEachIndexed { groupIndex, (groupId, groupName, groupUsers) ->
                             val groupDelay = 120 + (groupIndex.coerceAtMost(9) * 45)
                             // Group header
                             item {
@@ -317,7 +317,7 @@ fun RegistratorUsersScreen(
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
                                     IconButton(
-                                        onClick = { onCreateUserClick(groupUsers.firstOrNull()?.groupId) },
+                                        onClick = { onCreateUserClick(groupId) },
                                         modifier = Modifier.longPressHelp(
                                             actionId = "users.group.quick-create",
                                             fallbackDescription = "Добавить в группу",
