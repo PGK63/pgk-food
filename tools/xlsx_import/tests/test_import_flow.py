@@ -7,7 +7,6 @@ import requests
 from tools.xlsx_import.import_xlsx import (
     ApiClient,
     CuratorKey,
-    ImportFailure,
     ParsedStudent,
     ParsedWorkbook,
     check_clean_load,
@@ -16,20 +15,24 @@ from tools.xlsx_import.import_xlsx import (
 
 
 class FakeCleanClient:
-    def __init__(self, groups_count: int, curators_count: int, students_count: int):
-        self._groups_count = groups_count
-        self._curators_count = curators_count
-        self._students_count = students_count
+    def __init__(self, groups, curators, students, me):
+        self._groups = groups
+        self._curators = curators
+        self._students = students
+        self._me = me
 
     def list_groups(self):
-        return [{}] * self._groups_count
+        return list(self._groups)
 
     def list_users(self, role: str):
         if role == "CURATOR":
-            return [{}] * self._curators_count
+            return list(self._curators)
         if role == "STUDENT":
-            return [{}] * self._students_count
+            return list(self._students)
         return []
+
+    def get_me(self):
+        return dict(self._me)
 
 
 class FakeApiClient:
@@ -125,8 +128,30 @@ def make_parsed_workbook() -> ParsedWorkbook:
 
 class ImportFlowTests(unittest.TestCase):
     def test_clean_load_precheck_fail(self) -> None:
-        with self.assertRaises(ImportFailure):
-            check_clean_load(FakeCleanClient(groups_count=1, curators_count=0, students_count=0))
+        baseline = check_clean_load(
+            FakeCleanClient(
+                groups=[{"id": 101}, {"id": 999}],
+                curators=[{"userId": "u-admin"}],
+                students=[{"userId": "u-admin"}, {"userId": "u-stud"}],
+                me={"userId": "u-admin", "groupId": 101},
+            )
+        )
+        self.assertFalse(baseline.ok)
+        self.assertEqual(baseline.effective_counts["existing_groups"], 1)
+        self.assertEqual(baseline.effective_counts["existing_students"], 1)
+
+    def test_clean_load_precheck_pass_for_single_admin_baseline(self) -> None:
+        baseline = check_clean_load(
+            FakeCleanClient(
+                groups=[{"id": 101}],
+                curators=[{"userId": "u-admin"}],
+                students=[{"userId": "u-admin"}],
+                me={"userId": "u-admin", "groupId": 101},
+            )
+        )
+        self.assertTrue(baseline.ok)
+        self.assertEqual(baseline.raw_counts["existing_groups"], 1)
+        self.assertEqual(baseline.effective_counts["existing_groups"], 0)
 
     def test_happy_path_apply(self) -> None:
         parsed = make_parsed_workbook()

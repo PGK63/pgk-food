@@ -16,6 +16,12 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import requests
 from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
+
+try:
+    import questionary  # type: ignore
+except Exception:  # noqa: BLE001
+    questionary = None
 
 
 STUDENT_ROLE = "STUDENT"
@@ -223,6 +229,100 @@ class ImportResult:
     state: ImportState
 
 
+@dataclass
+class PreflightBaseline:
+    ok: bool
+    message: Optional[str]
+    ignored_current_admin: bool
+    current_user_id: Optional[str]
+    current_user_group_id: Optional[int]
+    raw_counts: Dict[str, int]
+    effective_counts: Dict[str, int]
+
+
+@dataclass
+class InteractiveFixResult:
+    enabled: bool
+    total_issues: int
+    fixed_rows: int
+    skipped_rows: int
+    aborted: bool
+    fixed_xlsx_path: Optional[str]
+
+
+class InteractivePrompter:
+    def choose_action(self, reject: "RejectRow", current_values: Dict[str, str]) -> str:
+        raise NotImplementedError
+
+    def ask_text(self, label: str, current_value: str) -> str:
+        raise NotImplementedError
+
+    def ask_category(self, current_value: str) -> str:
+        raise NotImplementedError
+
+
+class TerminalPrompter(InteractivePrompter):
+    def __init__(self) -> None:
+        if not sys.stdin.isatty():
+            raise ImportFailure("Интерактивная правка требует запуска в терминале (TTY)")
+
+    def choose_action(self, reject: "RejectRow", current_values: Dict[str, str]) -> str:
+        message = (
+            f"\n[{reject.sheet}:{reject.row}] {reject.error_code}\n"
+            f"{reject.error_message}\n"
+            f"ФИО: {current_values.get('student_fio', '')}\n"
+            f"Группа: {current_values.get('group', '')}\n"
+            f"Категория: {current_values.get('category', '')}\n"
+            f"Куратор: {current_values.get('curator', '')}\n"
+            "Выберите действие:"
+        )
+        choices = [
+            ("Редактировать", "edit"),
+            ("Пропустить", "skip"),
+            ("Прервать импорт", "abort"),
+        ]
+        if questionary is not None:
+            answer = questionary.select(
+                message,
+                choices=[questionary.Choice(title=title, value=value) for title, value in choices],
+            ).ask()
+            if answer is None:
+                return "abort"
+            return str(answer)
+
+        print(message)
+        for idx, (title, value) in enumerate(choices, start=1):
+            print(f"{idx}. {title} [{value}]")
+        while True:
+            raw = input("> ").strip().lower()
+            if raw in {"1", "edit", "e"}:
+                return "edit"
+            if raw in {"2", "skip", "s"}:
+                return "skip"
+            if raw in {"3", "abort", "a", "q"}:
+                return "abort"
+            print("Введите 1/2/3")
+
+    def ask_text(self, label: str, current_value: str) -> str:
+        if questionary is not None:
+            answer = questionary.text(label, default=current_value).ask()
+            return current_value if answer is None else str(answer)
+        raw = input(f"{label} [{current_value}]: ").strip()
+        return current_value if raw == "" else raw
+
+    def ask_category(self, current_value: str) -> str:
+        normalized = normalize_category_label(current_value)
+        choices = ["СВО", "Многодетные"]
+        default_choice = normalized if normalized in choices else "Многодетные"
+        if questionary is not None:
+            answer = questionary.select("Категория", choices=choices, default=default_choice).ask()
+            return default_choice if answer is None else str(answer)
+        raw = input(f"Категория [СВО/Многодетные] [{default_choice}]: ").strip()
+        if not raw:
+            return default_choice
+        return normalize_category_label(raw) or raw
+
+
 def normalize_space(value: Any) -> str:
     if value is None:
         return ""
@@ -270,6 +370,15 @@ def split_fio(raw_fio: str, allow_camel_fix: bool) -> Tuple[Optional[FioParts], 
     return None, f"invalid_parts_{len(expanded)}"
 
 
+def normalize_category_label(value: str) -> str:
+    key = normalize_key(value).replace(".", "")
+    if key == "сво":
+        return "СВО"
+    if key == "многодетные":
+        return "Многодетные"
+    return normalize_space(value)
+
+
 def parse_bool_mark(value: str) -> bool:
     v = normalize_key(value)
     return v in {"1", "да", "true", "x", "х"}
@@ -313,6 +422,95 @@ def parse_header(row_values: Sequence[Any]) -> Dict[str, int]:
     return header
 
 
+def read_row_values_from_sheet(ws: Worksheet, row_idx: int, header: Dict[str, int]) -> Dict[str, str]:
+    def col(name: str) -> str:
+        idx = header.get(name)
+        return normalize_space(ws.cell(row=row_idx, column=idx).value if idx else "")
+
+    return {
+        "student_fio": col("student_fio"),
+        "status": col("status"),
+        "group": col("group"),
+        "category": col("category"),
+        "breakfast": col("breakfast"),
+        "lunch": col("lunch"),
+        "comment": col("comment"),
+        "curator": col("curator"),
+    }
+
+
+def validate_row(
+    *,
+    sheet: str,
+    row: int,
+    row_values: Dict[str, str],
+    seen_students: Optional[set[StudentKey]] = None,
+    check_duplicates: bool = True,
+) -> Tuple[Optional[ParsedStudent], List[Tuple[str, str]]]:
+    raw_student_fio = row_values.get("student_fio", "")
+    raw_group = row_values.get("group", "")
+    raw_category = row_values.get("category", "")
+    raw_breakfast = row_values.get("breakfast", "")
+    raw_lunch = row_values.get("lunch", "")
+    raw_comment = row_values.get("comment", "")
+    raw_curator = row_values.get("curator", "")
+
+    student_parts, student_mode = split_fio(raw_student_fio, allow_camel_fix=True)
+    curator_parts, curator_mode = split_fio(raw_curator, allow_camel_fix=False)
+    category = map_category(raw_category)
+
+    errors: List[Tuple[str, str]] = []
+    if student_parts is None:
+        errors.append(("bad_student_fio", f"Невалидное ФИО студента ({student_mode})"))
+    if not raw_group:
+        errors.append(("empty_group", "Не указана группа"))
+    if category is None:
+        errors.append(("bad_category", f"Неизвестная категория: '{raw_category}'"))
+    if curator_parts is None:
+        errors.append(("bad_curator_fio", f"Невалидное ФИО куратора ({curator_mode})"))
+
+    if not errors and student_parts is not None and check_duplicates and seen_students is not None:
+        student_key = StudentKey(
+            surname=student_parts[0],
+            name=student_parts[1],
+            father_name=student_parts[2],
+            group_name=raw_group,
+        )
+        if student_key in seen_students:
+            errors.append(("duplicate_student", "Дубликат студента в одной группе"))
+        else:
+            seen_students.add(student_key)
+
+    if errors:
+        return None, errors
+
+    assert student_parts is not None
+    assert curator_parts is not None
+    assert category is not None
+    parsed_student = ParsedStudent(
+        sheet=sheet,
+        row=row,
+        surname=student_parts[0],
+        name=student_parts[1],
+        father_name=student_parts[2],
+        full_name=f"{student_parts[0]} {student_parts[1]} {student_parts[2]}",
+        group_name=raw_group,
+        category=category,
+        curator=CuratorKey(
+            surname=curator_parts[0],
+            name=curator_parts[1],
+            father_name=curator_parts[2],
+        ),
+        raw_category=raw_category,
+        raw_group=raw_group,
+        raw_curator=raw_curator,
+        raw_comment=raw_comment,
+        raw_breakfast=raw_breakfast,
+        raw_lunch=raw_lunch,
+    )
+    return parsed_student, []
+
+
 def parse_workbook(xlsx_path: Path) -> ParsedWorkbook:
     if not xlsx_path.exists():
         raise ImportFailure(f"Файл не найден: {xlsx_path}")
@@ -329,59 +527,37 @@ def parse_workbook(xlsx_path: Path) -> ParsedWorkbook:
         header = parse_header([cell.value for cell in ws[1]])
 
         for row_idx in range(2, ws.max_row + 1):
-            def col(name: str) -> str:
-                idx = header.get(name)
-                return normalize_space(ws.cell(row=row_idx, column=idx).value if idx else "")
-
-            raw_student_fio = col("student_fio")
+            row_values = read_row_values_from_sheet(ws, row_idx, header)
+            raw_student_fio = row_values["student_fio"]
             if not raw_student_fio:
                 continue
 
-            raw_status = col("status")
+            raw_status = row_values["status"]
             if normalize_key(raw_status) != "студент":
                 parsed.skipped_non_student_rows += 1
                 continue
 
             parsed.processed_student_rows += 1
 
-            raw_group = col("group")
-            raw_category = col("category")
-            raw_breakfast = col("breakfast")
-            raw_lunch = col("lunch")
-            raw_comment = col("comment")
-            raw_curator = col("curator")
+            raw_group = row_values["group"]
+            raw_category = row_values["category"]
+            raw_breakfast = row_values["breakfast"]
+            raw_lunch = row_values["lunch"]
+            raw_comment = row_values["comment"]
+            raw_curator = row_values["curator"]
 
             parsed.breakfast_values[normalize_key(raw_breakfast) or "<empty>"] += 1
             parsed.lunch_values[normalize_key(raw_lunch) or "<empty>"] += 1
             if raw_comment:
                 parsed.comments_non_empty += 1
 
-            student_parts, student_mode = split_fio(raw_student_fio, allow_camel_fix=True)
-            curator_parts, curator_mode = split_fio(raw_curator, allow_camel_fix=False)
-            category = map_category(raw_category)
-
-            errors: List[Tuple[str, str]] = []
-            if student_parts is None:
-                errors.append(("bad_student_fio", f"Невалидное ФИО студента ({student_mode})"))
-            if not raw_group:
-                errors.append(("empty_group", "Не указана группа"))
-            if category is None:
-                errors.append(("bad_category", f"Неизвестная категория: '{raw_category}'"))
-            if curator_parts is None:
-                errors.append(("bad_curator_fio", f"Невалидное ФИО куратора ({curator_mode})"))
-
-            if not errors and student_parts is not None:
-                student_key = StudentKey(
-                    surname=student_parts[0],
-                    name=student_parts[1],
-                    father_name=student_parts[2],
-                    group_name=raw_group,
-                )
-                if student_key in seen_students:
-                    errors.append(("duplicate_student", "Дубликат студента в одной группе"))
-                else:
-                    seen_students.add(student_key)
-
+            parsed_student, errors = validate_row(
+                sheet=ws.title,
+                row=row_idx,
+                row_values=row_values,
+                seen_students=seen_students,
+                check_duplicates=True,
+            )
             if errors:
                 parsed.rejects.append(
                     RejectRow(
@@ -397,31 +573,8 @@ def parse_workbook(xlsx_path: Path) -> ParsedWorkbook:
                 )
                 continue
 
-            assert student_parts is not None
-            assert curator_parts is not None
-            parsed.valid_students.append(
-                ParsedStudent(
-                    sheet=ws.title,
-                    row=row_idx,
-                    surname=student_parts[0],
-                    name=student_parts[1],
-                    father_name=student_parts[2],
-                    full_name=f"{student_parts[0]} {student_parts[1]} {student_parts[2]}",
-                    group_name=raw_group,
-                    category=category,
-                    curator=CuratorKey(
-                        surname=curator_parts[0],
-                        name=curator_parts[1],
-                        father_name=curator_parts[2],
-                    ),
-                    raw_category=raw_category,
-                    raw_group=raw_group,
-                    raw_curator=raw_curator,
-                    raw_comment=raw_comment,
-                    raw_breakfast=raw_breakfast,
-                    raw_lunch=raw_lunch,
-                )
-            )
+            assert parsed_student is not None
+            parsed.valid_students.append(parsed_student)
 
     return parsed
 
@@ -566,6 +719,12 @@ class ApiClient:
             return payload
         raise ImportFailure("Невалидный ответ /api/v1/registrator/users")
 
+    def get_me(self) -> Dict[str, Any]:
+        payload = self._request_json("GET", "/api/v1/auth/me", expected_statuses=(200,))
+        if isinstance(payload, dict) and payload.get("userId") is not None:
+            return payload
+        raise ImportFailure("Невалидный ответ /api/v1/auth/me")
+
     def create_group(self, name: str) -> Dict[str, Any]:
         payload = self._request_json(
             "POST",
@@ -660,24 +819,175 @@ def build_credential_rows(parsed: ParsedWorkbook) -> Tuple[Dict[CuratorKey, Cura
     return curator_rows, student_rows
 
 
-def check_clean_load(client: ApiClient) -> Dict[str, int]:
+def check_clean_load(client: ApiClient) -> PreflightBaseline:
     groups = client.list_groups()
     curators = client.list_users(CURATOR_ROLE)
     students = client.list_users(STUDENT_ROLE)
+    me = client.get_me()
 
-    counts = {
+    current_user_id = str(me.get("userId")) if me.get("userId") is not None else None
+
+    def to_optional_int(value: Any) -> Optional[int]:
+        if value is None:
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    current_user_group_id = to_optional_int(me.get("groupId"))
+
+    raw_counts = {
         "existing_groups": len(groups),
         "existing_curators": len(curators),
         "existing_students": len(students),
     }
-    if counts["existing_groups"] or counts["existing_curators"] or counts["existing_students"]:
-        raise ImportFailure(
-            "Нарушено правило чистой загрузки: "
-            f"groups={counts['existing_groups']}, "
-            f"curators={counts['existing_curators']}, "
-            f"students={counts['existing_students']}"
+
+    filtered_curators = [u for u in curators if str(u.get("userId")) != current_user_id]
+    filtered_students = [u for u in students if str(u.get("userId")) != current_user_id]
+    if current_user_group_id is None:
+        filtered_groups = list(groups)
+    else:
+        filtered_groups = [g for g in groups if to_optional_int(g.get("id")) != current_user_group_id]
+
+    effective_counts = {
+        "existing_groups": len(filtered_groups),
+        "existing_curators": len(filtered_curators),
+        "existing_students": len(filtered_students),
+    }
+
+    ok = not (
+        effective_counts["existing_groups"]
+        or effective_counts["existing_curators"]
+        or effective_counts["existing_students"]
+    )
+    message = None
+    if not ok:
+        message = (
+            "Нарушено правило чистой загрузки (с учетом baseline-admin): "
+            f"groups={effective_counts['existing_groups']}, "
+            f"curators={effective_counts['existing_curators']}, "
+            f"students={effective_counts['existing_students']}"
         )
-    return counts
+
+    return PreflightBaseline(
+        ok=ok,
+        message=message,
+        ignored_current_admin=current_user_id is not None or current_user_group_id is not None,
+        current_user_id=current_user_id,
+        current_user_group_id=current_user_group_id,
+        raw_counts=raw_counts,
+        effective_counts=effective_counts,
+    )
+
+
+def update_row_values_in_sheet(ws: Worksheet, row_idx: int, header: Dict[str, int], values: Dict[str, str]) -> None:
+    mapping = {
+        "student_fio": "student_fio",
+        "group": "group",
+        "category": "category",
+        "breakfast": "breakfast",
+        "lunch": "lunch",
+        "comment": "comment",
+        "curator": "curator",
+    }
+    for key, header_key in mapping.items():
+        col_idx = header.get(header_key)
+        if col_idx:
+            ws.cell(row=row_idx, column=col_idx, value=values.get(key, ""))
+
+
+def create_fixed_xlsx_path(source_xlsx: Path) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return source_xlsx.with_name(f"{source_xlsx.stem}_fixed_{timestamp}{source_xlsx.suffix}")
+
+
+def interactive_fix_rejects(
+    *,
+    xlsx_path: Path,
+    rejects: Sequence[RejectRow],
+    prompter: Optional[InteractivePrompter] = None,
+) -> InteractiveFixResult:
+    if not rejects:
+        return InteractiveFixResult(
+            enabled=True,
+            total_issues=0,
+            fixed_rows=0,
+            skipped_rows=0,
+            aborted=False,
+            fixed_xlsx_path=None,
+        )
+
+    active_prompter = prompter or TerminalPrompter()
+    wb = load_workbook(filename=xlsx_path)
+    sheet_headers: Dict[str, Dict[str, int]] = {
+        ws.title: parse_header([cell.value for cell in ws[1]]) for ws in wb.worksheets if ws.max_row >= 2
+    }
+
+    fixed_rows = 0
+    skipped_rows = 0
+    aborted = False
+
+    for reject in sorted(rejects, key=lambda x: (x.sheet, x.row)):
+        ws = wb[reject.sheet]
+        header = sheet_headers.get(reject.sheet)
+        if header is None:
+            skipped_rows += 1
+            continue
+
+        while True:
+            current_values = read_row_values_from_sheet(ws, reject.row, header)
+            action = active_prompter.choose_action(reject, current_values)
+            if action == "skip":
+                skipped_rows += 1
+                break
+            if action == "abort":
+                aborted = True
+                break
+
+            edited_values = dict(current_values)
+            edited_values["student_fio"] = active_prompter.ask_text("ФИО студента", current_values.get("student_fio", ""))
+            edited_values["group"] = active_prompter.ask_text("Группа", current_values.get("group", ""))
+            edited_values["category"] = active_prompter.ask_category(current_values.get("category", ""))
+            edited_values["curator"] = active_prompter.ask_text("Классный руководитель", current_values.get("curator", ""))
+            edited_values["breakfast"] = active_prompter.ask_text("Завтрак", current_values.get("breakfast", ""))
+            edited_values["lunch"] = active_prompter.ask_text("Обед", current_values.get("lunch", ""))
+            edited_values["comment"] = active_prompter.ask_text("Комментарий", current_values.get("comment", ""))
+
+            update_row_values_in_sheet(ws, reject.row, header, edited_values)
+            _, errors = validate_row(
+                sheet=reject.sheet,
+                row=reject.row,
+                row_values=edited_values,
+                seen_students=None,
+                check_duplicates=False,
+            )
+            if not errors:
+                fixed_rows += 1
+                break
+
+            print(
+                f"Строка {reject.sheet}:{reject.row} все еще невалидна: "
+                + "; ".join(msg for _, msg in errors)
+            )
+
+        if aborted:
+            break
+
+    fixed_path = create_fixed_xlsx_path(xlsx_path)
+    wb.save(fixed_path)
+
+    return InteractiveFixResult(
+        enabled=True,
+        total_issues=len(rejects),
+        fixed_rows=fixed_rows,
+        skipped_rows=skipped_rows,
+        aborted=aborted,
+        fixed_xlsx_path=str(fixed_path.resolve()),
+    )
 
 
 def rollback_created(client: ApiClient, state: ImportState) -> Tuple[bool, List[str]]:
@@ -730,7 +1040,7 @@ def run_import(
             row.status = "DRY_RUN"
         return ImportResult(
             success=True,
-            preflight_ok=True,
+            preflight_ok=preflight_ok,
             applied=False,
             error=None,
             rollback_performed=False,
@@ -935,7 +1245,8 @@ def build_report(
     args: argparse.Namespace,
     parsed: ParsedWorkbook,
     result: ImportResult,
-    preflight_counts: Dict[str, int],
+    preflight: PreflightBaseline,
+    interactive_fix: InteractiveFixResult,
     started_at: datetime,
     finished_at: datetime,
 ) -> Dict[str, Any]:
@@ -974,8 +1285,26 @@ def build_report(
             "commentsNonEmpty": parsed.comments_non_empty,
         },
         "preflight": {
-            "ok": result.preflight_ok,
-            **preflight_counts,
+            "ok": preflight.ok,
+            "message": preflight.message,
+            "existingGroups": preflight.effective_counts.get("existing_groups", -1),
+            "existingCurators": preflight.effective_counts.get("existing_curators", -1),
+            "existingStudents": preflight.effective_counts.get("existing_students", -1),
+        },
+        "preflightBaseline": {
+            "currentUserId": preflight.current_user_id,
+            "currentUserGroupId": preflight.current_user_group_id,
+            "ignoredCurrentAdmin": preflight.ignored_current_admin,
+            "rawCounts": preflight.raw_counts,
+            "effectiveCounts": preflight.effective_counts,
+        },
+        "interactiveFix": {
+            "enabled": interactive_fix.enabled,
+            "totalIssues": interactive_fix.total_issues,
+            "fixedRows": interactive_fix.fixed_rows,
+            "skippedRows": interactive_fix.skipped_rows,
+            "aborted": interactive_fix.aborted,
+            "fixedXlsxPath": interactive_fix.fixed_xlsx_path,
         },
         "result": {
             "success": result.success,
@@ -989,6 +1318,7 @@ def build_report(
             "rejectCsv": str(Path(args.out_dir, "reject.csv").resolve()),
             "credentialsXlsx": str(Path(args.out_dir, "credentials.xlsx").resolve()),
             "reportJson": str(Path(args.out_dir, "report.json").resolve()),
+            "fixedXlsx": interactive_fix.fixed_xlsx_path,
         },
     }
     return report
@@ -1028,45 +1358,47 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         raise ImportFailure(f"Переменная окружения '{args.password_env}' не задана")
 
     started_at = datetime.now(timezone.utc)
+    source_xlsx = Path(args.xlsx)
+    parsed = parse_workbook(source_xlsx)
 
-    parsed = parse_workbook(Path(args.xlsx))
-
-    client = ApiClient(
-        base_url=args.base_url,
-        timeout_seconds=args.timeout,
-        max_attempts=args.max_attempts,
+    interactive_fix = InteractiveFixResult(
+        enabled=True,
+        total_issues=0,
+        fixed_rows=0,
+        skipped_rows=0,
+        aborted=False,
+        fixed_xlsx_path=None,
     )
 
-    preflight_counts = {
-        "existingGroups": -1,
-        "existingCurators": -1,
-        "existingStudents": -1,
-    }
+    if parsed.rejects:
+        interactive_fix = interactive_fix_rejects(
+            xlsx_path=source_xlsx,
+            rejects=parsed.rejects,
+        )
+        if interactive_fix.fixed_xlsx_path:
+            parsed = parse_workbook(Path(interactive_fix.fixed_xlsx_path))
 
-    try:
-        client.login(args.login, password)
-        clean_load = check_clean_load(client)
-        preflight_counts = {
-            "existingGroups": clean_load["existing_groups"],
-            "existingCurators": clean_load["existing_curators"],
-            "existingStudents": clean_load["existing_students"],
-        }
-        preflight_error: Optional[str] = None
-    except Exception as exc:  # noqa: BLE001
-        preflight_error = str(exc)
+    preflight = PreflightBaseline(
+        ok=False,
+        message="Preflight не выполнялся",
+        ignored_current_admin=False,
+        current_user_id=None,
+        current_user_group_id=None,
+        raw_counts={"existing_groups": -1, "existing_curators": -1, "existing_students": -1},
+        effective_counts={"existing_groups": -1, "existing_curators": -1, "existing_students": -1},
+    )
 
-    if preflight_error is not None:
+    if interactive_fix.aborted:
         curator_rows, student_rows = build_credential_rows(parsed)
         for row in curator_rows.values():
-            row.status = "PRECHECK_FAILED"
+            row.status = "ABORTED_BY_USER"
         for row in student_rows:
-            row.status = "PRECHECK_FAILED"
-
+            row.status = "ABORTED_BY_USER"
         result = ImportResult(
             success=False,
             preflight_ok=False,
             applied=False,
-            error=preflight_error,
+            error="Интерактивная правка прервана пользователем",
             rollback_performed=False,
             rollback_success=False,
             rollback_errors=[],
@@ -1076,12 +1408,58 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             state=ImportState(),
         )
     else:
-        result = run_import(
-            parsed=parsed,
-            client=client,
-            apply_changes=bool(args.apply),
-            rollback_enabled=not args.disable_rollback,
+        client = ApiClient(
+            base_url=args.base_url,
+            timeout_seconds=args.timeout,
+            max_attempts=args.max_attempts,
         )
+
+        preflight_error: Optional[str] = None
+        try:
+            client.login(args.login, password)
+            preflight = check_clean_load(client)
+            if not preflight.ok:
+                preflight_error = preflight.message or "Preflight не пройден"
+        except Exception as exc:  # noqa: BLE001
+            preflight_error = str(exc)
+            preflight = PreflightBaseline(
+                ok=False,
+                message=preflight_error,
+                ignored_current_admin=False,
+                current_user_id=None,
+                current_user_group_id=None,
+                raw_counts={"existing_groups": -1, "existing_curators": -1, "existing_students": -1},
+                effective_counts={"existing_groups": -1, "existing_curators": -1, "existing_students": -1},
+            )
+
+        if preflight_error is not None:
+            curator_rows, student_rows = build_credential_rows(parsed)
+            for row in curator_rows.values():
+                row.status = "PRECHECK_FAILED"
+            for row in student_rows:
+                row.status = "PRECHECK_FAILED"
+
+            result = ImportResult(
+                success=False,
+                preflight_ok=False,
+                applied=False,
+                error=preflight_error,
+                rollback_performed=False,
+                rollback_success=False,
+                rollback_errors=[],
+                group_id_map={},
+                curator_rows=curator_rows,
+                student_rows=student_rows,
+                state=ImportState(),
+            )
+        else:
+            result = run_import(
+                parsed=parsed,
+                client=client,
+                apply_changes=bool(args.apply),
+                rollback_enabled=not args.disable_rollback,
+                preflight_ok=preflight.ok,
+            )
 
     reject_path = out_dir / "reject.csv"
     credentials_path = out_dir / "credentials.xlsx"
@@ -1096,7 +1474,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         args=args,
         parsed=parsed,
         result=result,
-        preflight_counts=preflight_counts,
+        preflight=preflight,
+        interactive_fix=interactive_fix,
         started_at=started_at,
         finished_at=finished_at,
     )
@@ -1114,6 +1493,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 "groups": len(parsed.groups),
                 "curators": len(parsed.curators),
                 "students": len(parsed.valid_students),
+                "interactiveAborted": interactive_fix.aborted,
+                "fixedXlsx": interactive_fix.fixed_xlsx_path,
                 "outDir": str(out_dir.resolve()),
             },
             ensure_ascii=False,
