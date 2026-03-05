@@ -119,10 +119,9 @@ fun ChefWeeklyReportScreen(
                     )
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Питаются на неделе:", fontWeight = FontWeight.Bold)
+                        Text("Суммарно на неделе:", fontWeight = FontWeight.Bold)
                         Text("Завтрак: ${data.totalBreakfastCount}")
                         Text("Обед: ${data.totalLunchCount}")
-                        Text("Завтрак+Обед: ${data.totalBothCount}")
                         Text(
                             if (data.confirmed) {
                                 "Подтверждено: ${formatIsoDateTimeForUi(data.confirmedAt) ?: "да"}"
@@ -186,7 +185,6 @@ fun ChefWeeklyReportScreen(
                         Text(dateLabel, fontWeight = FontWeight.Bold)
                         Text("Завтрак: ${day.breakfastCount}")
                         Text("Обед: ${day.lunchCount}")
-                        Text("Завтрак+Обед: ${day.bothCount}")
                     }
                 }
             }

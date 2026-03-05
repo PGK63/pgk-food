@@ -362,6 +362,10 @@ fun AdminReportsScreen(
                     item { Text("Нет данных за выбранный период", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
                     summary?.let { summaryData ->
+                        val totalOnlyBreakfast = (summaryData.totalBreakfastCount - summaryData.totalBothCount).coerceAtLeast(0)
+                        val totalOnlyLunch = (summaryData.totalLunchCount - summaryData.totalBothCount).coerceAtLeast(0)
+                        val usedOnlyBreakfast = (summaryData.usedBreakfastCount - summaryData.usedBothCount).coerceAtLeast(0)
+                        val usedOnlyLunch = (summaryData.usedLunchCount - summaryData.usedBothCount).coerceAtLeast(0)
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -376,12 +380,17 @@ fun AdminReportsScreen(
                                 ) {
                                     Text("Сводка", fontWeight = FontWeight.Bold)
                                     Text(
-                                        "Должно быть: завтраков ${summaryData.totalBreakfastCount}, обедов ${summaryData.totalLunchCount}, завтрак + обед ${summaryData.totalBothCount}",
+                                        "Должно быть: только завтрак $totalOnlyBreakfast, только обед $totalOnlyLunch, завтрак и обед ${summaryData.totalBothCount}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
-                                        "Было: завтраков ${summaryData.usedBreakfastCount}, обедов ${summaryData.usedLunchCount}, завтрак + обед ${summaryData.usedBothCount}",
+                                        "Было: только завтрак $usedOnlyBreakfast, только обед $usedOnlyLunch, завтрак и обед ${summaryData.usedBothCount}",
                                         style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "Строк в детализации: ${rows.size}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
                                         "Показатель «Было» учитывает только синхронизированные серверные транзакции.",
@@ -510,7 +519,7 @@ fun AdminReportsScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    "Дата: ${row.date} • Назначил: ${assignedByDisplay(row.assignedByRole, row.assignedByName)}",
+                                    "Дата: ${row.date} • Куратор: ${assignedCuratorDisplay(row.assignedByName)}",
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 Text(
@@ -518,10 +527,15 @@ fun AdminReportsScreen(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 val reasonLabel = row.noMealReasonType?.titleRu() ?: "-"
+                                val reasonText = row.noMealReasonText?.trim().orEmpty()
+                                val showReasonText =
+                                    reasonText.isNotBlank() && (
+                                        row.noMealReasonType == null || row.noMealReasonType == NoMealReasonType.OTHER
+                                        )
                                 val absencePeriod = buildAbsencePeriodRu(row.absenceFrom, row.absenceTo)
                                 val hasNoMealDetails =
                                     reasonLabel != "-" ||
-                                        !row.noMealReasonText.isNullOrBlank() ||
+                                        showReasonText ||
                                         absencePeriod != null ||
                                         !row.comment.isNullOrBlank()
                                 if (hasNoMealDetails) {
@@ -534,9 +548,9 @@ fun AdminReportsScreen(
                                             MaterialTheme.colorScheme.onSurfaceVariant
                                         }
                                     )
-                                    if (!row.noMealReasonText.isNullOrBlank()) {
+                                    if (showReasonText) {
                                         Text(
-                                            "Причина: ${row.noMealReasonText}",
+                                            "Причина: $reasonText",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -590,6 +604,9 @@ private fun buildAbsencePeriodRu(absenceFrom: String?, absenceTo: String?): Stri
     return "$from - $to"
 }
 
+private fun assignedCuratorDisplay(assignedByName: String?): String =
+    assignedByName?.takeIf { it.isNotBlank() } ?: "Не назначен"
+
 @Composable
 private fun FraudReportItem(
     report: FraudReportDto,
@@ -637,24 +654,6 @@ private fun MealStatusBadge(
                 style = MaterialTheme.typography.labelSmall
             )
         }
-    }
-}
-
-private fun assignedByRoleTitleRu(role: String?): String = when (role?.uppercase()) {
-    "ADMIN" -> "Администратор"
-    "CURATOR" -> "Куратор"
-    "REGISTRATOR" -> "Регистратор"
-    null -> "-"
-    else -> role
-}
-
-private fun assignedByDisplay(role: String?, assignedByName: String?): String {
-    val roleLabel = assignedByRoleTitleRu(role)
-    return when {
-        role == null && assignedByName.isNullOrBlank() -> "Не назначено"
-        assignedByName.isNullOrBlank() -> roleLabel
-        role == null -> assignedByName
-        else -> "$roleLabel • $assignedByName"
     }
 }
 
