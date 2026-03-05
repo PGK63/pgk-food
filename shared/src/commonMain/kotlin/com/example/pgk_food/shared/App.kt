@@ -78,6 +78,7 @@ fun PgkSharedApp() {
     val session by SessionStore.session.collectAsState()
     val isRestored by SessionStore.isRestored.collectAsState()
     val isAndroid = platformName() == "Android"
+    val applyBottomInsets = isAndroid && session != null
     val baseDensity = LocalDensity.current
     val scaleMultiplier = (uiScalePercent / 100f).coerceIn(0.85f, 1.15f)
     val scaledDensity = remember(baseDensity, uiScalePercent) {
@@ -152,8 +153,8 @@ fun PgkSharedApp() {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .then(if (isAndroid) Modifier.navigationBarsPadding() else Modifier)
-                        .padding(bottom = if (isAndroid) 8.dp else 0.dp)
+                        .then(if (applyBottomInsets) Modifier.navigationBarsPadding() else Modifier)
+                        .padding(bottom = if (applyBottomInsets) 8.dp else 0.dp)
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxSize()

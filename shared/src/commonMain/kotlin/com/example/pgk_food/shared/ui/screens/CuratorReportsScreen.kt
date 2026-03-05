@@ -21,6 +21,7 @@ fun CuratorReportsScreen(
         showFraudTab = false,
         showZeroFillBlock = false,
         loadGroups = { curatorRepository.getCuratorGroups(token) },
+        accessScope = "CURATOR",
         showHints = showHints,
         onDismissHints = onDismissHints,
         hintScreen = HintScreenKey.CURATOR_REPORTS,

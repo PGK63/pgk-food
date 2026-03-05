@@ -32,7 +32,8 @@ class AdminRepository {
         startDate: String,
         endDate: String,
         groupId: Int? = null,
-        assignedByRole: String = "ALL"
+        assignedByRole: String = "ALL",
+        accessScope: String = "AUTO",
     ): Result<List<ConsumptionReportRowDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -40,6 +41,7 @@ class AdminRepository {
             parameter("endDate", endDate)
             if (groupId != null) parameter("groupId", groupId)
             parameter("assignedByRole", assignedByRole)
+            parameter("accessScope", accessScope)
         }.body()
     }
 
@@ -48,7 +50,8 @@ class AdminRepository {
         startDate: String,
         endDate: String,
         groupId: Int? = null,
-        assignedByRole: String = "ALL"
+        assignedByRole: String = "ALL",
+        accessScope: String = "AUTO",
     ): Result<ConsumptionSummaryResponseDto> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/summary")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -56,6 +59,7 @@ class AdminRepository {
             parameter("endDate", endDate)
             if (groupId != null) parameter("groupId", groupId)
             parameter("assignedByRole", assignedByRole)
+            parameter("accessScope", accessScope)
         }.body()
     }
 
@@ -64,7 +68,8 @@ class AdminRepository {
         startDate: String,
         endDate: String,
         groupId: Int? = null,
-        assignedByRole: String = "ALL"
+        assignedByRole: String = "ALL",
+        accessScope: String = "AUTO",
     ): Result<ByteArray> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/export/csv")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -72,6 +77,7 @@ class AdminRepository {
             parameter("endDate", endDate)
             if (groupId != null) parameter("groupId", groupId)
             parameter("assignedByRole", assignedByRole)
+            parameter("accessScope", accessScope)
         }.body()
     }
 
@@ -80,7 +86,8 @@ class AdminRepository {
         startDate: String,
         endDate: String,
         groupId: Int? = null,
-        assignedByRole: String = "ALL"
+        assignedByRole: String = "ALL",
+        accessScope: String = "AUTO",
     ): Result<ByteArray> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/export/pdf")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -88,6 +95,7 @@ class AdminRepository {
             parameter("endDate", endDate)
             if (groupId != null) parameter("groupId", groupId)
             parameter("assignedByRole", assignedByRole)
+            parameter("accessScope", accessScope)
         }.body()
     }
 }

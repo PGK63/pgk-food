@@ -81,6 +81,7 @@ fun AdminReportsScreen(
     showFraudTab: Boolean = true,
     showZeroFillBlock: Boolean = true,
     loadGroups: suspend () -> Result<List<GroupDto>>,
+    accessScope: String = "AUTO",
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
     hintScreen: HintScreenKey = HintScreenKey.ADMIN_REPORTS,
@@ -178,6 +179,7 @@ fun AdminReportsScreen(
                     endDate = endDate.toString(),
                     groupId = selectedGroupId,
                     assignedByRole = "ALL",
+                    accessScope = accessScope,
                 ).onSuccess { rows = it }
                     .onFailure { snackbarDispatcher.show(it.detailedUserMessageOr("Ошибка загрузки отчета")) }
                 adminRepository.getConsumptionSummary(
@@ -186,6 +188,7 @@ fun AdminReportsScreen(
                     endDate = endDate.toString(),
                     groupId = selectedGroupId,
                     assignedByRole = "ALL",
+                    accessScope = accessScope,
                 ).onSuccess { summary = it }
                     .onFailure { snackbarDispatcher.show(it.detailedUserMessageOr("Ошибка загрузки сводки")) }
             }
@@ -455,6 +458,7 @@ fun AdminReportsScreen(
                                             endDate = endDate.toString(),
                                             groupId = selectedGroupId,
                                             assignedByRole = "ALL",
+                                            accessScope = accessScope,
                                         ).onSuccess { bytes ->
                                             saveFile(
                                                 FileSaveRequest(
@@ -484,6 +488,7 @@ fun AdminReportsScreen(
                                             endDate = endDate.toString(),
                                             groupId = selectedGroupId,
                                             assignedByRole = "ALL",
+                                            accessScope = accessScope,
                                         ).onSuccess { bytes ->
                                             saveFile(
                                                 FileSaveRequest(

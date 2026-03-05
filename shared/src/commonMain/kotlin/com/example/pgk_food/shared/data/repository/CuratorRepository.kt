@@ -66,7 +66,8 @@ class CuratorRepository {
         startDate: String,
         endDate: String,
         groupId: Int? = null,
-        assignedByRole: String = "ALL"
+        assignedByRole: String = "ALL",
+        accessScope: String = "CURATOR",
     ): Result<List<ConsumptionReportRowDto>> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -74,6 +75,7 @@ class CuratorRepository {
             parameter("endDate", endDate)
             if (groupId != null) parameter("groupId", groupId)
             parameter("assignedByRole", assignedByRole)
+            parameter("accessScope", accessScope)
         }.body()
     }
 
@@ -82,7 +84,8 @@ class CuratorRepository {
         startDate: String,
         endDate: String,
         groupId: Int? = null,
-        assignedByRole: String = "ALL"
+        assignedByRole: String = "ALL",
+        accessScope: String = "CURATOR",
     ): Result<ConsumptionSummaryResponseDto> = safeResultApiCall {
         SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/reports/consumption/summary")) {
             header(HttpHeaders.Authorization, "Bearer $token")
@@ -90,6 +93,7 @@ class CuratorRepository {
             parameter("endDate", endDate)
             if (groupId != null) parameter("groupId", groupId)
             parameter("assignedByRole", assignedByRole)
+            parameter("accessScope", accessScope)
         }.body()
     }
 
