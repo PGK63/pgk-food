@@ -12,7 +12,7 @@ Validate SLO targets for:
 - `sync_batch`: ramp `100 -> 300 -> 500` VU, then down.
 
 ## Required env
-- `K6_BASE_URL` (example: `https://food.pgk.apis.alspio.com`)
+- `K6_BASE_URL` (example: `https://food.pgk63.ru`)
 - `K6_CHEF_LOGIN` (CHEF or ADMIN login for `/qr/validate` and `/transactions/batch`)
 - `K6_CHEF_PASSWORD`
 - `K6_STUDENT_LOGIN` (STUDENT login for dynamic ECDSA signing in load test)

@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
 object SharedNetworkModule {
-    private const val DEFAULT_BASE_URL = "https://food.pgk.apis.alspio.com"
+    private const val DEFAULT_BASE_URL = "https://food.pgk63.ru"
     private val sessionEventsScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val baseUrl: String by lazy {
         normalizeBaseUrl(platformApiBaseUrlOverride())

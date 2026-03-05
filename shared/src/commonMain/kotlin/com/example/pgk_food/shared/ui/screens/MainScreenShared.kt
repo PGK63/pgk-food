@@ -196,6 +196,8 @@ fun MainScreenShared(
     var backStack by remember(session.userId) { mutableStateOf(emptyList<String>()) }
     var navDirection by remember(session.userId) { mutableStateOf(NavDirection.Forward) }
     var selectedMealType by remember(session.userId) { mutableStateOf("") }
+    var createUserInitialGroupId by remember(session.userId) { mutableStateOf<Int?>(null) }
+    var usersReloadKey by remember(session.userId) { mutableIntStateOf(0) }
     var selectedRole by remember(session.userId) { mutableStateOf<UserRole?>(null) }
     var showLogoutConfirm by remember(session.userId) { mutableStateOf(false) }
     var showGlobalHints by remember(session.userId) {
@@ -546,10 +548,24 @@ fun MainScreenShared(
                                 UserRole.REGISTRATOR -> RegistratorFlowShared(
                                     session = session,
                                     currentSubScreen = targetSubScreen,
+                                    createUserInitialGroupId = createUserInitialGroupId,
+                                    usersReloadKey = usersReloadKey,
                                     showHints = shouldShowScreenHints,
                                     onDismissHints = onDismissScreenHints,
                                     onNavigate = { navigateTo(it) },
-                                    onNavigateBack = { popScreen() },
+                                    onCreateUserRequested = { groupId ->
+                                        createUserInitialGroupId = groupId
+                                        navigateTo("users_create")
+                                    },
+                                    onCreateUserBack = {
+                                        createUserInitialGroupId = null
+                                        popScreen()
+                                    },
+                                    onCreateUserCompleted = {
+                                        createUserInitialGroupId = null
+                                        usersReloadKey += 1
+                                        popScreen()
+                                    },
                                 )
 
                                 UserRole.CURATOR -> CuratorFlowShared(
@@ -759,14 +775,16 @@ fun ChefFlowShared(
 fun RegistratorFlowShared(
     session: UserSession,
     currentSubScreen: String,
+    createUserInitialGroupId: Int?,
+    usersReloadKey: Int,
     showHints: (HintScreenKey) -> Boolean,
     onDismissHints: (HintScreenKey) -> Unit,
     onNavigate: (String) -> Unit,
-    onNavigateBack: () -> Unit,
+    onCreateUserRequested: (Int?) -> Unit,
+    onCreateUserBack: () -> Unit,
+    onCreateUserCompleted: () -> Unit,
 ) {
     val registratorRepository = remember { RegistratorRepository() }
-    var createUserInitialGroupId by remember(session.userId) { mutableStateOf<Int?>(null) }
-    var usersReloadKey by remember(session.userId) { mutableIntStateOf(0) }
     when (currentSubScreen) {
         "dashboard" -> RegistratorDashboardShared(
             onUsersClick = { onNavigate("users") },
@@ -780,10 +798,7 @@ fun RegistratorFlowShared(
             reloadKey = usersReloadKey,
             showHints = showHints(HintScreenKey.REGISTRATOR_USERS),
             onDismissHints = { onDismissHints(HintScreenKey.REGISTRATOR_USERS) },
-            onCreateUserClick = { groupId ->
-                createUserInitialGroupId = groupId
-                onNavigate("users_create")
-            }
+            onCreateUserClick = onCreateUserRequested
         )
         "users_create" -> RegistratorCreateUserRoute(
             token = session.token,
@@ -791,15 +806,8 @@ fun RegistratorFlowShared(
             initialGroupId = createUserInitialGroupId,
             showHints = showHints(HintScreenKey.REGISTRATOR_USER_CREATE),
             onDismissHints = { onDismissHints(HintScreenKey.REGISTRATOR_USER_CREATE) },
-            onBack = {
-                createUserInitialGroupId = null
-                onNavigateBack()
-            },
-            onUserCreated = {
-                createUserInitialGroupId = null
-                usersReloadKey += 1
-                onNavigateBack()
-            }
+            onBack = onCreateUserBack,
+            onUserCreated = onCreateUserCompleted
         )
 
         "groups" -> RegistratorGroupsScreen(

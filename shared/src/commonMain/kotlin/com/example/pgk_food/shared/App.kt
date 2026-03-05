@@ -3,6 +3,7 @@ package com.example.pgk_food.shared
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -20,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.example.pgk_food.shared.core.feedback.FeedbackController
 import com.example.pgk_food.shared.core.session.SessionEvent
 import com.example.pgk_food.shared.core.session.SessionManager
@@ -75,6 +77,7 @@ fun PgkSharedApp() {
 
     val session by SessionStore.session.collectAsState()
     val isRestored by SessionStore.isRestored.collectAsState()
+    val isAndroid = platformName() == "Android"
     val baseDensity = LocalDensity.current
     val scaleMultiplier = (uiScalePercent / 100f).coerceIn(0.85f, 1.15f)
     val scaledDensity = remember(baseDensity, uiScalePercent) {
@@ -149,6 +152,8 @@ fun PgkSharedApp() {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                        .then(if (isAndroid) Modifier.navigationBarsPadding() else Modifier)
+                        .padding(bottom = if (isAndroid) 8.dp else 0.dp)
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxSize()

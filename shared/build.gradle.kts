@@ -8,7 +8,7 @@ plugins {
 }
 
 val debugHttpEnabled = (findProperty("PGK_DEBUG_HTTP")?.toString()?.toBoolean() == true)
-val defaultApiBaseUrl = "https://food.pgk.apis.alspio.com"
+val defaultApiBaseUrl = "https://food.pgk63.ru"
 // Override with: ./gradlew ... -PPGK_API_BASE_URL=https://your-backend.example.com
 val apiBaseUrl =
     findProperty("PGK_API_BASE_URL")
