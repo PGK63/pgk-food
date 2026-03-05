@@ -439,12 +439,6 @@ fun AdminReportsScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
-                                        "Показатель «Было» учитывает только синхронизированные серверные транзакции.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-
-                                    Text(
                                         "Строк с причиной «Куратор не заполнил табель»: ${summaryData.missingRosterRowsCount}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
