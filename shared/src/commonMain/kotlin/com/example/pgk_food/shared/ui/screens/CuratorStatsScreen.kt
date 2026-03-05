@@ -51,9 +51,13 @@ import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.TagShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
 import com.example.pgk_food.shared.ui.util.formatRuDate
+import com.example.pgk_food.shared.ui.util.isWeekdayMonToFri
+import com.example.pgk_food.shared.ui.util.plusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
 import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +68,7 @@ fun CuratorStatsScreen(
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
 ) {
-    val today = remember { todayLocalDate() }
+    val today = remember { normalizeStatsDate(todayLocalDate()) }
 
     var selectedDate by remember { mutableStateOf(today) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -119,7 +123,8 @@ fun CuratorStatsScreen(
         visible = showDatePicker,
         initialDate = selectedDate,
         onDismiss = { showDatePicker = false },
-        onDateSelected = { selectedDate = it },
+        onDateSelected = { selectedDate = normalizeStatsDate(it) },
+        isDateSelectable = ::isWeekdayMonToFri,
     )
 
     Column(
@@ -229,6 +234,12 @@ fun CuratorStatsScreen(
             }
         }
     }
+}
+
+private fun normalizeStatsDate(date: LocalDate): LocalDate = when (date.dayOfWeek) {
+    DayOfWeek.SATURDAY -> plusDays(date, -1)
+    DayOfWeek.SUNDAY -> plusDays(date, -2)
+    else -> date
 }
 
 @Composable

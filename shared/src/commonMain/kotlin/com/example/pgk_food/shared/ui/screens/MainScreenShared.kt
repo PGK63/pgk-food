@@ -78,7 +78,7 @@ private fun mainScreenTitle(subScreen: String): String = when (subScreen) {
     "qr" -> "МОЙ QR-КОД"
     "scanner" -> "СКАНЕР QR"
     "menu_manage" -> "УПРАВЛЕНИЕ МЕНЮ"
-    "weekly_report" -> "НЕДЕЛЬНЫЙ ОТЧЕТ"
+    "weekly_report" -> "ПИТАЮЩИЕСЯ НА НЕДЕЛЕ"
     "settings" -> "НАСТРОЙКИ"
     "categories" -> "КАТЕГОРИИ"
     else -> "ПГК ПИТАНИЕ"
@@ -1148,7 +1148,7 @@ fun ChefDashboardShared(
         )
         Spacer(Modifier.height(8.dp))
         DashboardButtonShared(
-            text = "Недельный отчет",
+            text = "Питающиеся на неделе",
             icon = Icons.Default.Assessment,
             onClick = onWeeklyReportClick,
             modifier = Modifier.fillMaxWidth()

@@ -119,7 +119,7 @@ fun ChefWeeklyReportScreen(
                     )
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Итоги недели", fontWeight = FontWeight.Bold)
+                        Text("Питаются на неделе:", fontWeight = FontWeight.Bold)
                         Text("Завтрак: ${data.totalBreakfastCount}")
                         Text("Обед: ${data.totalLunchCount}")
                         Text("Завтрак+Обед: ${data.totalBothCount}")

@@ -73,6 +73,7 @@ fun isRosterDateEditable(
     if (!isRosterDateReadable(date = date, now = now, testMode = testMode)) return false
     val targetWeek = mondayOfWeek(date)
     val nextWeek = nextWeekStart(now.date)
+    if (testMode && targetWeek < nextWeek) return false
     if (targetWeek == nextWeek && now >= rosterWeekDeadline(nextWeek)) return false
     return true
 }

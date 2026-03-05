@@ -73,11 +73,11 @@ import com.example.pgk_food.shared.ui.state.isLoading
 import com.example.pgk_food.shared.ui.state.runUiAction
 import com.example.pgk_food.shared.ui.theme.PillShape
 import com.example.pgk_food.shared.ui.theme.springEntrance
-import com.example.pgk_food.shared.ui.util.firstEditableRosterDate
 import com.example.pgk_food.shared.ui.util.formatRuDate
 import com.example.pgk_food.shared.ui.util.isRosterDateEditable
 import com.example.pgk_food.shared.ui.util.isRosterDateReadable
 import com.example.pgk_food.shared.ui.util.nextEditableRosterDateFrom
+import com.example.pgk_food.shared.ui.util.nextWeekStart
 import com.example.pgk_food.shared.ui.util.nowSamara
 import com.example.pgk_food.shared.ui.util.plusDays
 import com.example.pgk_food.shared.util.HintScreenKey
@@ -110,9 +110,7 @@ fun CuratorRosterScreen(
 ) {
     val isTestMode by AppModeState.isTestMode.collectAsState()
     var businessNow by remember { mutableStateOf(nowSamara()) }
-    val initialEditableDate = remember(businessNow, isTestMode) {
-        firstEditableRosterDate(now = businessNow, testMode = isTestMode)
-    }
+    val initialSelectedDate = remember { nextWeekStart(nowSamara().date) }
     val isDateReadable: (LocalDate) -> Boolean = remember(businessNow, isTestMode) {
         { date -> isRosterDateReadable(date = date, now = businessNow, testMode = isTestMode) }
     }
@@ -120,13 +118,13 @@ fun CuratorRosterScreen(
         { date -> isRosterDateEditable(date = date, now = businessNow, testMode = isTestMode) }
     }
 
-    var selectedDate by remember { mutableStateOf(initialEditableDate) }
+    var selectedDate by remember { mutableStateOf(initialSelectedDate) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     var copyDate by remember {
         mutableStateOf(
             nextEditableRosterDateFrom(
-                startDate = plusDays(initialEditableDate, 1),
+                startDate = plusDays(initialSelectedDate, 1),
                 now = businessNow,
                 testMode = isTestMode,
             )
@@ -145,6 +143,7 @@ fun CuratorRosterScreen(
     var selectedGroupId by remember { mutableStateOf<Int?>(null) }
     var isGroupMenuExpanded by remember { mutableStateOf(false) }
     var showExpelConfirm by remember { mutableStateOf(false) }
+    var hasAutoSelectedUnfilledDate by remember(selectedGroupId) { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val snackbarDispatcher = LocalAppSnackbarDispatcher.current
@@ -196,6 +195,30 @@ fun CuratorRosterScreen(
         }
     }
 
+    fun isStudentDayUnfilled(day: RosterDayDto): Boolean {
+        return !day.isBreakfast &&
+            !day.isLunch &&
+            day.noMealReasonType == null &&
+            day.reason.isNullOrBlank() &&
+            day.noMealReasonText.isNullOrBlank() &&
+            day.comment.isNullOrBlank()
+    }
+
+    fun findFirstUnfilledDateInWeek(weekStartDate: LocalDate): LocalDate? {
+        for (offset in 0..4) {
+            val date = plusDays(weekStartDate, offset)
+            val isoDate = date.toString()
+            val hasUnfilled = entries.any { entry ->
+                val day = entry.days.firstOrNull { it.date == isoDate } ?: return@any true
+                isStudentDayUnfilled(day)
+            }
+            if (hasUnfilled) {
+                return date
+            }
+        }
+        return null
+    }
+
     LaunchedEffect(Unit) {
         while (true) {
             delay(60_000L)
@@ -215,6 +238,18 @@ fun CuratorRosterScreen(
     LaunchedEffect(selectedDate, selectedGroupId, groupsLoaded) {
         if (groupsLoaded) {
             loadRoster()
+        }
+    }
+    LaunchedEffect(entries, isLoading, groupsLoaded, selectedDate, businessNow, hasAutoSelectedUnfilledDate) {
+        if (isLoading || !groupsLoaded || hasAutoSelectedUnfilledDate) return@LaunchedEffect
+        val nextWeekDate = nextWeekStart(businessNow.date)
+        val weekEndDate = plusDays(nextWeekDate, 4)
+        if (selectedDate < nextWeekDate || selectedDate > weekEndDate) return@LaunchedEffect
+
+        val autoDate = findFirstUnfilledDateInWeek(nextWeekDate) ?: nextWeekDate
+        hasAutoSelectedUnfilledDate = true
+        if (autoDate != selectedDate) {
+            selectedDate = autoDate
         }
     }
 

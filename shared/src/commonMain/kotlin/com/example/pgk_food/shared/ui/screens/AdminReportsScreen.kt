@@ -376,7 +376,11 @@ fun AdminReportsScreen(
                                 ) {
                                     Text("Сводка", fontWeight = FontWeight.Bold)
                                     Text(
-                                        "Итого: Завтрак ${summaryData.totalBreakfastCount} • Обед ${summaryData.totalLunchCount} • Завтрак+Обед ${summaryData.totalBothCount}",
+                                        "Должно быть: завтраков ${summaryData.totalBreakfastCount}, обедов ${summaryData.totalLunchCount}, завтрак + обед ${summaryData.totalBothCount}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "Было: завтраков ${summaryData.usedBreakfastCount}, обедов ${summaryData.usedLunchCount}, завтрак + обед ${summaryData.usedBothCount}",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
@@ -493,7 +497,11 @@ fun AdminReportsScreen(
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(row.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text(
-                                    "${row.groupName} • ${row.category?.titleRu() ?: "Категория не указана"}",
+                                    "Группа: ${row.groupName}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "Категория: ${row.category?.titleRu() ?: "Категория не указана"}",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
@@ -505,9 +513,15 @@ fun AdminReportsScreen(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 val reasonLabel = row.noMealReasonType?.titleRu() ?: "-"
-                                if (reasonLabel != "-" || !row.noMealReasonText.isNullOrBlank() || !row.comment.isNullOrBlank()) {
+                                val absencePeriod = buildAbsencePeriodRu(row.absenceFrom, row.absenceTo)
+                                val hasNoMealDetails =
+                                    reasonLabel != "-" ||
+                                        !row.noMealReasonText.isNullOrBlank() ||
+                                        absencePeriod != null ||
+                                        !row.comment.isNullOrBlank()
+                                if (hasNoMealDetails) {
                                     Text(
-                                        "Причина: $reasonLabel${row.noMealReasonText?.let { " • $it" } ?: ""}${row.comment?.let { " • $it" } ?: ""}",
+                                        "Статус: $reasonLabel",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (row.noMealReasonType == NoMealReasonType.MISSING_ROSTER) {
                                             MaterialTheme.colorScheme.error
@@ -515,6 +529,27 @@ fun AdminReportsScreen(
                                             MaterialTheme.colorScheme.onSurfaceVariant
                                         }
                                     )
+                                    if (!row.noMealReasonText.isNullOrBlank()) {
+                                        Text(
+                                            "Причина: ${row.noMealReasonText}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (absencePeriod != null) {
+                                        Text(
+                                            "Период: $absencePeriod",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (!row.comment.isNullOrBlank()) {
+                                        Text(
+                                            "Комментарий: ${row.comment}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                                 FlowRow(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -542,6 +577,13 @@ fun AdminReportsScreen(
 }
 
 private fun yesNoRu(value: Boolean): String = if (value) "Да" else "Нет"
+
+private fun buildAbsencePeriodRu(absenceFrom: String?, absenceTo: String?): String? {
+    if (absenceFrom.isNullOrBlank() && absenceTo.isNullOrBlank()) return null
+    val from = absenceFrom?.ifBlank { null } ?: "?"
+    val to = absenceTo?.ifBlank { null } ?: "?"
+    return "$from - $to"
+}
 
 @Composable
 private fun FraudReportItem(
