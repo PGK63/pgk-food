@@ -230,10 +230,6 @@ actual fun ChefScannerScreenShared(
                                 Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
                             }
                         }
-                    } else {
-                        IconButton(onClick = { viewModel.syncTransactions() }) {
-                            Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
-                        }
                     }
                     IconButton(onClick = { viewModel.downloadData() }) {
                         Icon(Icons.Default.CloudDownload, contentDescription = "Скачать данные")

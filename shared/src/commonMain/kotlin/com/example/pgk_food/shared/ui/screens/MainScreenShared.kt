@@ -1087,7 +1087,7 @@ fun ChefDashboardShared(
             Spacer(Modifier.height(12.dp))
         }
         weeklyReport?.let { report ->
-            if (!report.confirmed) {
+            if (!report.confirmed && report.canConfirmNow) {
                 val deadlineText = parseIsoDateTimeOrNull(report.confirmWindowEnd)?.let(::formatRuDateTime)
                 Card(
                     colors = CardDefaults.cardColors(
@@ -1117,7 +1117,7 @@ fun ChefDashboardShared(
                             onClick = onWeeklyReportClick,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(if (report.canConfirmNow) "Открыть подтверждение" else "Проверить окно подтверждения")
+                            Text("Открыть подтверждение")
                         }
                     }
                 }

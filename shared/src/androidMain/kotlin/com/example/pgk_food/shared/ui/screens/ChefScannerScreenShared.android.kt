@@ -224,16 +224,6 @@ actual fun ChefScannerScreenShared(
                                 Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
                             }
                         }
-                    } else {
-                        IconButton(
-                            onClick = { viewModel.syncTransactions() },
-                            modifier = Modifier.longPressHelp(
-                                actionId = "scanner.sync",
-                                fallbackDescription = "Синхронизировать",
-                            ),
-                        ) {
-                            Icon(Icons.Default.CloudSync, contentDescription = "Синхронизировать")
-                        }
                     }
                     IconButton(
                         onClick = { viewModel.downloadData() },

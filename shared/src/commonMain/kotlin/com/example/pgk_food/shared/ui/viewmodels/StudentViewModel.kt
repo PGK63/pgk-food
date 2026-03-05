@@ -66,7 +66,7 @@ class StudentViewModel(
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка талонов")
                     UxAnalytics.log(event = "action_error", role = "STUDENT", screen = "MEALS_TODAY", code = err.code)
-                    notifyError("Ошибка талонов [${err.code}]")
+                    notifyError(err.message)
                     _mealsState.value = MealsState.Error(err.message, err.code, err.retryable)
                 }
         }
@@ -85,7 +85,7 @@ class StudentViewModel(
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка меню")
                     UxAnalytics.log(event = "action_error", role = "STUDENT", screen = "MENU", code = err.code)
-                    notifyError("Ошибка меню [${err.code}]")
+                    notifyError(err.message)
                     _menuState.value = MenuState.Error(err.message, err.code, err.retryable)
                 }
         }
@@ -112,7 +112,7 @@ class StudentViewModel(
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка загрузки ключей")
                     UxAnalytics.log(event = "action_error", role = "STUDENT", screen = "DOWNLOAD_KEYS", code = err.code)
-                    notifyError("Ошибка загрузки ключей [${err.code}]")
+                    notifyError(err.message)
                     _downloadKeysState.value = DownloadKeysState.Error(err.message, err.code, err.retryable)
                 }
         }

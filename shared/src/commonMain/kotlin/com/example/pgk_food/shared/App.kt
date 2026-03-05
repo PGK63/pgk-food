@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,6 +28,8 @@ import com.example.pgk_food.shared.data.repository.NotificationRepository
 import com.example.pgk_food.shared.data.session.SessionStore
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.model.UserRole
+import com.example.pgk_food.shared.platform.NotificationPermissionStatus
+import com.example.pgk_food.shared.platform.rememberNotificationPermissionController
 import com.example.pgk_food.shared.runtime.DailySyncOrchestrator
 import com.example.pgk_food.shared.runtime.MainLoopStateStore
 import com.example.pgk_food.shared.runtime.appForegroundEvents
@@ -67,6 +70,8 @@ fun PgkSharedApp() {
         }
     }
     var uiScalePercent by remember { mutableIntStateOf(uiSettingsManager.getUiScalePercent()) }
+    val permissionController = rememberNotificationPermissionController()
+    var autoPermissionRequestedForUser by remember { mutableStateOf<String?>(null) }
 
     val session by SessionStore.session.collectAsState()
     val isRestored by SessionStore.isRestored.collectAsState()
@@ -116,6 +121,20 @@ fun PgkSharedApp() {
             refreshNotificationsSilently(currentSession, notificationRepository)
             dailySyncOrchestrator.runForSession(currentSession)
         }
+    }
+
+    LaunchedEffect(session?.userId, permissionController.status) {
+        val activeSession = session
+        if (activeSession == null) {
+            autoPermissionRequestedForUser = null
+            return@LaunchedEffect
+        }
+        if (autoPermissionRequestedForUser == activeSession.userId) return@LaunchedEffect
+        if (permissionController.status != NotificationPermissionStatus.NOT_REQUESTED) return@LaunchedEffect
+        if (!permissionController.canRequestPermission) return@LaunchedEffect
+
+        autoPermissionRequestedForUser = activeSession.userId
+        permissionController.requestPermission { }
     }
 
     MaterialTheme {

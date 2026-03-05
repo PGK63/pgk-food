@@ -62,7 +62,7 @@ class CuratorViewModel(
                 .onSuccess { _saveStatus.value = "Сохранено" }
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка сохранения")
-                    _saveStatus.value = "Ошибка сохранения [${err.code}]: ${err.message}"
+                    _saveStatus.value = err.message
                 }
         }
     }

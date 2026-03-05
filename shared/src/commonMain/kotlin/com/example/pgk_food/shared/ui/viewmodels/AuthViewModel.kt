@@ -34,8 +34,8 @@ class AuthViewModel(
                 .onFailure {
                     val err = it.toErrorInfo("Не удалось войти")
                     UxAnalytics.log(event = "action_error", role = "AUTH", screen = "LOGIN", code = err.code)
-                    notifyError("Ошибка входа [${err.code}]")
-                    _authState.value = AuthState.Error("Не удалось войти [${err.code}]: ${err.message}")
+                    notifyError(err.message)
+                    _authState.value = AuthState.Error(err.message)
                 }
         }
     }

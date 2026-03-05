@@ -120,13 +120,6 @@ fun MenuScreenV2(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "Меню столовой",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.springEntrance(),
-            )
             if (showHints) {
                 Spacer(modifier = Modifier.height(8.dp))
                 HowItWorksCard(

@@ -72,20 +72,34 @@ fun HttpStatusCode.isRetryableHttpStatus(): Boolean {
 
 fun ApiError.toDetailedUserMessage(fallback: String? = null): String {
     val base = userMessage.ifBlank { fallback ?: "Не удалось выполнить запрос" }
-    val details = mutableListOf<String>()
-    details += "код: $code"
-    httpStatus?.let { details += "HTTP: $it" }
-    requestId?.takeIf { it.isNotBlank() }?.let { details += "requestId: $it" }
-    val methodPath = listOfNotNull(
-        requestMethod?.takeIf { it.isNotBlank() }?.uppercase(),
-        requestPath?.takeIf { it.isNotBlank() },
-    ).joinToString(" ")
-    if (methodPath.isNotBlank()) {
-        details += methodPath
+    return "${errorCategoryRu()}: $base"
+}
+
+private fun ApiError.errorCategoryRu(): String {
+    val status = httpStatus ?: parseHttpStatusFromCode(code)
+    if (status != null) {
+        return when {
+            status == 401 || status == 403 -> "Ошибка авторизации"
+            status in 500..599 -> "Ошибка сервера"
+            status == 408 -> "Тайм-аут"
+            status in 400..499 -> "Ошибка запроса"
+            else -> "Ошибка операции"
+        }
     }
-    return if (details.isEmpty()) {
-        base
-    } else {
-        "$base [${details.joinToString(" | ")}]"
+
+    return when {
+        code == "NETWORK_ERROR" -> "Сетевая ошибка"
+        code == "TIMEOUT" -> "Тайм-аут"
+        code == "RESPONSE_DESERIALIZATION_ERROR" -> "Ошибка данных"
+        code == "UNEXPECTED_ERROR" -> "Неизвестная ошибка"
+        code.contains("AUTH", ignoreCase = true) -> "Ошибка авторизации"
+        code.contains("NETWORK", ignoreCase = true) -> "Сетевая ошибка"
+        retryable -> "Временная ошибка"
+        else -> "Ошибка операции"
     }
+}
+
+private fun parseHttpStatusFromCode(code: String): Int? {
+    if (!code.startsWith("HTTP_")) return null
+    return code.removePrefix("HTTP_").toIntOrNull()
 }

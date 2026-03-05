@@ -43,31 +43,47 @@ fun rosterWeekDeadline(weekStart: LocalDate): LocalDateTime =
         )
     }
 
+private fun minimumRosterWeekStart(
+    nowDate: LocalDate,
+    testMode: Boolean,
+): LocalDate {
+    return if (testMode) {
+        mondayOfWeek(nowDate)
+    } else {
+        nextWeekStart(nowDate)
+    }
+}
+
 fun isRosterDateReadable(
     date: LocalDate,
     now: LocalDateTime = nowSamara(),
+    testMode: Boolean = false,
 ): Boolean {
     if (!isWeekdayMonToFri(date)) return false
     val targetWeek = mondayOfWeek(date)
-    val nextWeek = nextWeekStart(now.date)
-    return targetWeek >= nextWeek
+    val minimumWeek = minimumRosterWeekStart(now.date, testMode)
+    return targetWeek >= minimumWeek
 }
 
 fun isRosterDateEditable(
     date: LocalDate,
     now: LocalDateTime = nowSamara(),
+    testMode: Boolean = false,
 ): Boolean {
-    if (!isRosterDateReadable(date, now)) return false
+    if (!isRosterDateReadable(date = date, now = now, testMode = testMode)) return false
     val targetWeek = mondayOfWeek(date)
     val nextWeek = nextWeekStart(now.date)
     if (targetWeek == nextWeek && now >= rosterWeekDeadline(nextWeek)) return false
     return true
 }
 
-fun firstEditableRosterDate(now: LocalDateTime = nowSamara()): LocalDate {
-    var candidate = nextWeekStart(now.date)
+fun firstEditableRosterDate(
+    now: LocalDateTime = nowSamara(),
+    testMode: Boolean = false,
+): LocalDate {
+    var candidate = minimumRosterWeekStart(now.date, testMode)
     repeat(20) {
-        if (isRosterDateEditable(candidate, now)) return candidate
+        if (isRosterDateEditable(date = candidate, now = now, testMode = testMode)) return candidate
         candidate = plusDays(candidate, 1)
     }
     return candidate
@@ -76,10 +92,11 @@ fun firstEditableRosterDate(now: LocalDateTime = nowSamara()): LocalDate {
 fun nextEditableRosterDateFrom(
     startDate: LocalDate,
     now: LocalDateTime = nowSamara(),
+    testMode: Boolean = false,
 ): LocalDate {
     var candidate = startDate
     repeat(40) {
-        if (isRosterDateEditable(candidate, now)) return candidate
+        if (isRosterDateEditable(date = candidate, now = now, testMode = testMode)) return candidate
         candidate = plusDays(candidate, 1)
     }
     return candidate

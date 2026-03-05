@@ -8,6 +8,7 @@ import com.example.pgk_food.shared.data.remote.dto.LoginRequest
 import com.example.pgk_food.shared.data.session.SessionStore
 import com.example.pgk_food.shared.data.session.UserSession
 import com.example.pgk_food.shared.network.SharedNetworkModule
+import com.example.pgk_food.shared.runtime.AppModeState
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -42,12 +43,14 @@ class AuthRepository {
                     privateKey = response.privateKey
                 )
             )
+            AppModeState.setTestMode(response.testMode)
             response
         }
     }
 
     fun logout() {
         SessionStore.clear()
+        AppModeState.reset()
     }
 
     suspend fun getMyKeys(token: String): Result<AuthKeysDto> {
@@ -70,9 +73,11 @@ class AuthRepository {
 
     suspend fun getMyProfile(token: String): Result<AuthMeResponse> {
         return safeResultApiCall {
-            SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/auth/me")) {
+            val profile: AuthMeResponse = SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/auth/me")) {
                 header(HttpHeaders.Authorization, "Bearer $token")
             }.body()
+            AppModeState.setTestMode(profile.testMode)
+            profile
         }
     }
 

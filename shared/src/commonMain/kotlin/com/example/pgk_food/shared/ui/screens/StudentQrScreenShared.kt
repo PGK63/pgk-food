@@ -633,7 +633,7 @@ fun StudentQrScreenShared(
                             Spacer(modifier = Modifier.height(12.dp))
                             val state = downloadKeysState as DownloadKeysState.Error
                             Text(
-                                text = "Ошибка ключей [${state.code}]: ${state.message}",
+                                text = state.message,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center,
                             )
@@ -816,7 +816,6 @@ private fun QrErrorContentShared(
     onUseCachedKeys: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    val signatureCode = signatureDebugInfo.substringBefore('|').ifBlank { "SIG_UNKNOWN" }
     val signatureTail = signatureDebugInfo.substringAfter('|', "").takeIf { it.isNotBlank() }?.take(72)
     val errorText = when (qrError) {
         "ERROR_KEY" -> "Ключи отсутствуют.\nСкачайте ключи для продолжения."
@@ -826,7 +825,7 @@ private fun QrErrorContentShared(
         "ERROR_AUTH_REQUIRED" -> "Сессия истекла.\nВойдите заново и обновите экран."
         "ERROR_OFFLINE_DATA_MISSING" -> "Нет оффлайн-данных талона.\nПодключитесь к сети и обновите данные."
         "ERROR_PERMISSION_UNKNOWN" -> "Не удалось определить статус талона.\nОбновите данные."
-        else -> "Не удалось подписать QR (код: $signatureCode).\nОбновите ключи."
+        else -> "Не удалось подписать QR.\nОбновите ключи."
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.error)

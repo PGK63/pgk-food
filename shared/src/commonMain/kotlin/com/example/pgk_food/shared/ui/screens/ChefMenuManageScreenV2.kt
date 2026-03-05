@@ -233,13 +233,6 @@ fun ChefMenuManageScreenV2(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Управление меню",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.springEntrance()
-                )
                 if (showHints) {
                     Spacer(modifier = Modifier.height(8.dp))
                     HowItWorksCard(

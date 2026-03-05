@@ -308,15 +308,6 @@ fun RegistratorGroupsScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Text(
-                text = "Управление группами",
-                style = MaterialTheme.typography.headlineMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.springEntrance()
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
             // Search bar
             OutlinedTextField(
                 value = searchQuery,

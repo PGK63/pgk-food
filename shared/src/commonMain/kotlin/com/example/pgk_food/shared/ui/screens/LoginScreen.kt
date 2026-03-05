@@ -68,11 +68,7 @@ fun LoginScreen(authRepository: AuthRepository) {
     val isLoginValid = login.trim().isNotEmpty()
     val isPasswordValid = password.isNotEmpty()
     val canSubmit = !isLoading && isLoginValid && isPasswordValid
-    val platformTitle = when (platformName()) {
-        "Android" -> "Андроид"
-        "iOS" -> "Айос"
-        else -> "Неизвестно"
-    }
+    val platformTitle = platformName()
 
     Box(
         modifier = Modifier

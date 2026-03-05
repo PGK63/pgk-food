@@ -127,12 +127,6 @@ fun CuratorStatsScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Text(
-            "Статистика",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Black,
-            modifier = Modifier.springEntrance(),
-        )
         if (showHints) {
             Spacer(modifier = Modifier.height(8.dp))
             HowItWorksCard(

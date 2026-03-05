@@ -128,7 +128,7 @@ class ChefViewModel(
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка сканирования")
                     UxAnalytics.log(event = "action_error", role = "CHEF", screen = "SCAN_QR", code = err.code)
-                    notifyError("Ошибка сканирования [${err.code}]")
+                    notifyError(err.message)
                     _scanState.value = ScanState.Error(err.message, err.code, err.retryable)
                 }
         }
@@ -143,7 +143,7 @@ class ChefViewModel(
             if (keysResult.isFailure) {
                 val err = keysResult.exceptionOrNull()?.toErrorInfo("Ошибка загрузки данных") ?: ErrorInfo("Ошибка загрузки данных")
                 UxAnalytics.log(event = "action_error", role = "CHEF", screen = "DOWNLOAD_OFFLINE_DATA", code = err.code)
-                notifyError("Ошибка загрузки данных [${err.code}]")
+                notifyError(err.message)
                 _syncState.value = SyncState.Error(err.message, err.code, err.retryable)
                 return@launch
             }
@@ -158,7 +158,7 @@ class ChefViewModel(
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка загрузки данных")
                     UxAnalytics.log(event = "action_error", role = "CHEF", screen = "DOWNLOAD_OFFLINE_DATA", code = err.code)
-                    notifyError("Ошибка загрузки данных [${err.code}]")
+                    notifyError(err.message)
                     _syncState.value = SyncState.Error(err.message, err.code, err.retryable)
                 }
         }
@@ -178,7 +178,7 @@ class ChefViewModel(
                 .onFailure {
                     val err = it.toErrorInfo("Ошибка синхронизации")
                     UxAnalytics.log(event = "action_error", role = "CHEF", screen = "SYNC_TRANSACTIONS", code = err.code)
-                    notifyError("Ошибка синхронизации [${err.code}]")
+                    notifyError(err.message)
                     _syncState.value = SyncState.Error(err.message, err.code, err.retryable)
                 }
         }

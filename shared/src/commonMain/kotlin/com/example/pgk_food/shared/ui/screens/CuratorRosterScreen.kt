@@ -43,6 +43,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +61,7 @@ import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.StudentCategory
+import com.example.pgk_food.shared.runtime.AppModeState
 import com.example.pgk_food.shared.ui.components.AppDatePickerDialog
 import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
 import com.example.pgk_food.shared.ui.components.HintCatalog
@@ -106,20 +108,29 @@ fun CuratorRosterScreen(
     onDismissHints: () -> Unit = {},
     onNavigateToCategories: () -> Unit,
 ) {
+    val isTestMode by AppModeState.isTestMode.collectAsState()
     var businessNow by remember { mutableStateOf(nowSamara()) }
-    val initialEditableDate = remember(businessNow) { firstEditableRosterDate(businessNow) }
-    val isDateReadable: (LocalDate) -> Boolean = remember(businessNow) {
-        { date -> isRosterDateReadable(date, businessNow) }
+    val initialEditableDate = remember(businessNow, isTestMode) {
+        firstEditableRosterDate(now = businessNow, testMode = isTestMode)
     }
-    val isDateEditable: (LocalDate) -> Boolean = remember(businessNow) {
-        { date -> isRosterDateEditable(date, businessNow) }
+    val isDateReadable: (LocalDate) -> Boolean = remember(businessNow, isTestMode) {
+        { date -> isRosterDateReadable(date = date, now = businessNow, testMode = isTestMode) }
+    }
+    val isDateEditable: (LocalDate) -> Boolean = remember(businessNow, isTestMode) {
+        { date -> isRosterDateEditable(date = date, now = businessNow, testMode = isTestMode) }
     }
 
     var selectedDate by remember { mutableStateOf(initialEditableDate) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     var copyDate by remember {
-        mutableStateOf(nextEditableRosterDateFrom(plusDays(initialEditableDate, 1), businessNow))
+        mutableStateOf(
+            nextEditableRosterDateFrom(
+                startDate = plusDays(initialEditableDate, 1),
+                now = businessNow,
+                testMode = isTestMode,
+            )
+        )
     }
     val isSelectedDateEditable = remember(selectedDate, businessNow) { isDateEditable(selectedDate) }
     var showCopyDialog by remember { mutableStateOf(false) }
@@ -192,9 +203,13 @@ fun CuratorRosterScreen(
         }
     }
     LaunchedEffect(Unit) { loadGroups() }
-    LaunchedEffect(selectedDate, businessNow) {
+    LaunchedEffect(selectedDate, businessNow, isTestMode) {
         if (!isDateEditable(copyDate)) {
-            copyDate = nextEditableRosterDateFrom(plusDays(selectedDate, 1), businessNow)
+            copyDate = nextEditableRosterDateFrom(
+                startDate = plusDays(selectedDate, 1),
+                now = businessNow,
+                testMode = isTestMode,
+            )
         }
     }
     LaunchedEffect(selectedDate, selectedGroupId, groupsLoaded) {
@@ -539,7 +554,11 @@ fun CuratorRosterScreen(
 
                     IconButton(
                         onClick = {
-                            copyDate = nextEditableRosterDateFrom(plusDays(selectedDate, 1), businessNow)
+                            copyDate = nextEditableRosterDateFrom(
+                                startDate = plusDays(selectedDate, 1),
+                                now = businessNow,
+                                testMode = isTestMode,
+                            )
                             showCopyDialog = true
                         },
                         enabled = !isActionLoading && isSelectedDateEditable,

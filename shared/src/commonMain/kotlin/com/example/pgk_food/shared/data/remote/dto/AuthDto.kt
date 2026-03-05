@@ -21,7 +21,8 @@ data class AuthResponse(
     val groupId: Int?,
     val studentCategory: StudentCategory?,
     val publicKey: String?,
-    val privateKey: String?
+    val privateKey: String?,
+    val testMode: Boolean = false,
 )
 
 @Serializable
@@ -41,4 +42,5 @@ data class AuthMeResponse(
     val studentCategory: StudentCategory?,
     val publicKey: String,
     val privateKey: String,
+    val testMode: Boolean = false,
 )

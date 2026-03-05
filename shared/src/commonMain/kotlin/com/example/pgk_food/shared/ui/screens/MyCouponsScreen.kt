@@ -166,7 +166,7 @@ fun MyCouponsScreen(
             }
 
             is DownloadKeysState.Error -> {
-                snackbarDispatcher.show("Ошибка ключей [${state.code}]: ${state.message}")
+                snackbarDispatcher.show(state.message)
                 viewModel.resetDownloadKeysState()
             }
 
