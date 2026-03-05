@@ -365,10 +365,24 @@ fun AdminReportsScreen(
                     item { Text("Нет данных за выбранный период", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
                     summary?.let { summaryData ->
-                        val totalOnlyBreakfast = (summaryData.totalBreakfastCount - summaryData.totalBothCount).coerceAtLeast(0)
-                        val totalOnlyLunch = (summaryData.totalLunchCount - summaryData.totalBothCount).coerceAtLeast(0)
+                        val totalOnlyBreakfast = rows.count { it.plannedBreakfast && !it.plannedLunch }
+                        val totalOnlyLunch = rows.count { !it.plannedBreakfast && it.plannedLunch }
+                        val totalBoth = rows.count { it.plannedBreakfast && it.plannedLunch }
                         val usedOnlyBreakfast = (summaryData.usedBreakfastCount - summaryData.usedBothCount).coerceAtLeast(0)
                         val usedOnlyLunch = (summaryData.usedLunchCount - summaryData.usedBothCount).coerceAtLeast(0)
+                        val plannedNoFactOnlyBreakfast = rows.count { it.plannedBreakfast && !it.plannedLunch && !it.breakfastUsed }
+                        val plannedNoFactOnlyLunch = rows.count { !it.plannedBreakfast && it.plannedLunch && !it.lunchUsed }
+                        val plannedNoFactBoth = rows.count {
+                            it.plannedBreakfast && it.plannedLunch && !it.breakfastUsed && !it.lunchUsed
+                        }
+                        val plannedPartialBoth = rows.count {
+                            it.plannedBreakfast && it.plannedLunch && (it.breakfastUsed.xor(it.lunchUsed))
+                        }
+                        val notMarkedRows = rows.count { !it.plannedBreakfast && !it.plannedLunch }
+                        val reasonExpelled = rows.count { it.noMealReasonType == NoMealReasonType.EXPELLED }
+                        val reasonSickLeave = rows.count { it.noMealReasonType == NoMealReasonType.SICK_LEAVE }
+                        val reasonMissingRoster = rows.count { it.noMealReasonType == NoMealReasonType.MISSING_ROSTER }
+                        val reasonOther = rows.count { it.noMealReasonType == NoMealReasonType.OTHER }
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -383,12 +397,32 @@ fun AdminReportsScreen(
                                 ) {
                                     Text("Сводка", fontWeight = FontWeight.Bold)
                                     Text(
-                                        "Должно быть: только завтрак $totalOnlyBreakfast, только обед $totalOnlyLunch, завтрак и обед ${summaryData.totalBothCount}",
+                                        "Куратор отметил (план): только завтрак $totalOnlyBreakfast, только обед $totalOnlyLunch, завтрак и обед $totalBoth",
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Text(
                                         "Было: только завтрак $usedOnlyBreakfast, только обед $usedOnlyLunch, завтрак и обед ${summaryData.usedBothCount}",
                                         style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "Куратор отметил, но факта питания нет: только завтрак $plannedNoFactOnlyBreakfast, только обед $plannedNoFactOnlyLunch, завтрак и обед $plannedNoFactBoth",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    if (plannedPartialBoth > 0) {
+                                        Text(
+                                            "Частичный факт при плане «завтрак и обед»: $plannedPartialBoth",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Text(
+                                        "Не отмечено куратором / иные причины: $notMarkedRows",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "Причины: отчислен $reasonExpelled, больничный $reasonSickLeave, куратор не заполнил табель $reasonMissingRoster, иное $reasonOther",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
                                         "Строк в детализации: ${rows.size}",
@@ -531,6 +565,23 @@ fun AdminReportsScreen(
                                     "План: Завтрак ${yesNoRu(row.plannedBreakfast)} • Обед ${yesNoRu(row.plannedLunch)}",
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                                val plannedAny = row.plannedBreakfast || row.plannedLunch
+                                val hasAnyFact = row.breakfastUsed || row.lunchUsed
+                                val isPlannedButNoFact = plannedAny && !hasAnyFact
+                                val isPlannedBothPartial = row.plannedBreakfast && row.plannedLunch && (row.breakfastUsed.xor(row.lunchUsed))
+                                if (isPlannedButNoFact) {
+                                    Text(
+                                        "Итог: куратор отметил, но студент не питался",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else if (isPlannedBothPartial) {
+                                    Text(
+                                        "Итог: куратор отметил завтрак и обед, факт питания частичный",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 val reasonLabel = row.noMealReasonType?.titleRu() ?: "-"
                                 val reasonText = row.noMealReasonText?.trim().orEmpty()
                                 val showReasonText =
