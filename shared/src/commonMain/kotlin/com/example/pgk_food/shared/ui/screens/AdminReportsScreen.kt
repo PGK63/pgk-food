@@ -55,6 +55,7 @@ import com.example.pgk_food.shared.data.repository.AdminRepository
 import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.titleRu
 import com.example.pgk_food.shared.platform.FileSaveRequest
+import com.example.pgk_food.shared.platform.currentTimeMillis
 import com.example.pgk_food.shared.platform.rememberFileSaveLauncher
 import com.example.pgk_food.shared.ui.components.AppDatePickerDialog
 import com.example.pgk_food.shared.ui.components.LocalAppSnackbarDispatcher
@@ -72,6 +73,7 @@ import com.example.pgk_food.shared.ui.util.minusDays
 import com.example.pgk_food.shared.ui.util.todayLocalDate
 import com.example.pgk_food.shared.util.HintScreenKey
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -167,6 +169,11 @@ fun AdminReportsScreen(
                 snackbarDispatcher.show("Дата окончания раньше даты начала")
                 return@launch
             }
+            val currentToday = todayLocalDate()
+            if (startDate > currentToday || endDate > currentToday) {
+                snackbarDispatcher.show("Отчет можно сформировать только по текущую дату")
+                return@launch
+            }
             isLoading = true
             if (showFraudTab && selectedTab == 1) {
                 adminRepository.getFraudReports(token, startDate.toString(), endDate.toString())
@@ -208,6 +215,7 @@ fun AdminReportsScreen(
         initialDate = startDate,
         onDismiss = { showStartPicker = false },
         onDateSelected = { startDate = it },
+        isDateSelectable = { it <= today },
     )
 
     AppDatePickerDialog(
@@ -215,6 +223,7 @@ fun AdminReportsScreen(
         initialDate = endDate,
         onDismiss = { showEndPicker = false },
         onDateSelected = { endDate = it },
+        isDateSelectable = { it <= today },
     )
 
     if (showGroupPicker) {
@@ -434,6 +443,7 @@ fun AdminReportsScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+
                                     Text(
                                         "Строк с причиной «Куратор не заполнил табель»: ${summaryData.missingRosterRowsCount}",
                                         style = MaterialTheme.typography.bodyMedium
@@ -496,7 +506,7 @@ fun AdminReportsScreen(
                                         ).onSuccess { bytes ->
                                             saveFile(
                                                 FileSaveRequest(
-                                                    fileName = "consumption_${startDate}_${endDate}.csv",
+                                                    fileName = buildExportFileName(startDate.toString(), endDate.toString(), "csv"),
                                                     mimeType = "text/csv",
                                                     bytes = bytes
                                                 )
@@ -526,7 +536,7 @@ fun AdminReportsScreen(
                                         ).onSuccess { bytes ->
                                             saveFile(
                                                 FileSaveRequest(
-                                                    fileName = "consumption_${startDate}_${endDate}.pdf",
+                                                    fileName = buildExportFileName(startDate.toString(), endDate.toString(), "pdf"),
                                                     mimeType = "application/pdf",
                                                     bytes = bytes
                                                 )
@@ -545,6 +555,7 @@ fun AdminReportsScreen(
                         }
                     }
 
+                    val reportTotals = ReportTotals.fromRows(rows)
                     items(rows, key = { "${it.date}_${it.studentId}" }) { row ->
                         Card(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -644,6 +655,10 @@ fun AdminReportsScreen(
                             }
                         }
                     }
+
+                    item {
+                        ReportTotalsCard(reportTotals = reportTotals)
+                    }
                 }
             }
             }
@@ -662,6 +677,102 @@ private fun buildAbsencePeriodRu(absenceFrom: String?, absenceTo: String?): Stri
 
 private fun assignedCuratorDisplay(assignedByName: String?): String =
     assignedByName?.takeIf { it.isNotBlank() } ?: "Не назначен"
+
+private fun buildExportFileName(startDate: String, endDate: String, extension: String): String {
+    val seed = currentTimeMillis() xor Random.nextLong()
+    val hash8 = seed.toULong().toString(16).takeLast(8).padStart(8, '0')
+    return "consumption_${startDate}_${endDate}_${hash8}.${extension.lowercase()}"
+}
+
+private data class ReportTotals(
+    val factBreakfastCount: Int,
+    val factLunchCount: Int,
+    val factBothCount: Int,
+    val factMealEventsTotal: Int,
+    val factUniqueStudentsCount: Int,
+    val plannedBreakfastCount: Int,
+    val plannedLunchCount: Int,
+    val plannedBothCount: Int,
+    val plannedMealEventsTotal: Int,
+    val plannedUniqueStudentsCount: Int,
+) {
+    companion object {
+        fun fromRows(rows: List<ConsumptionReportRowDto>): ReportTotals {
+            val factBreakfastCount = rows.count { it.breakfastUsed }
+            val factLunchCount = rows.count { it.lunchUsed }
+            val factBothCount = rows.count { it.breakfastUsed && it.lunchUsed }
+            val factMealEventsTotal = factBreakfastCount + factLunchCount
+            val factUniqueStudentsCount = rows.asSequence()
+                .filter { it.breakfastUsed || it.lunchUsed }
+                .map { it.studentId }
+                .toSet()
+                .size
+
+            val plannedBreakfastCount = rows.count { it.plannedBreakfast }
+            val plannedLunchCount = rows.count { it.plannedLunch }
+            val plannedBothCount = rows.count { it.plannedBreakfast && it.plannedLunch }
+            val plannedMealEventsTotal = plannedBreakfastCount + plannedLunchCount
+            val plannedUniqueStudentsCount = rows.asSequence()
+                .filter { it.plannedBreakfast || it.plannedLunch }
+                .map { it.studentId }
+                .toSet()
+                .size
+
+            return ReportTotals(
+                factBreakfastCount = factBreakfastCount,
+                factLunchCount = factLunchCount,
+                factBothCount = factBothCount,
+                factMealEventsTotal = factMealEventsTotal,
+                factUniqueStudentsCount = factUniqueStudentsCount,
+                plannedBreakfastCount = plannedBreakfastCount,
+                plannedLunchCount = plannedLunchCount,
+                plannedBothCount = plannedBothCount,
+                plannedMealEventsTotal = plannedMealEventsTotal,
+                plannedUniqueStudentsCount = plannedUniqueStudentsCount,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReportTotalsCard(reportTotals: ReportTotals) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("ИТОГИ", fontWeight = FontWeight.Bold)
+
+            Text("ПО ФАКТУ", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Завтраки (количество питаний за все дни): ${reportTotals.factBreakfastCount}", style = MaterialTheme.typography.bodySmall)
+            Text("Обеды (количество питаний за все дни): ${reportTotals.factLunchCount}", style = MaterialTheme.typography.bodySmall)
+            Text("Завтрак и обед: ${reportTotals.factBothCount}", style = MaterialTheme.typography.bodySmall)
+            Text("Всего питаний за все дни: ${reportTotals.factMealEventsTotal}", style = MaterialTheme.typography.bodySmall)
+            Text("Уникальных студентов питалось: ${reportTotals.factUniqueStudentsCount}", style = MaterialTheme.typography.bodySmall)
+
+            Spacer(modifier = Modifier.height(2.dp))
+            Text("ВСЕГО ДОЛЖНО БЫЛО ПИТАТЬСЯ", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Завтраки (количество назначений за все дни): ${reportTotals.plannedBreakfastCount}", style = MaterialTheme.typography.bodySmall)
+            Text("Обеды (количество назначений за все дни): ${reportTotals.plannedLunchCount}", style = MaterialTheme.typography.bodySmall)
+            Text("Завтрак и обед: ${reportTotals.plannedBothCount}", style = MaterialTheme.typography.bodySmall)
+            Text("Всего назначений за все дни: ${reportTotals.plannedMealEventsTotal}", style = MaterialTheme.typography.bodySmall)
+            Text("Уникальных студентов с назначением: ${reportTotals.plannedUniqueStudentsCount}", style = MaterialTheme.typography.bodySmall)
+
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                "Количество питаний за все дни = сумма по дням. Уникальных студентов = без повторов за период.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
 @Composable
 private fun FraudReportItem(
