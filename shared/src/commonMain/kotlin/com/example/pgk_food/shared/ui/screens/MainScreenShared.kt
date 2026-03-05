@@ -849,7 +849,6 @@ fun CuratorFlowShared(
 
         "roster" -> CuratorRosterScreen(
             token = session.token,
-            curatorId = session.userId,
             curatorRepository = curatorRepository,
             showHints = showHints(HintScreenKey.CURATOR_ROSTER),
             onDismissHints = { onDismissHints(HintScreenKey.CURATOR_ROSTER) },
@@ -858,7 +857,6 @@ fun CuratorFlowShared(
 
         "stats" -> CuratorStatsScreen(
             token = session.token,
-            curatorId = session.userId,
             curatorRepository = curatorRepository,
             showHints = showHints(HintScreenKey.CURATOR_STATS),
             onDismissHints = { onDismissHints(HintScreenKey.CURATOR_STATS) },
@@ -866,7 +864,6 @@ fun CuratorFlowShared(
 
         "categories" -> CuratorCategoriesScreen(
             token = session.token,
-            curatorId = session.userId,
             curatorRepository = curatorRepository,
             showHints = showHints(HintScreenKey.CURATOR_CATEGORIES),
             onDismissHints = { onDismissHints(HintScreenKey.CURATOR_CATEGORIES) },
@@ -874,7 +871,6 @@ fun CuratorFlowShared(
 
         "reports" -> CuratorReportsScreen(
             token = session.token,
-            curatorId = session.userId,
             curatorRepository = curatorRepository,
             showHints = showHints(HintScreenKey.CURATOR_REPORTS),
             onDismissHints = { onDismissHints(HintScreenKey.CURATOR_REPORTS) },

@@ -63,7 +63,6 @@ import kotlinx.datetime.LocalDate
 @Composable
 fun CuratorStatsScreen(
     token: String,
-    curatorId: String,
     curatorRepository: CuratorRepository,
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
@@ -85,7 +84,7 @@ fun CuratorStatsScreen(
 
     fun loadGroups() {
         scope.launch {
-            val result = curatorRepository.getCuratorGroups(token, curatorId)
+            val result = curatorRepository.getCuratorGroups(token)
             groups = result.getOrDefault(emptyList())
             if (selectedGroupId == null || groups.none { it.id == selectedGroupId }) {
                 selectedGroupId = groups.firstOrNull()?.id
@@ -112,7 +111,7 @@ fun CuratorStatsScreen(
         }
     }
 
-    LaunchedEffect(Unit) { loadGroups() }
+    LaunchedEffect(token) { loadGroups() }
     LaunchedEffect(selectedDate, selectedGroupId, groupsLoaded) {
         if (groupsLoaded) {
             loadStats()

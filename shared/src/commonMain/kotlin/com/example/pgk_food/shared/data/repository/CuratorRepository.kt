@@ -24,11 +24,10 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 
 class CuratorRepository {
-    suspend fun getCuratorGroups(token: String, curatorId: String): Result<List<GroupDto>> = safeResultApiCall {
-        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/groups")) {
+    suspend fun getCuratorGroups(token: String): Result<List<GroupDto>> = safeResultApiCall {
+        SharedNetworkModule.client.get(SharedNetworkModule.getUrl("/api/v1/groups/my")) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }.body<List<GroupDto>>()
-            .filter { group -> group.curators.any { it.id == curatorId } }
             .sortedBy { it.id }
     }
 

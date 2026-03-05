@@ -193,7 +193,7 @@ fun AdminReportsScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(token) {
         loadGroupOptions()
     }
     LaunchedEffect(selectedTab) {
@@ -382,6 +382,11 @@ fun AdminReportsScreen(
                                     Text(
                                         "Было: завтраков ${summaryData.usedBreakfastCount}, обедов ${summaryData.usedLunchCount}, завтрак + обед ${summaryData.usedBothCount}",
                                         style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "Показатель «Было» учитывает только синхронизированные серверные транзакции.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                     Text(
                                         "Строк с причиной «Куратор не заполнил табель»: ${summaryData.missingRosterRowsCount}",

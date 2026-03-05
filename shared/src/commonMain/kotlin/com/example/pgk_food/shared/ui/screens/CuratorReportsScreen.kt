@@ -9,7 +9,6 @@ import com.example.pgk_food.shared.util.HintScreenKey
 @Composable
 fun CuratorReportsScreen(
     token: String,
-    curatorId: String,
     curatorRepository: CuratorRepository,
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
@@ -21,7 +20,7 @@ fun CuratorReportsScreen(
         adminRepository = adminRepository,
         showFraudTab = false,
         showZeroFillBlock = false,
-        loadGroups = { curatorRepository.getCuratorGroups(token, curatorId) },
+        loadGroups = { curatorRepository.getCuratorGroups(token) },
         showHints = showHints,
         onDismissHints = onDismissHints,
         hintScreen = HintScreenKey.CURATOR_REPORTS,

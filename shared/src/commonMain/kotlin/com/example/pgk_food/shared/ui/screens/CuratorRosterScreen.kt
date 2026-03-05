@@ -102,7 +102,6 @@ private enum class AbsenceDateTarget {
 @Composable
 fun CuratorRosterScreen(
     token: String,
-    curatorId: String,
     curatorRepository: CuratorRepository,
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
@@ -158,7 +157,7 @@ fun CuratorRosterScreen(
 
     fun loadGroups() {
         scope.launch {
-            val result = curatorRepository.getCuratorGroups(token, curatorId)
+            val result = curatorRepository.getCuratorGroups(token)
             groups = result.getOrDefault(emptyList())
             if (selectedGroupId == null || groups.none { it.id == selectedGroupId }) {
                 selectedGroupId = groups.firstOrNull()?.id
@@ -225,7 +224,7 @@ fun CuratorRosterScreen(
             businessNow = nowSamara()
         }
     }
-    LaunchedEffect(Unit) { loadGroups() }
+    LaunchedEffect(token) { loadGroups() }
     LaunchedEffect(selectedDate, businessNow, isTestMode) {
         if (!isDateEditable(copyDate)) {
             copyDate = nextEditableRosterDateFrom(

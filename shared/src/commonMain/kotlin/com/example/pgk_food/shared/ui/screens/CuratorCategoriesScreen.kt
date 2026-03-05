@@ -62,7 +62,6 @@ private fun StudentCategory.titleRu(): String = when (this) {
 @Composable
 fun CuratorCategoriesScreen(
     token: String,
-    curatorId: String,
     curatorRepository: CuratorRepository,
     showHints: Boolean = true,
     onDismissHints: () -> Unit = {},
@@ -86,7 +85,7 @@ fun CuratorCategoriesScreen(
 
     fun loadGroups() {
         scope.launch {
-            val result = curatorRepository.getCuratorGroups(token, curatorId)
+            val result = curatorRepository.getCuratorGroups(token)
             groups = result.getOrDefault(emptyList())
             selectedGroupId = when {
                 groups.isEmpty() -> null
@@ -112,7 +111,7 @@ fun CuratorCategoriesScreen(
         }
     }
 
-    LaunchedEffect(Unit) { loadGroups() }
+    LaunchedEffect(token) { loadGroups() }
     LaunchedEffect(selectedGroupId) { loadStudents() }
 
     val selectedGroupLabel = remember(groups, selectedGroupId) {
