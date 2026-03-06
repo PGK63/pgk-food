@@ -99,6 +99,7 @@ fun RegistratorUsersScreen(
 
     // User detail sheet
     var selectedUser by remember { mutableStateOf<UserDto?>(null) }
+    var deleteCandidate by remember { mutableStateOf<UserDto?>(null) }
     val actionState = remember { mutableStateOf<UiActionState>(UiActionState.Idle) }
     val isActionLoading = actionState.value.isLoading
 
@@ -340,16 +341,7 @@ fun RegistratorUsersScreen(
                                     onClick = { selectedUser = user },
                                     onSettingsClick = { selectedUser = user },
                                     onDeleteClick = {
-                                        scope.launch {
-                                            val ok = runUiAction(
-                                                actionState = actionState,
-                                                successMessage = "Пользователь удален",
-                                                fallbackErrorMessage = "Ошибка удаления пользователя",
-                                            ) {
-                                                registratorRepository.deleteUser(token, user.userId)
-                                            }
-                                            if (ok) loadData()
-                                        }
+                                        deleteCandidate = user
                                     }
                                 )
                             }
@@ -464,18 +456,60 @@ fun RegistratorUsersScreen(
                 }
             },
             onDelete = {
-                scope.launch {
-                    val ok = runUiAction(
-                        actionState = actionState,
-                        successMessage = "Пользователь удален",
-                        fallbackErrorMessage = "Ошибка удаления пользователя",
-                    ) {
-                        registratorRepository.deleteUser(token, user.userId)
-                    }
-                    if (ok) {
-                        loadData()
-                        selectedUser = null
-                    }
+                deleteCandidate = user
+            }
+        )
+    }
+
+    deleteCandidate?.let { user ->
+        AlertDialog(
+            onDismissRequest = { if (!isActionLoading) deleteCandidate = null },
+            shape = MaterialTheme.shapes.extraLarge,
+            title = { Text("Удалить пользователя?") },
+            text = {
+                Column {
+                    Text(
+                        "Пользователь \"${user.surname} ${user.name}\" (${user.login}) будет удален без возможности восстановления."
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Проверьте ФИО и логин перед подтверждением.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            val ok = runUiAction(
+                                actionState = actionState,
+                                successMessage = "Пользователь удален",
+                                fallbackErrorMessage = "Ошибка удаления пользователя",
+                            ) {
+                                registratorRepository.deleteUser(token, user.userId)
+                            }
+                            if (ok) {
+                                deleteCandidate = null
+                                if (selectedUser?.userId == user.userId) {
+                                    selectedUser = null
+                                }
+                                loadData()
+                            }
+                        }
+                    },
+                    enabled = !isActionLoading,
+                ) {
+                    Text(if (isActionLoading) "Удаление..." else "Удалить")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { deleteCandidate = null },
+                    enabled = !isActionLoading,
+                ) {
+                    Text("Отмена")
                 }
             }
         )
