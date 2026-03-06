@@ -42,6 +42,7 @@ import com.example.pgk_food.shared.core.network.ApiCallException
 import com.example.pgk_food.shared.data.remote.dto.CuratorStudentRow
 import com.example.pgk_food.shared.data.remote.dto.GroupDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
+import com.example.pgk_food.shared.model.AccountStatus
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.ui.components.GroupPickerDialog
 import com.example.pgk_food.shared.ui.components.HintCatalog
@@ -222,8 +223,16 @@ fun CuratorCategoriesScreen(
                                 shape = MaterialTheme.shapes.large
                             ) {
                                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    val isExpelled = student.accountStatus == AccountStatus.FROZEN_EXPELLED
                                     Text(student.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                     Text(student.groupName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (isExpelled) {
+                                        Text(
+                                            "Отчислен (заморожен). Категория недоступна для изменения.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
                                     if (student.studentCategory == null) {
                                         Text(
                                             "Категория не назначена",
@@ -235,9 +244,10 @@ fun CuratorCategoriesScreen(
                                         StudentCategory.entries.forEach { category ->
                                             FilterChip(
                                                 selected = student.studentCategory == category,
-                                                enabled = updatingStudentId == null,
+                                                enabled = updatingStudentId == null && !isExpelled,
                                                 onClick = {
                                                     if (updatingStudentId != null) return@FilterChip
+                                                    if (isExpelled) return@FilterChip
                                                     if (student.studentCategory == category) return@FilterChip
                                                     scope.launch {
                                                         updatingStudentId = student.userId

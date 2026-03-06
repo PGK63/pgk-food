@@ -1,5 +1,6 @@
 package com.example.pgk_food.shared.data.remote.dto
 
+import com.example.pgk_food.shared.model.AccountStatus
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.model.NoMealReasonType
 import kotlinx.serialization.Serializable
@@ -9,6 +10,7 @@ data class StudentRosterDto(
     val studentId: String,
     val fullName: String,
     val studentCategory: StudentCategory? = null,
+    val accountStatus: AccountStatus = AccountStatus.ACTIVE,
     val days: List<RosterDayDto>
 )
 

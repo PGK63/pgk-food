@@ -59,6 +59,7 @@ import com.example.pgk_food.shared.data.remote.dto.SaveRosterRequest
 import com.example.pgk_food.shared.data.remote.dto.StudentRosterDto
 import com.example.pgk_food.shared.data.repository.CuratorRepository
 import com.example.pgk_food.shared.core.network.ApiCallException
+import com.example.pgk_food.shared.model.AccountStatus
 import com.example.pgk_food.shared.model.NoMealReasonType
 import com.example.pgk_food.shared.model.StudentCategory
 import com.example.pgk_food.shared.runtime.AppModeState
@@ -304,6 +305,13 @@ fun CuratorRosterScreen(
                     onClick = {
                         scope.launch {
                             isCopying = true
+                            val editableEntries = entries.filter { it.accountStatus != AccountStatus.FROZEN_EXPELLED }
+                            if (editableEntries.isEmpty()) {
+                                isCopying = false
+                                showCopyDialog = false
+                                snackbarDispatcher.show("Нет активных студентов для копирования.")
+                                return@launch
+                            }
                             val success = runUiAction(
                                 actionState = actionState,
                                 successMessage = "Успешно скопировано на ${formatRuDate(copyDate)}",
@@ -312,7 +320,7 @@ fun CuratorRosterScreen(
                             ) {
                                 var hasError = false
                                 var missingCategoryError: Throwable? = null
-                                for (entry in entries) {
+                                for (entry in editableEntries) {
                                     val currentDayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
                                     if (currentDayDto != null) {
                                         val request = SaveRosterRequest(
@@ -375,7 +383,10 @@ fun CuratorRosterScreen(
 
     fun hasExpelledForSelectedDate(): Boolean {
         val targetDate = selectedDate.toString()
-        return entries.any { entry ->
+        return entries
+            .asSequence()
+            .filter { it.accountStatus != AccountStatus.FROZEN_EXPELLED }
+            .any { entry ->
             val day = entry.days.firstOrNull { it.date == targetDate } ?: return@any false
             !day.isBreakfast && !day.isLunch && day.noMealReasonType == NoMealReasonType.EXPELLED
         }
@@ -383,7 +394,10 @@ fun CuratorRosterScreen(
 
     fun invalidAbsenceRangeStudentForSelectedDate(): String? {
         val targetDate = selectedDate.toString()
-        return entries.firstNotNullOfOrNull { entry ->
+        return entries
+            .asSequence()
+            .filter { it.accountStatus != AccountStatus.FROZEN_EXPELLED }
+            .firstNotNullOfOrNull { entry ->
             val day = entry.days.firstOrNull { it.date == targetDate } ?: return@firstNotNullOfOrNull null
             if (day.noMealReasonType != NoMealReasonType.SICK_LEAVE && day.noMealReasonType != NoMealReasonType.OTHER) {
                 return@firstNotNullOfOrNull null
@@ -407,6 +421,11 @@ fun CuratorRosterScreen(
                 )
                 return@launch
             }
+            val editableEntries = entries.filter { it.accountStatus != AccountStatus.FROZEN_EXPELLED }
+            if (editableEntries.isEmpty()) {
+                snackbarDispatcher.show("Нет активных студентов для сохранения.")
+                return@launch
+            }
 
             val success = runUiAction(
                 actionState = actionState,
@@ -416,7 +435,7 @@ fun CuratorRosterScreen(
             ) {
                 var hasError = false
                 var missingCategoryError: Throwable? = null
-                for (entry in entries) {
+                for (entry in editableEntries) {
                     val dayDto = entry.days.firstOrNull { it.date == selectedDate.toString() }
                     if (dayDto != null) {
                         val request = SaveRosterRequest(
@@ -633,7 +652,7 @@ fun CuratorRosterScreen(
                                 entry = entry,
                                 selectedDateStr = selectedDate.toString(),
                                 isDateSelectable = isDateEditable,
-                                editable = isSelectedDateEditable,
+                                editable = isSelectedDateEditable && entry.accountStatus != AccountStatus.FROZEN_EXPELLED,
                                 animationDelayMs = (index.coerceAtMost(9) * 35) + 130,
                                 onUpdate = { updatedEntry ->
                                     entries = entries.map { if (it.studentId == updatedEntry.studentId) updatedEntry else it }
@@ -684,6 +703,7 @@ private fun RosterCard(
     onUpdate: (StudentRosterDto) -> Unit
 ) {
     val isManyChildren = entry.studentCategory == StudentCategory.MANY_CHILDREN
+    val isExpelled = entry.accountStatus == AccountStatus.FROZEN_EXPELLED
     val rawDayEntry = entry.days.firstOrNull { it.date == selectedDateStr } ?: RosterDayDto(
         date = selectedDateStr,
         isBreakfast = false,
@@ -739,6 +759,14 @@ private fun RosterCard(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold
             )
+            if (isExpelled) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Отчислен (заморожен), редактирование табеля недоступно",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             if (isManyChildren) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(

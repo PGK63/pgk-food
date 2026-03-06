@@ -804,21 +804,6 @@ private fun UserDetailSheet(
 
             if (!isExpelled) {
                 Button(
-                    onClick = onCopyCredentials,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isProcessing,
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
-                    Text("Сбросить пароль\nи скопировать", fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
                     onClick = onResetPassword,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isProcessing,
@@ -828,7 +813,7 @@ private fun UserDetailSheet(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
-                    Text("Сменить пароль", fontWeight = FontWeight.Bold)
+                    Text("Сбросить пароль\nи скопировать", fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
