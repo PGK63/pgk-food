@@ -205,12 +205,6 @@ private fun RegistratorCreateUserForm(
             .padding(top = 12.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "Создать пользователя",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.springEntrance()
-        )
         if (showHints) {
             HowItWorksCard(
                 title = hintContent.title,
